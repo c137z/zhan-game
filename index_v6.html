@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>斩 Plus v2</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100dvh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow-x: hidden;
+  }
+  #app {
+    width: 100%;
+    max-width: 520px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  /* ---- spirit bomb bar ---- */
+  #spirit-bar-wrap {
+    background: #16213e;
+    border-radius: 8px;
+    padding: 3px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+  }
+  #spirit-bar-wrap .spirit-label {
+    color: #f39c12;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+  #spirit-bar-outer {
+    flex: 1;
+    height: 8px;
+    background: #0f3460;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  #spirit-bar-inner {
+    height: 100%;
+    background: linear-gradient(90deg, #e67e22, #f1c40f, #f39c12);
+    border-radius: 4px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+
+  /* ---- top row: player | enemy ---- */
+  #top-row {
+    display: flex;
+    gap: 6px;
+  }
+  #top-row > div {
+    flex: 1;
+    background: #16213e;
+    border-radius: 10px;
+    padding: 4px 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+  .avatar { font-size: 24px; line-height: 1; }
+  .entity-name { font-size: 9px; color: #888; letter-spacing: 1px; }
+  .stat-row {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+    justify-content: center;
+    font-size: 10px;
+    width: 100%;
+  }
+  .stat-row .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    background: #0f3460;
+    padding: 0 5px;
+    border-radius: 4px;
+    line-height: 1.5;
+  }
+  .stat-row .stat-item .val { font-weight: bold; }
+  .stat-hp .val    { color: #e74c3c; }
+  .stat-shield .val{ color: #3498db; }
+  .stat-power .val { color: #9b59b6; }
+  .stat-atk .val   { color: #e67e22; }
+  .stat-heal .val  { color: #2ecc71; }
+  .enemy-avatar { font-size: 30px; }
+  .player-box { border-top: 3px solid #3498db; }
+  .enemy-box  { border-top: 3px solid #e74c3c; }
+
+  /* ---- status badges ---- */
+  .badge-row {
+    display: flex;
+    gap: 2px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 1px;
+  }
+  .badge {
+    font-size: 8px;
+    padding: 0 4px;
+    border-radius: 3px;
+    line-height: 1.5;
+    font-weight: bold;
+  }
+  .badge-stun     { background: #6c3483; color: #d7bde2; }
+  .badge-vuln     { background: #7b241c; color: #f5b7b1; }
+  .badge-atk-down { background: #4a235a; color: #d2b4de; }
+  .badge-atk-up   { background: #6e2c00; color: #f0b27a; }
+  .badge-def-up   { background: #0b5345; color: #a3e4d7; }
+  .badge-hp-up    { background: #145a32; color: #a9dfbf; }
+
+  /* ---- deck info ---- */
+  #deck-info {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #888;
+    padding: 1px 0;
+  }
+  #deck-info span { background: #0f3460; padding: 1px 6px; border-radius: 4px; }
+
+  /* ---- enemy intent ---- */
+  #enemy-intent {
+    font-size: 10px;
+    margin-top: 1px;
+    color: #aaa;
+  }
+  #enemy-intent .num-dmg { color: #e74c3c; font-weight: bold; }
+  #enemy-intent .num-shield { color: #3498db; font-weight: bold; }
+
+  /* ---- 5x5 board ---- */
+  #board {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 3px;
+    background: #16213e;
+    border-radius: 10px;
+    padding: 4px;
+    touch-action: none;
+  }
+  .card-slot {
+    background: #0f3460;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.06s;
+    aspect-ratio: 1 / 1;
+  }
+  .card-slot:active { transform: scale(0.93); }
+  .card-slot .card {
+    width: 100%;
+    height: 100%;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 16px;
+    gap: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
+    position: relative;
+  }
+  .card-slot .card .card-icon {
+    font-size: 18px;
+    line-height: 1;
+  }
+  .card-slot .card .card-label {
+    font-size: 7px;
+    opacity: 0.8;
+    letter-spacing: 0;
+    pointer-events: none;
+    line-height: 1;
+  }
+  .card-slot .card .card-count {
+    position: absolute;
+    top: 1px;
+    left: 2px;
+    font-size: 10px;
+    color: #fff;
+    font-weight: 900;
+    opacity: 0.9;
+    pointer-events: none;
+    background: rgba(0,0,0,0.4);
+    padding: 0 3px;
+    border-radius: 3px;
+    line-height: 1.3;
+  }
+  .card-empty { background: transparent; border: 1px dashed #2c3e50; cursor: default; }
+  .card-empty .card { display: none; }
+  .card-slot .stack-count {
+    position: absolute;
+    top: 2px;
+    left: 3px;
+    font-size: 10px;
+    color: #111;
+    font-weight: 900;
+    opacity: 1;
+    pointer-events: none;
+    background: rgba(255,255,255,0.85);
+    padding: 0 4px;
+    border-radius: 3px;
+    line-height: 1.3;
+  }
+  .card-slot.double-tap-active {
+    outline: 2px solid #f1c40f;
+    transform: translateY(-2px);
+    z-index: 10;
+  }
+
+  /* ---- card colors ---- */
+  .card-attack       { background: #c0392b; color: #fff; }
+  .card-defend       { background: #2980b9; color: #fff; }
+  .card-heal         { background: #e91e63; color: #fff; }
+  .card-wild         { background: #f39c12; color: #fff; }
+  .card-atk-down     { background: #8e44ad; color: #fff; }
+  .card-vulnerable   { background: #a93226; color: #fff; }
+  .card-stun         { background: #9b59b6; color: #fff; }
+  .card-atk-buff     { background: #e67e22; color: #fff; }
+  .card-def-buff     { background: #16a085; color: #fff; }
+  .card-hp-buff      { background: #1a5c2a; color: #fff; }
+
+  /* ---- elimination slot ---- */
+  #slot-bar {
+    display: flex;
+    gap: 2px;
+    background: #16213e;
+    border-radius: 10px;
+    padding: 3px;
+    min-height: 40px;
+  }
+  .eslot {
+    flex: 1;
+    background: #0f3460;
+    border-radius: 4px;
+    border: 1px dashed #2c3e50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    transition: all 0.1s;
+    aspect-ratio: 1 / 1.1;
+  }
+  .eslot.filled { border-style: solid; }
+  .eslot.filled.attack       { background: #c0392b; border-color: #c0392b; }
+  .eslot.filled.defend        { background: #2980b9; border-color: #2980b9; }
+  .eslot.filled.heal          { background: #e91e63; border-color: #e91e63; }
+  .eslot.filled.wild          { background: #f39c12; border-color: #f39c12; }
+  .eslot.filled.atk-down      { background: #8e44ad; border-color: #8e44ad; }
+  .eslot.filled.vulnerable    { background: #a93226; border-color: #a93226; }
+  .eslot.filled.stun          { background: #9b59b6; border-color: #9b59b6; }
+  .eslot.filled.atk-buff      { background: #e67e22; border-color: #e67e22; }
+  .eslot.filled.def-buff      { background: #16a085; border-color: #16a085; }
+  .eslot.filled.hp-buff       { background: #1a5c2a; border-color: #1a5c2a; }
+  .eslot.preview { border-color: #f1c40f; background: rgba(241,196,15,0.08); }
+
+  /* ---- preview / combo display ---- */
+  #combo-bar {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+    font-size: 10px;
+    padding: 1px 0;
+    min-height: 16px;
+  }
+  .combo-preview {
+    background: #0f3460;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-weight: bold;
+    font-size: 10px;
+  }
+  .combo-preview.atk          { border-left: 2px solid #c0392b; color: #e74c3c; }
+  .combo-preview.def          { border-left: 2px solid #2980b9; color: #3498db; }
+  .combo-preview.heal         { border-left: 2px solid #e91e63; color: #f06292; }
+  .combo-preview.wild         { border-left: 2px solid #f39c12; color: #f1c40f; }
+  .combo-preview.atk-down     { border-left: 2px solid #8e44ad; color: #bb8fce; }
+  .combo-preview.vulnerable   { border-left: 2px solid #a93226; color: #e6b0aa; }
+  .combo-preview.stun         { border-left: 2px solid #9b59b6; color: #d2b4de; }
+  .combo-preview.atk-buff     { border-left: 2px solid #e67e22; color: #f0b27a; }
+  .combo-preview.def-buff     { border-left: 2px solid #16a085; color: #76d7c4; }
+  .combo-preview.hp-buff      { border-left: 2px solid #1a5c2a; color: #7dcea0; }
+  .combo-none { color: #555; font-size: 10px; }
+
+  /* ---- actions ---- */
+  #actions {
+    display: flex;
+    gap: 6px;
+  }
+  #actions button {
+    flex: 1;
+    padding: 7px;
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.06s, opacity 0.1s;
+    touch-action: manipulation;
+  }
+  #actions button:active { transform: scale(0.96); }
+  #actions button:disabled { opacity: 0.3; cursor: default; transform: none; }
+  #btn-end-turn {
+    background: #e67e22;
+    color: #fff;
+  }
+  #btn-end-turn:disabled { background: #7f8c8d; }
+  #btn-reset {
+    background: #2c3e50;
+    color: #ccc;
+  }
+
+  /* ---- log ---- */
+  #log {
+    background: #0d1b2a;
+    border-radius: 8px;
+    padding: 3px 6px;
+    font-size: 9px;
+    min-height: 28px;
+    max-height: 56px;
+    overflow-y: auto;
+    color: #7f8c8d;
+    line-height: 1.3;
+  }
+  #log .highlight { color: #f1c40f; }
+  #log .dmg { color: #e74c3c; }
+  #log .def { color: #3498db; }
+  #log .heal { color: #2ecc71; }
+  #log .buff { color: #f39c12; }
+
+  /* ---- result overlay ---- */
+  #result-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(4px);
+  }
+  #result-overlay.show { display: flex; }
+  #result-box {
+    background: #16213e;
+    border-radius: 16px;
+    padding: 22px 28px;
+    text-align: center;
+    max-width: 280px;
+  }
+  #result-box h2 { font-size: 22px; margin-bottom: 8px; }
+  #result-box p { color: #aaa; margin-bottom: 14px; font-size: 13px; }
+  #result-box button {
+    padding: 8px 30px;
+    border: none;
+    border-radius: 8px;
+    background: #e67e22;
+    color: #fff;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  #result-box button:active { transform: scale(0.96); }
+
+  /* ---- responsive ---- */
+  @media (max-width: 380px) {
+    #app { padding: 3px; gap: 3px; }
+    .card-slot .card .card-icon { font-size: 14px; }
+    .card-slot .card .card-label { font-size: 6px; }
+    .avatar { font-size: 20px; }
+    .enemy-avatar { font-size: 26px; }
+    .stat-row .stat-item { font-size: 8px; padding: 0 3px; }
+    #actions button { padding: 5px; font-size: 11px; }
+    .card-slot .stack-count { font-size: 8px; }
+    .badge { font-size: 7px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- spirit bomb bar -->
+  <div id="spirit-bar-wrap">
+    <span class="spirit-label">💥 元气弹</span>
+    <div id="spirit-bar-outer"><div id="spirit-bar-inner"></div></div>
+    <span id="spirit-text" style="font-size:10px;color:#888">0%</span>
+  </div>
+
+  <!-- top row: player | enemy -->
+  <div id="top-row">
+    <div class="player-box">
+      <div class="avatar">🦸</div>
+      <div class="entity-name">勇 者</div>
+      <div class="stat-row">
+        <span class="stat-item stat-hp"><span>❤️</span><span class="val" id="player-hp">100</span></span>
+        <span class="stat-item stat-shield"><span>🛡️</span><span class="val" id="player-shield">0</span></span>
+        <span class="stat-item stat-atk"><span>⚔️</span><span class="val" id="player-atk">0</span></span>
+        <span class="stat-item stat-heal"><span>💚</span><span class="val" id="player-heal">0</span></span>
+      </div>
+      <div class="badge-row" id="player-badges"></div>
+    </div>
+    <div class="enemy-box">
+      <div class="avatar enemy-avatar">💀</div>
+      <div class="entity-name">骷 髅</div>
+      <div class="stat-row">
+        <span class="stat-item stat-hp"><span>❤️</span><span class="val" id="enemy-hp">100</span></span>
+        <span class="stat-item stat-shield"><span>🛡️</span><span class="val" id="enemy-shield">20</span></span>
+        <span class="stat-item stat-power"><span>⚡</span><span class="val" id="enemy-power">0</span></span>
+      </div>
+      <div class="badge-row" id="enemy-badges"></div>
+      <div id="enemy-intent">⚔️ 准备攻击</div>
+    </div>
+  </div>
+
+  <!-- deck info -->
+  <div id="deck-info">
+    <span>🃏 <span id="deck-remain">250</span> 张</span>
+    <span>🔒 <span id="hidden-cards">0</span> 暗牌</span>
+    <span>🔍 <span id="visible-cards">0</span> 可见</span>
+  </div>
+
+  <!-- board -->
+  <div id="board"></div>
+
+  <!-- combo preview bar -->
+  <div id="combo-bar"></div>
+
+  <!-- elimination slot (10 slots) -->
+  <div id="slot-bar"></div>
+
+  <!-- actions -->
+  <div id="actions">
+    <button id="btn-end-turn" disabled>结束回合</button>
+    <button id="btn-reset">重置</button>
+  </div>
+
+  <!-- log -->
+  <div id="log"></div>
+</div>
+
+<!-- result overlay -->
+<div id="result-overlay">
+  <div id="result-box">
+    <h2 id="result-title">⚔️</h2>
+    <p id="result-desc"></p>
+    <button id="btn-restart">再来一局</button>
+  </div>
+</div>
+
+<script>
+
+// ============================================================
+//  斩 Plus v2
+//  BOARD_ROWS×BOARD_COLS棋盘, SLOT_SIZE槽消除, 10种卡牌, 效果结算系统
+// ============================================================
+
+// ========== CONFIG ==========
+const CONFIG = {
+  BOARD_ROWS: 5,
+  BOARD_COLS: 5,
+  SLOT_SIZE: 10,
+  PLAYER_HP: 100,
+  PLAYER_MAX_HP: 100,
+  ENEMY_HP: 100,
+  ENEMY_START_SHIELD: 20,
+  ENEMY_BASE_ATK: 12,
+  ENEMY_CYCLE: 7,
+  SHIELD_RESET_ON_OWN_TURN: true,
+  MIN_COMBO: 3,
+  VULN_MULT: 1.5,
+  ATK_BUFF_MULT: 1.5,
+  DEF_BUFF_MULT: 1.5,
+  ATK_DOWN_PCT: 30,
+  HP_BUFF_PER_COMBO: 5,
+  MAX_HP_CAP: 120,
+  SPIRIT_CHARGE_CAP: 100,
+  UNMATCHED_PENALTY: 1,
+};
+
+// ========== CONSTANTS ==========
+
+const COMBOS = {
+  3:  [3, 3, 3],
+  4:  [5, 5, 5],
+  5:  [8, 8, 8],
+  6:  [12, 12, 12],
+  7:  [16, 16, 16],
+  8:  [19, 19, 19],
+  9:  [22, 22, 22],
+  10: [25, 25, 25]
+};
+
+const CARD_TYPES = {
+  attack:     { emoji: '\uD83D\uDDE1', label: '\u653B\u51FB', color: 'attack',     cssClass: 'card-attack' },
+  defend:     { emoji: '\uD83D\uDEE1\uFE0F', label: '\u9632\u5FA1', color: 'defend',      cssClass: 'card-defend' },
+  heal:       { emoji: '\u2764\uFE0F', label: '\u56DE\u8840', color: 'heal',        cssClass: 'card-heal' },
+  wild:       { emoji: '\uD83D\uDC8E', label: '\u4E07\u80FD', color: 'wild',        cssClass: 'card-wild' },
+  atk_down:   { emoji: '\u2B07\uFE0F', label: '\u964D\u653B', color: 'atk-down',    cssClass: 'card-atk-down' },
+  vulnerable: { emoji: '\uD83D\uDC94', label: '\u6613\u4F24', color: 'vulnerable',  cssClass: 'card-vulnerable' },
+  stun:       { emoji: '\uD83D\uDCAB', label: '\u7729\u6655', color: 'stun',        cssClass: 'card-stun' },
+  atk_buff:   { emoji: '\u26A1', label: '\u653B\u52A0', color: 'atk-buff',    cssClass: 'card-atk-buff' },
+  def_buff:   { emoji: '\uD83D\uDCA8', label: '\u9632\u52A0', color: 'def-buff',    cssClass: 'card-def-buff' },
+  hp_buff:    { emoji: '\uD83D\uDD1D', label: '\u547D\u4E0A', color: 'hp-buff',     cssClass: 'card-hp-buff' },
+};
+
+const DECK_SIZES = {
+  attack:     50,
+  defend:     50,
+  heal:       25,
+  wild:       10,
+  atk_down:   25,
+  vulnerable: 25,
+  stun:       15,
+  atk_buff:   20,
+  def_buff:   20,
+  hp_buff:    10,
+};
+
+(function() {
+  var total = 0;
+  for (var k in DECK_SIZES) total += DECK_SIZES[k];
+  CONFIG.TOTAL_CARDS = total;
+  CONFIG.CARDS_PER_PILE = Math.floor(total / (CONFIG.BOARD_ROWS * CONFIG.BOARD_COLS));
+})();
+
+// ========== GAME STATE & INIT ==========
+
+var G = {};
+
+function newGame() {
+  G = {
+    deck: [], piles: [], slot: [],
+    playerHP: CONFIG.PLAYER_HP,
+    playerMaxHP: CONFIG.PLAYER_MAX_HP,
+    playerShield: 0,
+    enemyHP: CONFIG.ENEMY_HP,
+    enemyShield: CONFIG.ENEMY_START_SHIELD,
+    enemyPower: 0,
+    turn: 0,
+    phase: 'player',
+    pickedId: 0,
+    logLines: [],
+    over: false,
+    playerEffects: {},
+    enemyEffects: {},
+    spiritCharge: 0,
+  };
+  buildDeck();
+  shuffle(G.deck);
+  buildPiles();
+  render();
+  updateEnemyIntent();
+  log('\uD83D\uDC31 \u65B0\u5C40\u5F00\u59CB\uFF01\u53CC\u51FB\u6216\u5411\u4E0B\u62D6\u62FD\u5361\u724C\u8FDB\u69FD');
+}
+
+function buildDeck() {
+  G.deck = [];
+  for (var type in DECK_SIZES) {
+    for (var i = 0; i < DECK_SIZES[type]; i++) {
+      G.deck.push({ type: type, id: G.pickedId++ });
+    }
+  }
+}
+
+function shuffle(a) {
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+}
+
+function buildPiles() {
+  G.piles = [];
+  for (var r = 0; r < CONFIG.BOARD_ROWS; r++) {
+    G.piles[r] = [];
+    for (var c = 0; c < CONFIG.BOARD_COLS; c++) G.piles[r][c] = [];
+  }
+  var idx = 0;
+  // CONFIG.TOTAL_CARDS cards ÷ (BOARD_ROWS×BOARD_COLS) piles → CONFIG.CARDS_PER_PILE cards/pile
+  var totalCards = G.deck.length;
+  var nPiles = CONFIG.BOARD_ROWS * CONFIG.BOARD_COLS;
+  var basePileSize = Math.floor(totalCards / nPiles);
+  var remaining = totalCards - basePileSize * nPiles;
+  var flatPiles = G.piles.flat();
+  for (var i = 0; i < flatPiles.length; i++) {
+    var size = basePileSize + (i < remaining ? 1 : 0);
+    for (var j = 0; j < size; j++) flatPiles[i].push(G.deck[idx++]);
+  }
+  // Shuffle top few cards of each pile for variety
+  for (var pi = 0; pi < flatPiles.length; pi++) {
+    var pile = flatPiles[pi];
+    if (pile.length > 1) {
+      var topN = Math.min(4, pile.length);
+      var top = pile.slice(0, topN);
+      for (var ti = top.length - 1; ti > 0; ti--) {
+        var tj = Math.floor(Math.random() * (ti + 1));
+        var tt = top[ti]; top[ti] = top[tj]; top[tj] = tt;
+      }
+      for (var ti = 0; ti < top.length; ti++) pile[ti] = top[ti];
+    }
+  }
+}
+
+function getTop(pile) { return pile && pile.length ? pile[pile.length-1] : null; }
+function popTop(pile) { return pile && pile.length ? pile.pop() : null; }
+
+function pullCard(r, c) {
+  if (G.phase !== 'player' || G.over) return false;
+  var pile = G.piles[r][c];
+  var top = getTop(pile);
+  if (!top || G.slot.length >= CONFIG.SLOT_SIZE) return false;
+  var card = popTop(pile);
+  if (!card) return false;
+  G.slot.push(card);
+  updateComboPreview();
+  var ct = CARD_TYPES[card.type];
+  log(ct.emoji + ct.label + '\u2192\u69FD(' + G.slot.length + '/' + CONFIG.SLOT_SIZE + ')');
+  render();
+  document.getElementById('btn-end-turn').disabled = false;
+  return true;
+}
+
+// ========== BATTLE LOGIC ==========
+
+function resolveWildType(slot, idx) {
+  if (slot[idx].type !== 'wild') return slot[idx].type;
+  for (var k = idx-1; k >= 0; k--) { if (slot[k].type !== 'wild') return slot[k].type; }
+  for (var k = idx+1; k < slot.length; k++) { if (slot[k].type !== 'wild') return slot[k].type; }
+  return 'wild';
+}
+
+function computeCombos(slot) {
+  if (!slot.length) return [];
+  var resolved = slot.map(function(c, i) { return {type: resolveWildType(slot, i), card: c, index: i}; });
+  var combos = [];
+  var i = 0;
+  while (i < resolved.length) {
+    var typ = resolved[i].type;
+    if (typ === 'wild') { i++; continue; }
+    var j = i+1;
+    while (j < resolved.length && resolved[j].type === typ) j++;
+    if (j-i >= CONFIG.MIN_COMBO) {
+      combos.push({ n: j-i, cards: slot.slice(i,j), type: typ, start: i, end: j });
+    }
+    i = j;
+  }
+  return combos;
+}
+
+function getComboDuration(n) {
+  if (n >= 5) return n - CONFIG.MIN_COMBO;
+  return 1;
+}
+
+function getStunDuration(n) {
+  return n - 2;
+}
+
+function getEffectDescription(type, n) {
+  var dur = getComboDuration(n);
+  switch (type) {
+    case 'attack':
+    case 'defend':
+    case 'heal': {
+      var v = COMBOS[n];
+      var vals = { attack: v ? v[0] : 0, defend: v ? v[1] : 0, heal: v ? v[2] : 0 };
+      if (type === 'attack') return '\uD83D\uDD25' + vals.attack + '\u4F24\u5BB3';
+      if (type === 'defend') return '\uD83D\uDEE1\uFE0F+' + vals.defend + '\u62A4\u76FE';
+      return '\uD83D\uDC9A+' + vals.heal + '\u751F\u547D';
+    }
+    case 'vulnerable': return '\uD83D\uDC94\u6613\u4F24\u00D7' + CONFIG.VULN_MULT + ' ' + dur + '\u56DE\u5408';
+    case 'stun':       return '\uD83D\uDCAB\u7729\u6655 ' + dur + '\u56DE\u5408';
+    case 'atk_buff':   return '\u26A1\u653B\u51FB\u00D7' + CONFIG.ATK_BUFF_MULT + ' ' + dur + '\u56DE\u5408';
+    case 'def_buff':   return '\uD83D\uDCA8\u9632\u5FA1\u00D7' + CONFIG.DEF_BUFF_MULT + ' ' + dur + '\u56DE\u5408';
+    case 'atk_down':   return '\u2B07\uFE0F\u964D\u653B-' + CONFIG.ATK_DOWN_PCT + '% ' + dur + '\u56DE\u5408';
+    case 'hp_buff': {
+      var hpGain = (n - 2) * CONFIG.HP_BUFF_PER_COMBO;
+      return '\uD83D\uDD1D\u6700\u5927HP+' + hpGain + ' ' + dur + '\u56DE\u5408';
+    }
+    default: return '';
+  }
+}
+
+function getEnemyIntent() {
+  var t = G.turn;
+  var cycle = t % CONFIG.ENEMY_CYCLE;
+  var baseAtk = CONFIG.ENEMY_BASE_ATK;
+  var atk = baseAtk + G.enemyPower;
+  if (t === 0 || cycle === 0) return '\u2694\uFE0F \u653B\u51FB <span class="num-dmg">' + atk + '</span>';
+  if (cycle === 1) return '\uD83D\uDEE1\uFE0F \u9632\u5FA1 <span class="num-shield">+15</span>';
+  if (cycle === 2) return '\u26A1 \u84C4\u529B';
+  if (cycle === 3) return '\u2694\uFE0F \u653B\u51FB <span class="num-dmg">' + atk + '</span>';
+  if (cycle === 4) return '\uD83D\uDCA5 \u53CC\u91CD\u653B\u51FB <span class="num-dmg">' + atk + '\u00D72</span>';
+  if (cycle === 5) return '\uD83D\uDEE1\uFE0F \u9632\u5FA1 <span class="num-shield">+20</span>';
+  if (cycle === 6) return t >= CONFIG.ENEMY_CYCLE ? '\uD83D\uDCA2 \u66B4\u6012' : '\u26A1 \u84C4\u529B';
+  return '\u2753';
+}
+
+function executeTurn() {
+  if (G.phase !== 'player' || G.over) return;
+  G.phase = 'resolving';
+
+  log('<span class="highlight">\u25B6 \u56DE\u5408' + (G.turn+1) + '</span>');
+  log('<span class="highlight">\u2694\uFE0F \u52C7\u8005\u884C\u52A8</span>');
+
+  G.playerShield = 0;
+
+  var combos = computeCombos(G.slot);
+  var matchedSet = new Set();
+  for (var ci = 0; ci < combos.length; ci++) {
+    for (var k = combos[ci].start; k < combos[ci].end; k++) matchedSet.add(k);
+  }
+  var unmatched = G.slot.length - matchedSet.size;
+
+  // Resolve each combo in slot order
+  for (var ci = 0; ci < combos.length; ci++) {
+    var c = combos[ci];
+    var dur = c.type === 'stun' ? getStunDuration(c.n) : getComboDuration(c.n);
+    var v = COMBOS[c.n];
+
+    switch (c.type) {
+      case 'vulnerable':
+        G.enemyEffects.vulnerable = Math.max(G.enemyEffects.vulnerable || 0, dur);
+        log('<span class="buff">\uD83D\uDC94\u9AB7\u9AC5\u6613\u4F24 ' + dur + '\u56DE\u5408</span>');
+        break;
+      case 'stun':
+        G.enemyEffects.stun = Math.max(G.enemyEffects.stun || 0, dur);
+        log('<span class="buff">\uD83D\uDCAB\u9AB7\u9AC5\u7729\u6655 ' + dur + '\u56DE\u5408</span>');
+        break;
+      case 'atk_buff':
+        G.playerEffects.atk_buff = Math.max(G.playerEffects.atk_buff || 0, dur);
+        log('<span class="buff">\u26A1\u653B\u51FB\u52A0\u6210 \u00D7' + CONFIG.ATK_BUFF_MULT + ' ' + dur + '\u56DE\u5408</span>');
+        break;
+      case 'def_buff':
+        G.playerEffects.def_buff = Math.max(G.playerEffects.def_buff || 0, dur);
+        log('<span class="buff">\uD83D\uDCA8\u9632\u5FA1\u52A0\u6210 \u00D7' + CONFIG.DEF_BUFF_MULT + ' ' + dur + '\u56DE\u5408</span>');
+        break;
+      case 'atk_down':
+        G.enemyEffects.atk_down_pct = CONFIG.ATK_DOWN_PCT;
+        G.enemyEffects.atk_down = Math.max(G.enemyEffects.atk_down || 0, dur);
+        log('<span class="buff">\u2B07\u9AB7\u9AC5\u964D\u653B -' + CONFIG.ATK_DOWN_PCT + '% ' + dur + '\u56DE\u5408</span>');
+        break;
+      case 'hp_buff': {
+        var hpGain = (c.n - 2) * CONFIG.HP_BUFF_PER_COMBO;
+        G.playerEffects.hp_buff = Math.max(G.playerEffects.hp_buff || 0, dur);
+        G.playerMaxHP = Math.min(CONFIG.MAX_HP_CAP, G.playerMaxHP + hpGain);
+        G.playerHP = Math.min(G.playerMaxHP, G.playerHP + hpGain);
+        log('<span class="buff">\uD83D\uDD1D\u6700\u5927HP+' + hpGain + ' \u2192 ' + G.playerMaxHP + '(' + dur + '\u56DE\u5408)</span>');
+        break;
+      }
+      case 'heal':
+        if (v) {
+          G.playerHP = Math.min(G.playerMaxHP, G.playerHP + v[2]);
+          log('<span class="heal">\uD83D\uDC9A+' + v[2] + '\u8840 \u2764\uFE0F' + G.playerHP + '</span>');
+        }
+        break;
+      case 'defend':
+        if (v) {
+          G.playerShield += v[1];
+          log('<span class="def">\uD83D\uDEE1\uFE0F+' + v[1] + '\u76FE \uD83D\uDEE1\uFE0F' + G.playerShield + '</span>');
+        }
+        break;
+      case 'attack':
+        if (v) {
+          var d = v[0];
+          if ((G.playerEffects.atk_buff || 0) > 0) d = Math.floor(d * CONFIG.ATK_BUFF_MULT);
+          if ((G.enemyEffects.vulnerable || 0) > 0) d = Math.floor(d * CONFIG.VULN_MULT);
+          if (G.enemyShield > 0) { var ab = Math.min(G.enemyShield, d); G.enemyShield -= ab; d -= ab; }
+          G.enemyHP = Math.max(0, G.enemyHP - d);
+          log('<span class="dmg">\uD83D\uDD25' + d + '\u4F24\u5BB3 \u2192 \uD83D\uDC80HP' + G.enemyHP + '\uD83D\uDEE1\uFE0F' + G.enemyShield + '</span>');
+          G.spiritCharge = Math.min(CONFIG.SPIRIT_CHARGE_CAP, G.spiritCharge + v[0]);
+        }
+        break;
+    }
+  }
+
+  // Unmatched penalty
+  if (unmatched > 0) {
+    G.playerHP = Math.max(0, G.playerHP - unmatched * CONFIG.UNMATCHED_PENALTY);
+    log('<span class="dmg">\u26A0 \u672A\u6D88\u9664-' + unmatched + 'HP</span>');
+  }
+  G.slot = [];
+
+  if (G.enemyHP <= 0) { endGame(true, '\uD83D\uDC80 \u9AB7\u9AC5\u5316\u4E3A\u7070\u70EC\uFF01'); return; }
+  if (G.playerHP <= 0) { endGame(false, '\u52C7\u8005\u5012\u4E0B\u4E86...'); return; }
+  var totalRemaining = G.piles.flat().reduce(function(s, p) { return s + p.length; }, 0);
+  if (totalRemaining === 0) { endGame(true, '\u2728 \u724C\u5E93\u5168\u6D88\uFF01\u5143\u6C14\u5F39\u65A9\u6740\uFF01'); return; }
+
+  // Player turn ends: tick own buffs (atk_buff, hp_buff)
+  if ((G.playerEffects.atk_buff || 0) > 0) G.playerEffects.atk_buff--;
+  if ((G.playerEffects.hp_buff || 0) > 0) G.playerEffects.hp_buff--;
+  if (!G.playerEffects.hp_buff || G.playerEffects.hp_buff <= 0) {
+    G.playerMaxHP = CONFIG.PLAYER_MAX_HP;
+    G.playerHP = Math.min(CONFIG.PLAYER_MAX_HP, G.playerHP);
+  }
+
+  render();
+  updateEnemyIntent();
+  document.getElementById('btn-end-turn').disabled = true;
+  setTimeout(function() { enemyTurn(); }, 400);
+}
+
+function enemyTurn() {
+  log('<span class="highlight">\uD83D\uDC80 \u9AB7\u9AC5\u884C\u52A8</span>');
+  G.enemyShield = 0;
+
+  // Stun check
+  if ((G.enemyEffects.stun || 0) > 0) {
+    log('<span class="buff">\uD83D\uDCAB \u9AB7\u9AC5\u7729\u6655\uFF0C\u8DF3\u8FC7\u56DE\u5408\uFF01</span>');
+    for (var k in G.enemyEffects) { if (G.enemyEffects[k] > 0) G.enemyEffects[k]--; }
+    if (!G.enemyEffects.atk_down || G.enemyEffects.atk_down <= 0) G.enemyEffects.atk_down_pct = 0;
+    G.turn++;
+    G.phase = 'player';
+    log('<span class="highlight">\u23ED \u56DE\u5408' + (G.turn+1) + '\u5F00\u59CB</span>');
+    log('\uD83D\uDC80HP:' + G.enemyHP + '\uD83D\uDEE1' + G.enemyShield + '\u26A1' + G.enemyPower);
+    render(); updateEnemyIntent();
+    document.getElementById('btn-end-turn').disabled = false;
+    return;
+  }
+
+  var t = G.turn;
+  var cycle = t % CONFIG.ENEMY_CYCLE;
+  var rawAtk = CONFIG.ENEMY_BASE_ATK + G.enemyPower;
+
+  if ((G.enemyEffects.atk_down || 0) > 0) {
+    var reduction = G.enemyEffects.atk_down_pct || CONFIG.ATK_DOWN_PCT;
+    rawAtk = Math.floor(rawAtk * (1 - reduction/100));
+    log('<span class="buff">\u2B07\u964D\u653B -' + reduction + '% \u2192 ' + rawAtk + '\u653B\u51FB</span>');
+  }
+
+  var mult = (cycle === 4) ? 2 : 1;
+  var atk = rawAtk * mult;
+
+  if (t === 0 || cycle === 0 || cycle === 3) {
+    var d = atk;
+    if ((G.playerEffects.def_buff || 0) > 0) {
+      d = Math.floor(d / CONFIG.DEF_BUFF_MULT);
+      log('<span class="buff">\uD83D\uDCA8\u9632\u5FA1\u52A0\u6210\u751F\u6548 \u2192 \u53D7\u4F24\u00F7' + CONFIG.DEF_BUFF_MULT + '</span>');
+    }
+    if (G.playerShield > 0) { var ab = Math.min(G.playerShield, d); G.playerShield -= ab; d -= ab; }
+    G.playerHP = Math.max(0, G.playerHP - d);
+    log('<span class="dmg">\uD83D\uDC80\u653B\u51FB' + atk + ' \u2192 \u2764-' + d + '\uD83D\uDEE1' + G.playerShield + '</span>');
+  } else if (cycle === 1) {
+    G.enemyShield += 15;
+    log('<span class="def">\uD83D\uDC80\u9632\u5FA1+15 \uD83D\uDEE1' + G.enemyShield + '</span>');
+  } else if (cycle === 2) {
+    G.enemyPower += 2;
+    if (t > 0 && t % 5 === 0) {
+      G.enemyPower += 4;
+      log('<span class="highlight">\uD83D\uDCA5\u72C2\u66B4\uFF01\u529B\u91CF+6 \u26A1' + G.enemyPower + '</span>');
+    } else {
+      log('<span class="highlight">\uD83D\uDC80\u84C4\u529B+2 \u26A1' + G.enemyPower + '</span>');
+    }
+  } else if (cycle === 4) {
+    var d2 = atk;
+    if ((G.playerEffects.def_buff || 0) > 0) {
+      d2 = Math.floor(d2 / CONFIG.DEF_BUFF_MULT);
+      log('<span class="buff">\uD83D\uDCA8\u9632\u5FA1\u52A0\u6210\u751F\u6548 \u2192 \u53D7\u4F24\u00F7' + CONFIG.DEF_BUFF_MULT + '</span>');
+    }
+    if (G.playerShield > 0) { var ab2 = Math.min(G.playerShield, d2); G.playerShield -= ab2; d2 -= ab2; }
+    G.playerHP = Math.max(0, G.playerHP - d2);
+    log('<span class="dmg">\uD83D\uDCA5\u53CC\u91CD\u653B\u51FB' + atk + ' \u2192 \u2764-' + d2 + '</span>');
+  } else if (cycle === 5) {
+    G.enemyShield += 20;
+    log('<span class="def">\uD83D\uDC80\u9632\u5FA1+20 \uD83D\uDEE1' + G.enemyShield + '</span>');
+  } else if (cycle === 6) {
+    var bonus = t >= CONFIG.ENEMY_CYCLE ? 8 : 3;
+    G.enemyPower += bonus;
+    log('<span class="highlight">\uD83D\uDCA2' + (t >= CONFIG.ENEMY_CYCLE ? '\u66B4\u6012' : '\u84C4\u529B') + '+' + bonus + ' \u26A1' + G.enemyPower + '</span>');
+  }
+
+  if (G.playerHP <= 0) { endGame(false, '\u52C7\u8005\u5012\u4E0B\u4E86...'); return; }
+
+  // Enemy turn ends: tick all enemy effects + player def_buff
+  for (var k in G.enemyEffects) {
+    if (G.enemyEffects[k] > 0) G.enemyEffects[k]--;
+    if (G.enemyEffects[k] === 0 && k === 'atk_down') G.enemyEffects.atk_down_pct = 0;
+  }
+  if ((G.playerEffects.def_buff || 0) > 0) G.playerEffects.def_buff--;
+
+  G.turn++;
+  G.phase = 'player';
+  log('<span class="highlight">\u23ED \u56DE\u5408' + (G.turn+1) + '\u5F00\u59CB</span>');
+  log('\uD83D\uDC80HP:' + G.enemyHP + '\uD83D\uDEE1' + G.enemyShield + '\u26A1' + G.enemyPower);
+  render();
+  updateEnemyIntent();
+  document.getElementById('btn-end-turn').disabled = false;
+}
+
+function endGame(win, msg) {
+  G.over = true;
+  G.phase = 'over';
+  render();
+  document.getElementById('btn-end-turn').disabled = true;
+  var overlay = document.getElementById('result-overlay');
+  overlay.classList.add('show');
+  document.getElementById('result-title').textContent = win ? '\uD83C\uDF89 \u80DC\u5229\uFF01' : '\uD83D\uDC80 \u8D25\u5317';
+  document.getElementById('result-desc').textContent = msg + '\uFF08\u5B58\u6D3B' + G.turn + '\u56DE\u5408\uFF09';
+  log('<span class="highlight">' + (win ? '\uD83C\uDF89\u80DC\u5229' : '\uD83D\uDC80\u8D25\u5317') + ' ' + msg + '</span>');
+}
+
+function updateEnemyIntent() {
+  document.getElementById('enemy-intent').innerHTML = G.phase === 'enemy' ? '\u23F3 \u884C\u52A8\u4E2D...' : getEnemyIntent();
+}
+
+// ========== RENDER ==========
+
+function render() {
+  document.getElementById('player-hp').textContent = G.playerHP;
+  document.getElementById('player-shield').textContent = G.playerShield;
+  document.getElementById('enemy-hp').textContent = G.enemyHP;
+  document.getElementById('enemy-shield').textContent = G.enemyShield;
+  document.getElementById('enemy-power').textContent = G.enemyPower;
+  var spiritPct = G.spiritCharge;
+  document.getElementById('spirit-bar-inner').style.width = spiritPct + '%';
+  document.getElementById('spirit-text').textContent = spiritPct + '%';
+
+  // Player badges
+  var pe = G.playerEffects;
+  var pbHtml = '';
+  if ((pe.atk_buff || 0) > 0) pbHtml += '<span class="badge badge-atk-up">\u26A1\u653B\u00D7' + CONFIG.ATK_BUFF_MULT + ' ' + pe.atk_buff + 'T</span>';
+  if ((pe.def_buff || 0) > 0) pbHtml += '<span class="badge badge-def-up">\uD83D\uDCA8\u9632\u00D7' + CONFIG.DEF_BUFF_MULT + ' ' + pe.def_buff + 'T</span>';
+  if ((pe.hp_buff || 0) > 0) pbHtml += '<span class="badge badge-hp-up">\uD83D\uDD1DHP\u4E0A\u9650 ' + pe.hp_buff + 'T</span>';
+  document.getElementById('player-badges').innerHTML = pbHtml;
+
+  // Enemy badges
+  var ee = G.enemyEffects;
+  var ebHtml = '';
+  if ((ee.stun || 0) > 0) ebHtml += '<span class="badge badge-stun">\uD83D\uDCAB\u7729\u6655 ' + ee.stun + 'T</span>';
+  if ((ee.vulnerable || 0) > 0) ebHtml += '<span class="badge badge-vuln">\uD83D\uDC94\u6613\u4F24 ' + ee.vulnerable + 'T</span>';
+  if ((ee.atk_down || 0) > 0) ebHtml += '<span class="badge badge-atk-down">\u2B07\u964D\u653B ' + ee.atk_down + 'T</span>';
+  document.getElementById('enemy-badges').innerHTML = ebHtml;
+
+  // Deck stats
+  var totalRemaining = G.piles.flat().reduce(function(s, p) { return s + p.length; }, 0);
+  document.getElementById('deck-remain').textContent = totalRemaining;
+  var hiddenCount = 0, visibleCount = 0;
+  var flatPiles = G.piles.flat();
+  for (var i = 0; i < flatPiles.length; i++) {
+    var pile = flatPiles[i];
+    if (!pile.length) continue;
+    visibleCount++;
+    if (pile.length > 1) hiddenCount += pile.length - 1;
+  }
+  document.getElementById('hidden-cards').textContent = hiddenCount;
+  document.getElementById('visible-cards').textContent = visibleCount;
+
+  renderBoard();
+  renderSlot();
+
+  var btn = document.getElementById('btn-end-turn');
+  if (G.phase === 'player' && !G.over && G.slot.length > 0) btn.disabled = false;
+  else btn.disabled = true;
+}
+
+function renderBoard() {
+  var board = document.getElementById('board');
+  board.innerHTML = '';
+  for (var r = 0; r < CONFIG.BOARD_ROWS; r++) {
+    for (var c = 0; c < CONFIG.BOARD_COLS; c++) {
+      (function(r, c) {
+        var pile = G.piles[r][c];
+        var top = getTop(pile);
+        var div = document.createElement('div');
+        div.className = 'card-slot';
+        if (!top) { div.classList.add('card-empty'); board.appendChild(div); return; }
+        var ct = CARD_TYPES[top.type];
+        var inner = document.createElement('div');
+        inner.className = 'card ' + ct.cssClass;
+        var icon = document.createElement('span');
+        icon.className = 'card-icon';
+        icon.textContent = ct.emoji;
+        var label = document.createElement('span');
+        label.className = 'card-label';
+        label.textContent = ct.label;
+        inner.appendChild(icon);
+        inner.appendChild(label);
+        div.appendChild(inner);
+        if (pile.length > 1) {
+          var sc = document.createElement('div');
+          sc.className = 'stack-count';
+          sc.textContent = pile.length;
+          div.appendChild(sc);
+        }
+
+        var lastTap = 0;
+        div.addEventListener('click', function(e) {
+          if (G.phase !== 'player' || G.over) return;
+          var now = Date.now();
+          if (now - lastTap < 350) { e.preventDefault(); if (pullCard(r, c)) { log('\u26A1 \u53CC\u51FB\u8FDB\u69FD'); } lastTap = 0; return; }
+          lastTap = now;
+          if (getTop(G.piles[r][c])) { div.classList.add('double-tap-active'); setTimeout(function() { div.classList.remove('double-tap-active'); }, 200); }
+        });
+        var touchStartY = 0, touchStartX = 0, swiping = false;
+        div.addEventListener('touchstart', function(e) {
+          touchStartY = e.touches[0].clientY; touchStartX = e.touches[0].clientX; swiping = false;
+        }, {passive: true});
+        div.addEventListener('touchmove', function(e) {
+          if (G.phase !== 'player' || G.over) return;
+          var dy = e.touches[0].clientY - touchStartY;
+          var dx = Math.abs(e.touches[0].clientX - touchStartX);
+          if (dy > 20 && dy > dx * 1.5) { e.preventDefault(); if (!swiping && getTop(G.piles[r][c])) { swiping = true; if (pullCard(r, c)) { log('\uD83D\uDC47 \u62D6\u62FD\u8FDB\u69FD'); } } }
+        }, {passive: false});
+        board.appendChild(div);
+      })(r, c);
+    }
+  }
+}
+
+function renderSlot() {
+  var bar = document.getElementById('slot-bar');
+  bar.innerHTML = '';
+  for (var i = 0; i < CONFIG.SLOT_SIZE; i++) {
+    var div = document.createElement('div');
+    div.className = 'eslot';
+    if (i < G.slot.length) {
+      var card = G.slot[i];
+      var ct = CARD_TYPES[card.type];
+      div.classList.add('filled', ct.color);
+      div.textContent = ct.emoji;
+    }
+    bar.appendChild(div);
+  }
+}
+
+function updateComboPreview() {
+  var combos = computeCombos(G.slot);
+  var el = document.getElementById('combo-bar');
+  if (!combos.length) {
+    el.innerHTML = G.slot.length ? '<span class="combo-none">\u26AA \u672A\u5F62\u6210\u8FDE\u51FB</span>' : '';
+    return;
+  }
+  el.innerHTML = combos.map(function(c) {
+    var n = c.n;
+    var desc = getEffectDescription(c.type, n);
+    return '<span class="combo-preview ' + c.type + '">' + CARD_TYPES[c.type].emoji + n + '\u8FDE\u2192' + desc + '</span>';
+  }).join(' ');
+}
+
+// ========== UI EVENTS ==========
+
+document.getElementById('btn-end-turn').addEventListener('click', function() {
+  if (G.phase !== 'player' || G.over || G.slot.length === 0) return;
+  executeTurn();
+});
+
+document.getElementById('btn-reset').addEventListener('click', function() {
+  document.getElementById('result-overlay').classList.remove('show');
+  newGame();
+});
+
+document.getElementById('btn-restart').addEventListener('click', function() {
+  document.getElementById('result-overlay').classList.remove('show');
+  newGame();
+});
+
+// ========== LOG ==========
+
+function log(msg) {
+  G.logLines.push(msg);
+  if (G.logLines.length > 100) G.logLines.shift();
+  var el = document.getElementById('log');
+  el.innerHTML = G.logLines.map(function(m) { return '<div>' + m + '</div>'; }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+newGame();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>斩 Plus v2</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100dvh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow-x: hidden;
+  }
+  #app {
+    width: 100%;
+    max-width: 520px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  /* ---- spirit bomb bar ---- */
+  #spirit-bar-wrap {
+    background: #16213e;
+    border-radius: 8px;
+    padding: 3px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+  }
+  #spirit-bar-wrap .spirit-label {
+    color: #f39c12;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+  #spirit-bar-outer {
+    flex: 1;
+    height: 8px;
+    background: #0f3460;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  #spirit-bar-inner {
+    height: 100%;
+    background: linear-gradient(90deg, #e67e22, #f1c40f, #f39c12);
+    border-radius: 4px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+
+  /* ---- top row: player | enemy ---- */
+  #top-row {
+    display: flex;
+    gap: 6px;
+  }
+  #top-row > div {
+    flex: 1;
+    background: #16213e;
+    border-radius: 10px;
+    padding: 4px 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+  .avatar { font-size: 24px; line-height: 1; }
+  .entity-name { font-size: 9px; color: #888; letter-spacing: 1px; }
+  .stat-row {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+    justify-content: center;
+    font-size: 10px;
+    width: 100%;
+  }
+  .stat-row .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    background: #0f3460;
+    padding: 0 5px;
+    border-radius: 4px;
+    line-height: 1.5;
+  }
+  .stat-row .stat-item .val { font-weight: bold; }
+  .stat-hp .val    { color: #e74c3c; }
+  .stat-shield .val{ color: #3498db; }
+  .stat-power .val { color: #9b59b6; }
+  .stat-atk .val   { color: #e67e22; }
+  .stat-heal .val  { color: #2ecc71; }
+  .enemy-avatar { font-size: 30px; }
+  .player-box { border-top: 3px solid #3498db; }
+  .enemy-box  { border-top: 3px solid #e74c3c; }
+
+  /* ---- status badges ---- */
+  .badge-row {
+    display: flex;
+    gap: 2px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 1px;
+  }
+  .badge {
+    font-size: 8px;
+    padding: 0 4px;
+    border-radius: 3px;
+    line-height: 1.5;
+    font-weight: bold;
+  }
+  .badge-stun     { background: #6c3483; color: #d7bde2; }
+  .badge-vuln     { background: #7b241c; color: #f5b7b1; }
+  .badge-atk-down { background: #4a235a; color: #d2b4de; }
+  .badge-atk-up   { background: #6e2c00; color: #f0b27a; }
+  .badge-def-up   { background: #0b5345; color: #a3e4d7; }
+  .badge-hp-up    { background: #145a32; color: #a9dfbf; }
+
+  /* ---- deck info ---- */
+  #deck-info {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #888;
+    padding: 1px 0;
+  }
+  #deck-info span { background: #0f3460; padding: 1px 6px; border-radius: 4px; }
+
+  /* ---- enemy intent ---- */
+  #enemy-intent {
+    font-size: 10px;
+    margin-top: 1px;
+    color: #aaa;
+  }
+  #enemy-intent .num-dmg { color: #e74c3c; font-weight: bold; }
+  #enemy-intent .num-shield { color: #3498db; font-weight: bold; }
+
+  /* ---- 5x5 board ---- */
+  #board {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 3px;
+    background: #16213e;
+    border-radius: 10px;
+    padding: 4px;
+    touch-action: none;
+  }
+  .card-slot {
+    background: #0f3460;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.06s;
+    aspect-ratio: 1 / 1;
+  }
+  .card-slot:active { transform: scale(0.93); }
+  .card-slot .card {
+    width: 100%;
+    height: 100%;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 16px;
+    gap: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
+    position: relative;
+  }
+  .card-slot .card .card-icon {
+    font-size: 18px;
+    line-height: 1;
+  }
+  .card-slot .card .card-label {
+    font-size: 7px;
+    opacity: 0.8;
+    letter-spacing: 0;
+    pointer-events: none;
+    line-height: 1;
+  }
+  .card-slot .card .card-count {
+    position: absolute;
+    top: 1px;
+    left: 2px;
+    font-size: 10px;
+    color: #fff;
+    font-weight: 900;
+    opacity: 0.9;
+    pointer-events: none;
+    background: rgba(0,0,0,0.4);
+    padding: 0 3px;
+    border-radius: 3px;
+    line-height: 1.3;
+  }
+  .card-empty { background: transparent; border: 1px dashed #2c3e50; cursor: default; }
+  .card-empty .card { display: none; }
+  .card-slot .stack-count {
+    position: absolute;
+    top: 2px;
+    left: 3px;
+    font-size: 10px;
+    color: #111;
+    font-weight: 900;
+    opacity: 1;
+    pointer-events: none;
+    background: rgba(255,255,255,0.85);
+    padding: 0 4px;
+    border-radius: 3px;
+    line-height: 1.3;
+  }
+  .card-slot.double-tap-active {
+    outline: 2px solid #f1c40f;
+    transform: translateY(-2px);
+    z-index: 10;
+  }
+
+  /* ---- card colors ---- */
+  .card-attack       { background: #c0392b; color: #fff; }
+  .card-defend       { background: #2980b9; color: #fff; }
+  .card-heal         { background: #e91e63; color: #fff; }
+  .card-wild         { background: #f39c12; color: #fff; }
+  .card-atk-down     { background: #8e44ad; color: #fff; }
+  .card-vulnerable   { background: #a93226; color: #fff; }
+  .card-stun         { background: #9b59b6; color: #fff; }
+  .card-atk-buff     { background: #e67e22; color: #fff; }
+  .card-def-buff     { background: #16a085; color: #fff; }
+  .card-hp-buff      { background: #1a5c2a; color: #fff; }
+
+  /* ---- elimination slot ---- */
+  #slot-bar {
+    display: flex;
+    gap: 2px;
+    background: #16213e;
+    border-radius: 10px;
+    padding: 3px;
+    min-height: 40px;
+  }
+  .eslot {
+    flex: 1;
+    background: #0f3460;
+    border-radius: 4px;
+    border: 1px dashed #2c3e50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    transition: all 0.1s;
+    aspect-ratio: 1 / 1.1;
+  }
+  .eslot.filled { border-style: solid; }
+  .eslot.filled.attack       { background: #c0392b; border-color: #c0392b; }
+  .eslot.filled.defend        { background: #2980b9; border-color: #2980b9; }
+  .eslot.filled.heal          { background: #e91e63; border-color: #e91e63; }
+  .eslot.filled.wild          { background: #f39c12; border-color: #f39c12; }
+  .eslot.filled.atk-down      { background: #8e44ad; border-color: #8e44ad; }
+  .eslot.filled.vulnerable    { background: #a93226; border-color: #a93226; }
+  .eslot.filled.stun          { background: #9b59b6; border-color: #9b59b6; }
+  .eslot.filled.atk-buff      { background: #e67e22; border-color: #e67e22; }
+  .eslot.filled.def-buff      { background: #16a085; border-color: #16a085; }
+  .eslot.filled.hp-buff       { background: #1a5c2a; border-color: #1a5c2a; }
+  .eslot.preview { border-color: #f1c40f; background: rgba(241,196,15,0.08); }
+
+  /* ---- preview / combo display ---- */
+  #combo-bar {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+    font-size: 10px;
+    padding: 1px 0;
+    min-height: 16px;
+  }
+  .combo-preview {
+    background: #0f3460;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-weight: bold;
+    font-size: 10px;
+  }
+  .combo-preview.atk          { border-left: 2px solid #c0392b; color: #e74c3c; }
+  .combo-preview.def          { border-left: 2px solid #2980b9; color: #3498db; }
+  .combo-preview.heal         { border-left: 2px solid #e91e63; color: #f06292; }
+  .combo-preview.wild         { border-left: 2px solid #f39c12; color: #f1c40f; }
+  .combo-preview.atk-down     { border-left: 2px solid #8e44ad; color: #bb8fce; }
+  .combo-preview.vulnerable   { border-left: 2px solid #a93226; color: #e6b0aa; }
+  .combo-preview.stun         { border-left: 2px solid #9b59b6; color: #d2b4de; }
+  .combo-preview.atk-buff     { border-left: 2px solid #e67e22; color: #f0b27a; }
+  .combo-preview.def-buff     { border-left: 2px solid #16a085; color: #76d7c4; }
+  .combo-preview.hp-buff      { border-left: 2px solid #1a5c2a; color: #7dcea0; }
+  .combo-none { color: #555; font-size: 10px; }
+
+  /* ---- actions ---- */
+  #actions {
+    display: flex;
+    gap: 6px;
+  }
+  #actions button {
+    flex: 1;
+    padding: 7px;
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.06s, opacity 0.1s;
+    touch-action: manipulation;
+  }
+  #actions button:active { transform: scale(0.96); }
+  #actions button:disabled { opacity: 0.3; cursor: default; transform: none; }
+  #btn-end-turn {
+    background: #e67e22;
+    color: #fff;
+  }
+  #btn-end-turn:disabled { background: #7f8c8d; }
+  #btn-reset {
+    background: #2c3e50;
+    color: #ccc;
+  }
+
+  /* ---- log ---- */
+  #log {
+    background: #0d1b2a;
+    border-radius: 8px;
+    padding: 3px 6px;
+    font-size: 9px;
+    min-height: 28px;
+    max-height: 56px;
+    overflow-y: auto;
+    color: #7f8c8d;
+    line-height: 1.3;
+  }
+  #log .highlight { color: #f1c40f; }
+  #log .dmg { color: #e74c3c; }
+  #log .def { color: #3498db; }
+  #log .heal { color: #2ecc71; }
+  #log .buff { color: #f39c12; }
+
+  /* ---- result overlay ---- */
+  #result-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(4px);
+  }
+  #result-overlay.show { display: flex; }
+  #result-box {
+    background: #16213e;
+    border-radius: 16px;
+    padding: 22px 28px;
+    text-align: center;
+    max-width: 280px;
+  }
+  #result-box h2 { font-size: 22px; margin-bottom: 8px; }
+  #result-box p { color: #aaa; margin-bottom: 14px; font-size: 13px; }
+  #result-box button {
+    padding: 8px 30px;
+    border: none;
+    border-radius: 8px;
+    background: #e67e22;
+    color: #fff;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  #result-box button:active { transform: scale(0.96); }
+
+  /* ---- responsive ---- */
+  @media (max-width: 380px) {
+    #app { padding: 3px; gap: 3px; }
+    .card-slot .card .card-icon { font-size: 14px; }
+    .card-slot .card .card-label { font-size: 6px; }
+    .avatar { font-size: 20px; }
+    .enemy-avatar { font-size: 26px; }
+    .stat-row .stat-item { font-size: 8px; padding: 0 3px; }
+    #actions button { padding: 5px; font-size: 11px; }
+    .card-slot .stack-count { font-size: 8px; }
+    .badge { font-size: 7px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- spirit bomb bar -->
+  <div id="spirit-bar-wrap">
+    <span class="spirit-label">💥 元气弹</span>
+    <div id="spirit-bar-outer"><div id="spirit-bar-inner"></div></div>
+    <span id="spirit-text" style="font-size:10px;color:#888">0%</span>
+  </div>
+
+  <!-- top row: player | enemy -->
+  <div id="top-row">
+    <div class="player-box">
+      <div class="avatar">🦸</div>
+      <div class="entity-name">勇 者</div>
+      <div class="stat-row">
+        <span class="stat-item stat-hp"><span>❤️</span><span class="val" id="player-hp">100</span></span>
+        <span class="stat-item stat-shield"><span>🛡️</span><span class="val" id="player-shield">0</span></span>
+        <span class="stat-item stat-atk"><span>⚔️</span><span class="val" id="player-atk">0</span></span>
+        <span class="stat-item stat-heal"><span>💚</span><span class="val" id="player-heal">0</span></span>
+      </div>
+      <div class="badge-row" id="player-badges"></div>
+    </div>
+    <div class="enemy-box">
+      <div class="avatar enemy-avatar">💀</div>
+      <div class="entity-name">骷 髅</div>
+      <div class="stat-row">
+        <span class="stat-item stat-hp"><span>❤️</span><span class="val" id="enemy-hp">100</span></span>
+        <span class="stat-item stat-shield"><span>🛡️</span><span class="val" id="enemy-shield">20</span></span>
+        <span class="stat-item stat-power"><span>⚡</span><span class="val" id="enemy-power">0</span></span>
+      </div>
+      <div class="badge-row" id="enemy-badges"></div>
+      <div id="enemy-intent">⚔️ 准备攻击</div>
+    </div>
+  </div>
+
+  <!-- deck info -->
+  <div id="deck-info">
+    <span>🃏 <span id="deck-remain">250</span> 张</span>
+    <span>🔒 <span id="hidden-cards">0</span> 暗牌</span>
+    <span>🔍 <span id="visible-cards">0</span> 可见</span>
+  </div>
+
+  <!-- board -->
+  <div id="board"></div>
+
+  <!-- combo preview bar -->
+  <div id="combo-bar"></div>
+
+  <!-- elimination slot (10 slots) -->
+  <div id="slot-bar"></div>
+
+  <!-- actions -->
+  <div id="actions">
+    <button id="btn-end-turn" disabled>结束回合</button>
+    <button id="btn-reset">重置</button>
+  </div>
+
+  <!-- log -->
+  <div id="log"></div>
+</div>
+
+<!-- result overlay -->
+<div id="result-overlay">
+  <div id="result-box">
+    <h2 id="result-title">⚔️</h2>
+    <p id="result-desc"></p>
+    <button id="btn-restart">再来一局</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  斩 Plus v2
+//  5×5棋盘, 10槽消除, 10种卡牌, 效果结算系统
+// ============================================================
+
+// Combo values: [damage, shield, heal] — all ÷4 from prototype
+const COMBOS = {
+  3:  [1, 1, 5],
+  4:  [2, 2, 8],
+  5:  [4, 3, 12],
+  6:  [6, 5, 18],
+  7:  [9, 7, 25],
+  8:  [12, 10, 32],
+  9:  [16, 13, 40],
+  10: [20, 16, 50]
+};
+
+// Card type definitions
+const CARD_TYPES = {
+  attack:     { emoji:'🗡', label:'攻击',  color:'attack',     cssClass:'card-attack' },
+  defend:     { emoji:'🛡️', label:'防御',  color:'defend',      cssClass:'card-defend' },
+  heal:       { emoji:'❤️', label:'回血',  color:'heal',        cssClass:'card-heal' },
+  wild:       { emoji:'💎', label:'万能',  color:'wild',        cssClass:'card-wild' },
+  atk_down:   { emoji:'⬇️', label:'降攻',  color:'atk-down',    cssClass:'card-atk-down' },
+  vulnerable: { emoji:'💔', label:'易伤',  color:'vulnerable',  cssClass:'card-vulnerable' },
+  stun:       { emoji:'💫', label:'眩晕',  color:'stun',        cssClass:'card-stun' },
+  atk_buff:   { emoji:'⚡', label:'攻加',  color:'atk-buff',    cssClass:'card-atk-buff' },
+  def_buff:   { emoji:'💨', label:'防加',  color:'def-buff',    cssClass:'card-def-buff' },
+  hp_buff:    { emoji:'🔝', label:'命上',  color:'hp-buff',     cssClass:'card-hp-buff' },
+};
+
+// Deck composition
+const DECK_SIZES = {
+  attack:     50,
+  defend:     50,
+  heal:       25,
+  wild:       10,
+  atk_down:   25,
+  vulnerable: 25,
+  stun:       15,
+  atk_buff:   20,
+  def_buff:   20,
+  hp_buff:    10,
+};
+
+let G = {};
+function newGame() {
+  G = {
+    deck: [], piles: [], slot: [],
+    playerHP: 100, playerMaxHP: 100, playerShield: 0,
+    enemyHP: 100, enemyShield: 20, enemyPower: 0,
+    turn: 0, phase: 'player',
+    pickedId: 0, logLines: [], over: false,
+    // Status effects with remaining rounds
+    playerEffects: {},
+    enemyEffects: {},
+    spiritCharge: 0,
+  };
+  buildDeck(); shuffle(G.deck); buildPiles();
+  render(); updateEnemyIntent();
+  log('🐱 新局开始！双击或向下拖拽卡牌进槽');
+}
+
+function buildDeck() {
+  G.deck = [];
+  for (const [type, count] of Object.entries(DECK_SIZES)) {
+    for (let i = 0; i < count; i++) {
+      G.deck.push({ type: type, id: G.pickedId++ });
+    }
+  }
+}
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+}
+
+function buildPiles() {
+  G.piles = [];
+  for (let r = 0; r < 5; r++) {
+    G.piles[r] = [];
+    for (let c = 0; c < 5; c++) G.piles[r][c] = [];
+  }
+  let idx = 0;
+  // 250 cards ÷ 25 piles = 10 cards/pile
+  const totalCards = G.deck.length;
+  const nPiles = 25;
+  const basePileSize = Math.floor(totalCards / nPiles);
+  let remaining = totalCards - basePileSize * nPiles;
+  const flatPiles = G.piles.flat();
+  for (let i = 0; i < flatPiles.length; i++) {
+    const size = basePileSize + (i < remaining ? 1 : 0);
+    for (let j = 0; j < size; j++) flatPiles[i].push(G.deck[idx++]);
+  }
+  // Shuffle top few cards of each pile for variety
+  for (const pile of flatPiles) {
+    if (pile.length > 1) {
+      const top = pile.slice(0, Math.min(4, pile.length));
+      for (let i = top.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [top[i], top[j]] = [top[j], top[i]];
+      }
+      for (let i = 0; i < top.length; i++) pile[i] = top[i];
+    }
+  }
+}
+
+function getTop(pile) { return pile && pile.length ? pile[pile.length-1] : null; }
+function popTop(pile) { return pile && pile.length ? pile.pop() : null; }
+
+function pullCard(r, c) {
+  if (G.phase !== 'player' || G.over) return false;
+  const pile = G.piles[r][c];
+  const top = getTop(pile);
+  if (!top || G.slot.length >= 10) return false;
+  // Check card count on board for display
+  const card = popTop(pile);
+  if (!card) return false;
+  G.slot.push(card);
+  updateComboPreview();
+  const ct = CARD_TYPES[card.type];
+  log(`${ct.emoji}${ct.label}→槽(${G.slot.length}/10)`);
+  render();
+  document.getElementById('btn-end-turn').disabled = false;
+  return true;
+}
+
+function resolveWildType(slot, idx) {
+  if (slot[idx].type !== 'wild') return slot[idx].type;
+  for (var k = idx-1; k >= 0; k--) { if (slot[k].type !== 'wild') return slot[k].type; }
+  for (var k = idx+1; k < slot.length; k++) { if (slot[k].type !== 'wild') return slot[k].type; }
+  return 'wild';
+}
+
+function computeCombos(slot) {
+  if (!slot.length) return [];
+  var resolved = slot.map(function(c, i) { return {type: resolveWildType(slot, i), card: c, index: i}; });
+  var combos = []; var i = 0;
+  while (i < resolved.length) {
+    var typ = resolved[i].type;
+    if (typ === 'wild') { i++; continue; }
+    var j = i+1;
+    while (j < resolved.length && resolved[j].type === typ) j++;
+    if (j-i >= 3) {
+      combos.push({ n: j-i, cards: slot.slice(i,j), type: typ, start: i, end: j });
+    }
+    i = j;
+  }
+  return combos;
+}
+
+function getComboDuration(n) {
+  // 通用：3连=1回合, 5连=2回合, 6连=3回合, 7连=4回合...
+  if (n >= 5) return n - 3; // 5→2, 6→3, 7→4
+  return 1; // 3→1, 4→1
+}
+
+function getStunDuration(n) {
+  // 眩晕：3连=1回合, 4连=2回合, 5连=3回合 = n-2
+  return n - 2;
+}
+
+function getEffectDescription(type, n) {
+  const dur = getComboDuration(n);
+  const dt = CARD_TYPES[type];
+  switch (type) {
+    case 'attack':
+    case 'defend':
+    case 'heal': {
+      const v = COMBOS[n];
+      const vals = { attack: v ? v[0] : 0, defend: v ? v[1] : 0, heal: v ? v[2] : 0 };
+      if (type === 'attack') return `🔥${vals.attack}伤害`;
+      if (type === 'defend') return `🛡️+${vals.defend}护盾`;
+      return `💚+${vals.heal}生命`;
+    }
+    case 'vulnerable': return `💔易伤×1.5 ${dur}回合`;
+    case 'stun':       return `💫眩晕 ${dur}回合`;
+    case 'atk_buff':   return `⚡攻击×1.5 ${dur}回合`;
+    case 'def_buff':   return `💨防御×1.5 ${dur}回合`;
+    case 'atk_down': {
+      return `⬇️降攻-30% ${dur}回合`;
+    }
+    case 'hp_buff': {
+      const hpGain = (n - 2) * 5;
+      return `🔝最大HP+${hpGain} ${dur}回合`;
+    }
+    default: return '';
+  }
+}
+
+function updateComboPreview() {
+  const combos = computeCombos(G.slot);
+  const el = document.getElementById('combo-bar');
+  if (!combos.length) {
+    el.innerHTML = G.slot.length ? '<span class="combo-none">⚪ 未形成连击</span>' : '';
+    return;
+  }
+  el.innerHTML = combos.map(c => {
+    const n = c.n;
+    const desc = getEffectDescription(c.type, n);
+    return `<span class="combo-preview ${c.type}">${CARD_TYPES[c.type].emoji}${n}连→${desc}</span>`;
+  }).join(' ');
+}
+
+function getEnemyIntent() {
+  const t = G.turn;
+  const cycle = t % 7;
+  const baseAtk = 12;
+  const atk = baseAtk + G.enemyPower;
+  if (t === 0 || cycle === 0) return `⚔️ 攻击 <span class="num-dmg">${atk}</span>`;
+  if (cycle === 1) return `🛡️ 防御 <span class="num-shield">+15</span>`;
+  if (cycle === 2) return '⚡ 蓄力';
+  if (cycle === 3) return `⚔️ 攻击 <span class="num-dmg">${atk}</span>`;
+  if (cycle === 4) return `💥 双重攻击 <span class="num-dmg">${atk}×2</span>`;
+  if (cycle === 5) return `🛡️ 防御 <span class="num-shield">+20</span>`;
+  if (cycle === 6) return t >= 7 ? '💢 暴怒' : '⚡ 蓄力';
+  return '❓';
+}
+
+function executeTurn() {
+  if (G.phase !== 'player' || G.over) return;
+  G.phase = 'resolving';
+
+  log(`<span class="highlight">▶ 回合${G.turn+1}</span>`);
+  log(`<span class="highlight">⚔️ 勇者行动</span>`);
+
+  // Clear player shield at start of action
+  G.playerShield = 0;
+
+  const combos = computeCombos(G.slot);
+  const matchedSet = new Set();
+  for (const c of combos) for (let k = c.start; k < c.end; k++) matchedSet.add(k);
+  const unmatched = G.slot.length - matchedSet.size;
+
+  // --- Resolve: Heal → Shield → Attack → Effects ---
+  let totalDmg = 0, totalDef = 0, totalHeal = 0;
+  for (const c of combos) {
+    const v = COMBOS[c.n];
+    if (!v) continue;
+    if (c.type === 'attack') totalDmg += v[0];
+    if (c.type === 'defend') totalDef += v[1];
+    if (c.type === 'heal')   totalHeal += v[2];
+  }
+
+  // ① Heal
+  if (totalHeal > 0) {
+    G.playerHP = Math.min(G.playerMaxHP, G.playerHP + totalHeal);
+    log(`<span class="heal">💚+${totalHeal}血 ❤️${G.playerHP}</span>`);
+  }
+
+  // ② Shield
+  if (totalDef > 0) {
+    G.playerShield += totalDef;
+    log(`<span class="def">🛡️+${totalDef}盾 🛡️${G.playerShield}</span>`);
+  }
+
+  // ③ Attack (with atk_buff multiplier)
+  let atkMultiplier = 1;
+  if (G.playerEffects.atk_buff && G.playerEffects.atk_buff > 0) {
+    atkMultiplier = 1.5;
+    log(`<span class="buff">⚡攻击加成生效 ×1.5</span>`);
+  }
+  if (totalDmg > 0) {
+    let d = Math.floor(totalDmg * atkMultiplier);
+    // Apply vulnerable on enemy
+    if (G.enemyEffects.vulnerable && G.enemyEffects.vulnerable > 0) {
+      d = Math.floor(d * 1.5);
+      log(`<span class="buff">💔易伤生效 ×1.5</span>`);
+    }
+    if (G.enemyShield > 0) {
+      const ab = Math.min(G.enemyShield, d);
+      G.enemyShield -= ab; d -= ab;
+    }
+    G.enemyHP = Math.max(0, G.enemyHP - d);
+    log(`<span class="dmg">🔥${Math.floor(totalDmg*atkMultiplier)}伤害 → 💀HP${G.enemyHP}🛡️${G.enemyShield}</span>`);
+    // Charge spirit bomb
+    G.spiritCharge = Math.min(100, G.spiritCharge + totalDmg);
+  }
+
+  // ④ Apply debuffs/buffs
+  for (const c of combos) {
+    const dur = c.type === 'stun' ? getStunDuration(c.n) : getComboDuration(c.n);
+    switch (c.type) {
+      case 'vulnerable':
+        G.enemyEffects.vulnerable = Math.max(G.enemyEffects.vulnerable || 0, dur);
+        log(`<span class="buff">💔骷髅易伤 ${dur}回合</span>`);
+        break;
+      case 'stun':
+        G.enemyEffects.stun = Math.max(G.enemyEffects.stun || 0, dur);
+        log(`<span class="buff">💫骷髅眩晕 ${dur}回合</span>`);
+        break;
+      case 'atk_buff':
+        G.playerEffects.atk_buff = Math.max(G.playerEffects.atk_buff||0,dur);
+        log(`<span class="buff">⚡攻击加成 ×1.5 ${dur}回合</span>`);
+        break;
+      case 'def_buff':
+        G.playerEffects.def_buff = Math.max(G.playerEffects.def_buff||0,dur);
+        log(`<span class="buff">💨防御加成 ×1.5 ${dur}回合</span>`);
+        break;
+      case 'atk_down':
+        G.enemyEffects.atk_down_pct = 30;
+        G.enemyEffects.atk_down = Math.max(G.enemyEffects.atk_down || 0, dur);
+        log(`<span class="buff">⬇骷髅降攻 -30% ${dur}回合</span>`);
+        break;
+      case 'hp_buff':
+        const hpGain = (c.n - 2) * 5; // 3连=5, 4连=10, 5连=15...
+        G.playerEffects.hp_buff = Math.max(G.playerEffects.hp_buff||0,dur);
+        G.playerMaxHP = Math.min(120, G.playerMaxHP + hpGain);
+        G.playerHP = Math.min(G.playerMaxHP, G.playerHP + hpGain);
+        log('<span class="buff">🔝最大HP+'+hpGain+' → '+G.playerMaxHP+'('+dur+'回合)</span>');
+        break;
+    }
+  }
+
+  // Unmatched penalty
+  if (unmatched > 0) {
+    G.playerHP = Math.max(0, G.playerHP - unmatched);
+    log('<span class="dmg">⚠ 未消除 -'+unmatched+'HP</span>');
+  }
+  G.slot = [];
+
+  // Check win/loss
+  if (G.enemyHP <= 0) { endGame(true, '💀 骷髅化为灰烬！'); return; }
+  if (G.playerHP <= 0) { endGame(false, '勇者倒下了...'); return; }
+  var totalRemaining = G.piles.flat().reduce(function(s,p){return s+p.length;},0);
+  if (totalRemaining === 0) { endGame(true, '✨ 牌库全消！元气弹斩杀！'); return; }
+
+  render(); updateEnemyIntent();
+  document.getElementById('btn-end-turn').disabled = true;
+  setTimeout(function(){ enemyTurn(); }, 400);
+}
+
+function enemyTurn() {
+  log('<span class="highlight">💀 骷髅行动</span>');
+  G.enemyShield = 0;
+
+  if ((G.enemyEffects.stun||0) > 0) {
+    log('<span class="buff">💫 骷髅被眩晕，跳过回合！</span>');
+    tickEffects(); return;
+  }
+
+  var t = G.turn, cycle = t % 7;
+  var rawAtk = 12 + G.enemyPower;
+
+  if ((G.enemyEffects.atk_down||0) > 0) {
+    var reduction = G.enemyEffects.atk_down_pct || 30;
+    rawAtk = Math.floor(rawAtk * (1 - reduction/100));
+    log('<span class="buff">⬇降攻 -'+reduction+'% → '+rawAtk+'攻击</span>');
+  }
+
+  var mult = (cycle === 4) ? 2 : 1;
+  var atk = rawAtk * mult;
+
+  if (t === 0 || cycle === 0 || cycle === 3) {
+    var d = atk;
+    if ((G.playerEffects.def_buff||0) > 0) { d = Math.floor(d / 1.5); log('<span class="buff">💨防御加成生效 → 受伤÷1.5</span>'); }
+    if (G.playerShield > 0) { var ab = Math.min(G.playerShield, d); G.playerShield -= ab; d -= ab; }
+    G.playerHP = Math.max(0, G.playerHP - d);
+    log('<span class="dmg">💀攻击'+atk+' → ❤-'+d+'🛡'+G.playerShield+'</span>');
+  } else if (cycle === 1) {
+    G.enemyShield += 15;
+    log('<span class="def">💀防御+15 🛡'+G.enemyShield+'</span>');
+  } else if (cycle === 2) {
+    G.enemyPower += 2;
+    if (t > 0 && t % 5 === 0) { G.enemyPower += 4; log('<span class="highlight">💥狂暴！力量+6 ⚡'+G.enemyPower+'</span>'); }
+    else log('<span class="highlight">💀蓄力+2 ⚡'+G.enemyPower+'</span>');
+  } else if (cycle === 4) {
+    var d2 = atk;
+    if (G.playerShield > 0) { var ab2 = Math.min(G.playerShield, d2); G.playerShield -= ab2; d2 -= ab2; }
+    G.playerHP = Math.max(0, G.playerHP - d2);
+    log('<span class="dmg">💥双重攻击'+atk+' → ❤-'+d2+'</span>');
+  } else if (cycle === 5) {
+    G.enemyShield += 20;
+    log('<span class="def">💀防御+20 🛡'+G.enemyShield+'</span>');
+  } else if (cycle === 6) {
+    var bonus = t >= 7 ? 8 : 3;
+    G.enemyPower += bonus;
+    log('<span class="highlight">💢'+(t>=7?'暴怒':'蓄力')+'+'+bonus+' ⚡'+G.enemyPower+'</span>');
+  }
+
+  if (G.playerHP <= 0) { endGame(false, '勇者倒下了...'); return; }
+  tickEffects();
+}
+
+function tickEffects() {
+  for (var k in G.playerEffects) { if (G.playerEffects[k] > 0) G.playerEffects[k]--; }
+  for (var k in G.enemyEffects) { 
+    if (G.enemyEffects[k] > 0) G.enemyEffects[k]--; 
+    if (G.enemyEffects[k] === 0 && k === 'atk_down') G.enemyEffects.atk_down_pct = 0;
+  }
+  if (!G.playerEffects.hp_buff || G.playerEffects.hp_buff <= 0) {
+    G.playerMaxHP = 100; G.playerHP = Math.min(100, G.playerHP);
+  }
+  G.turn++;
+  G.phase = 'player';
+  log('<span class="highlight">⏭ 回合'+(G.turn+1)+'开始</span>');
+  log('💀HP:'+G.enemyHP+'🛡'+G.enemyShield+'⚡'+G.enemyPower);
+  render(); updateEnemyIntent();
+  document.getElementById('btn-end-turn').disabled = false;
+}
+
+function endGame(win, msg) {
+  G.over = true; G.phase = 'over';
+  render();
+  document.getElementById('btn-end-turn').disabled = true;
+  var overlay = document.getElementById('result-overlay');
+  overlay.classList.add('show');
+  document.getElementById('result-title').textContent = win ? '🎉 胜利！' : '💀 败北';
+  document.getElementById('result-desc').textContent = msg + '（存活'+G.turn+'回合）';
+  log('<span class="highlight">'+(win?'🎉胜利':'💀败北')+' '+msg+'</span>');
+}
+
+function updateEnemyIntent() {
+  document.getElementById('enemy-intent').innerHTML = G.phase === 'enemy' ? '⏳ 行动中...' : getEnemyIntent();
+}
+
+function render() {
+  document.getElementById('player-hp').textContent = G.playerHP;
+  document.getElementById('player-shield').textContent = G.playerShield;
+  document.getElementById('enemy-hp').textContent = G.enemyHP;
+  document.getElementById('enemy-shield').textContent = G.enemyShield;
+  document.getElementById('enemy-power').textContent = G.enemyPower;
+  var spiritPct = G.spiritCharge;
+  document.getElementById('spirit-bar-inner').style.width = spiritPct+'%';
+  document.getElementById('spirit-text').textContent = spiritPct+'%';
+  var pe = G.playerEffects;
+  var pbHtml = '';
+  if ((pe.atk_buff||0) > 0) pbHtml += '<span class="badge badge-atk-up">⚡攻×1.5 '+pe.atk_buff+'T</span>';
+  if ((pe.def_buff||0) > 0) pbHtml += '<span class="badge badge-def-up">💨防×1.5 '+pe.def_buff+'T</span>';
+  if ((pe.hp_buff||0) > 0) pbHtml += '<span class="badge badge-hp-max">🔝HP上限 '+pe.hp_buff+'T</span>';
+  document.getElementById('player-badges').innerHTML = pbHtml;
+  var ee = G.enemyEffects;
+  var ebHtml = '';
+  if ((ee.stun||0) > 0) ebHtml += '<span class="badge badge-stun">💫眩晕 '+ee.stun+'T</span>';
+  if ((ee.vulnerable||0) > 0) ebHtml += '<span class="badge badge-vuln">💔易伤 '+ee.vulnerable+'T</span>';
+  if ((ee.atk_down||0) > 0) ebHtml += '<span class="badge badge-atk-down">⬇降攻 '+ee.atk_down+'T</span>';
+  document.getElementById('enemy-badges').innerHTML = ebHtml;
+  var totalRemaining = G.piles.flat().reduce(function(s,p){return s+p.length;},0);
+  document.getElementById('deck-remain').textContent = totalRemaining;
+  var hiddenCount = 0, visibleCount = 0;
+  var flatPiles = G.piles.flat();
+  for (var i = 0; i < flatPiles.length; i++) {
+    var pile = flatPiles[i];
+    if (!pile.length) continue;
+    visibleCount++;
+    if (pile.length > 1) hiddenCount += pile.length - 1;
+  }
+  document.getElementById('hidden-cards').textContent = hiddenCount;
+  document.getElementById('visible-cards').textContent = visibleCount;
+  renderBoard(); renderSlot();
+  var btn = document.getElementById('btn-end-turn');
+  if (G.phase === 'player' && !G.over && G.slot.length > 0) btn.disabled = false;
+  else btn.disabled = true;
+}
+
+function renderBoard() {
+  var board = document.getElementById('board'); board.innerHTML = '';
+  for (var r = 0; r < 5; r++) {
+    for (var c = 0; c < 5; c++) {
+      (function(r,c){
+        var pile = G.piles[r][c];
+        var top = getTop(pile);
+        var div = document.createElement('div');
+        div.className = 'card-slot';
+        if (!top) { div.classList.add('card-empty'); board.appendChild(div); return; }
+        var ct = CARD_TYPES[top.type];
+        var inner = document.createElement('div');
+        inner.className = 'card ' + ct.cssClass;
+        var icon = document.createElement('span'); icon.className = 'card-icon'; icon.textContent = ct.emoji;
+        var label = document.createElement('span'); label.className = 'card-label'; label.textContent = ct.label;
+        inner.appendChild(icon); inner.appendChild(label);
+        div.appendChild(inner);
+        if (pile.length > 1) {
+          var sc = document.createElement('div'); sc.className = 'stack-count';
+          sc.textContent = pile.length; div.appendChild(sc);
+        }
+        var lastTap = 0;
+        div.addEventListener('click', function(e){
+          if (G.phase !== 'player' || G.over) return;
+          var now = Date.now();
+          if (now - lastTap < 350) { e.preventDefault(); if(pullCard(r,c)){log('⚡ 双击进槽');} lastTap = 0; return; }
+          lastTap = now;
+          if (getTop(G.piles[r][c])) { div.classList.add('double-tap-active'); setTimeout(function(){div.classList.remove('double-tap-active');},200); }
+        });
+        var touchStartY = 0, touchStartX = 0, swiping = false;
+        div.addEventListener('touchstart', function(e){
+          touchStartY = e.touches[0].clientY; touchStartX = e.touches[0].clientX; swiping = false;
+        }, {passive:true});
+        div.addEventListener('touchmove', function(e){
+          if (G.phase !== 'player' || G.over) return;
+          var dy = e.touches[0].clientY - touchStartY;
+          var dx = Math.abs(e.touches[0].clientX - touchStartX);
+          if (dy > 20 && dy > dx * 1.5) { e.preventDefault(); if(!swiping && getTop(G.piles[r][c])){swiping=true; if(pullCard(r,c)){log('👇 拖拽进槽');}} }
+        }, {passive:false});
+        board.appendChild(div);
+      })(r,c);
+    }
+  }
+}
+
+function renderSlot() {
+  var bar = document.getElementById('slot-bar'); bar.innerHTML = '';
+  for (var i = 0; i < 10; i++) {
+    var div = document.createElement('div'); div.className = 'eslot';
+    if (i < G.slot.length) {
+      var card = G.slot[i]; var ct = CARD_TYPES[card.type];
+      div.classList.add('filled', ct.color); div.textContent = ct.emoji;
+    }
+    bar.appendChild(div);
+  }
+}
+
+document.getElementById('btn-end-turn').addEventListener('click', function(){
+  if (G.phase !== 'player' || G.over || G.slot.length === 0) return;
+  executeTurn();
+});
+document.getElementById('btn-reset').addEventListener('click', function(){
+  document.getElementById('result-overlay').classList.remove('show');
+  newGame();
+});
+document.getElementById('btn-restart').addEventListener('click', function(){
+  document.getElementById('result-overlay').classList.remove('show');
+  newGame();
+});
+
+function log(msg) {
+  G.logLines.push(msg);
+  if (G.logLines.length > 100) G.logLines.shift();
+  var el = document.getElementById('log');
+  el.innerHTML = G.logLines.map(function(m){return '<div>'+m+'</div>';}).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+newGame();
+</script>
+</body>
+</html>
