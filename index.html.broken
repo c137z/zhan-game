@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>斩 Plus</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100dvh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow-x: hidden;
+  }
+  #app {
+    width: 100%;
+    max-width: 520px;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  /* ---- top row: player | enemy ---- */
+  #top-row {
+    display: flex;
+    gap: 6px;
+  }
+  #top-row > div {
+    flex: 1;
+    background: #16213e;
+    border-radius: 10px;
+    padding: 4px 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+  .avatar {
+    font-size: 26px;
+    line-height: 1;
+  }
+  .entity-name {
+    font-size: 9px;
+    color: #888;
+    letter-spacing: 1px;
+  }
+  .stat-row {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+    justify-content: center;
+    font-size: 10px;
+    width: 100%;
+  }
+  .stat-row .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    background: #0f3460;
+    padding: 0 4px;
+    border-radius: 3px;
+    line-height: 1.5;
+  }
+  .stat-row .stat-item .val { font-weight: bold; }
+  .stat-hp .val    { color: #e74c3c; }
+  .stat-shield .val{ color: #3498db; }
+  .stat-power .val { color: #9b59b6; }
+  .stat-atk .val   { color: #e67e22; }
+  .stat-heal .val  { color: #2ecc71; }
+
+  .enemy-avatar { font-size: 34px; }
+  .player-box { border-top: 3px solid #3498db; }
+  .enemy-box  { border-top: 3px solid #e74c3c; }
+
+  #enemy-intent {
+    font-size: 9px;
+    margin-top: 1px;
+    color: #aaa;
+  }
+  #enemy-intent .num-dmg { color: #e74c3c; font-weight: bold; }
+  #enemy-intent .num-shield { color: #3498db; font-weight: bold; }
+
+  /* ---- spirit bomb progress bar ---- */
+  #spirit-bomb-bar-wrap {
+    width: 100%;
+    height: 8px;
+    background: #0f3460;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  #spirit-bomb-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #f39c12, #e74c3c, #f1c40f);
+    border-radius: 4px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+  #spirit-bomb-bar.full {
+    animation: bomb-pulse 0.6s ease-in-out infinite;
+  }
+  @keyframes bomb-pulse {
+    0%,100% { box-shadow: 0 0 4px #f1c40f; }
+    50%     { box-shadow: 0 0 14px #fff, 0 0 20px #f1c40f; }
+  }
+  #spirit-bomb-label {
+    text-align: center;
+    font-size: 9px;
+    color: #888;
+    padding: 0;
+  }
+
+  /* ---- deck info ---- */
+  #deck-info {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #888;
+    padding: 1px 0;
+  }
+  #deck-info span { background: #0f3460; padding: 0 6px; border-radius: 3px; }
+
+  /* ---- 5x5 board ---- */
+  #board {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 3px;
+    background: #16213e;
+    border-radius: 8px;
+    padding: 4px;
+    touch-action: none;
+  }
+  .card-slot {
+    background: #0f3460;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.06s;
+    aspect-ratio: 1 / 1.15;
+  }
+  .card-slot:active { transform: scale(0.95); }
+  .card-slot .card {
+    width: 100%;
+    height: 100%;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 18px;
+    gap: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
+    position: relative;
+  }
+  .card-slot .card .card-icon {
+    font-size: 20px;
+    line-height: 1;
+  }
+  .card-slot .card .card-label {
+    font-size: 7px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    padding: 0 2px;
+  }
+  .card-slot .card .card-remain {
+    position: absolute;
+    top: 1px;
+    left: 2px;
+    font-size: 8px;
+    color: #fff;
+    opacity: 0.8;
+    text-shadow: 0 0 2px #000;
+    line-height: 1;
+  }
+  /* card color classes */
+  .card-atk       { background: #c0392b; color: #fff; }
+  .card-def       { background: #2980b9; color: #fff; }
+  .card-heal      { background: #e91e63; color: #fff; }
+  .card-wild      { background: #f39c12; color: #fff; }
+  .card-debuf     { background: #8e44ad; color: #fff; }
+  .card-vuln      { background: #a93226; color: #fff; }
+  .card-stun      { background: #9b59b6; color: #fff; }
+  .card-atkup     { background: #e67e22; color: #fff; }
+  .card-defup     { background: #16a085; color: #fff; }
+  .card-hpmax     { background: #1a5c2a; color: #fff; }
+  .card-empty  { background: transparent; border: 1px dashed #2c3e50; cursor: default; }
+  .card-empty .card { display: none; }
+
+  .card-slot .stack-count {
+    position: absolute;
+    top: 1px;
+    right: 2px;
+    font-size: 12px;
+    color: #111;
+    font-weight: 900;
+    opacity: 1;
+    pointer-events: none;
+    background: rgba(255,255,255,0.88);
+    padding: 0 4px;
+    border-radius: 3px;
+    line-height: 1.3;
+  }
+  .card-slot.double-tap-active {
+    outline: 2px solid #f1c40f;
+    transform: translateY(-2px);
+    z-index: 10;
+  }
+
+  /* ---- elimination slot (10 slots) ---- */
+  #slot-bar {
+    display: flex;
+    gap: 2px;
+    background: #16213e;
+    border-radius: 8px;
+    padding: 3px;
+    min-height: 40px;
+  }
+  .eslot {
+    flex: 1;
+    background: #0f3460;
+    border-radius: 4px;
+    border: 1px dashed #2c3e50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    transition: all 0.1s;
+    aspect-ratio: 1 / 1.2;
+  }
+  .eslot.filled { border-style: solid; }
+  .eslot.filled.atk   { background: #c0392b; border-color: #c0392b; }
+  .eslot.filled.def   { background: #2980b9; border-color: #2980b9; }
+  .eslot.filled.heal  { background: #e91e63; border-color: #e91e63; }
+  .eslot.filled.wild  { background: #f39c12; border-color: #f39c12; }
+  .eslot.filled.debuf { background: #8e44ad; border-color: #8e44ad; }
+  .eslot.filled.vuln  { background: #a93226; border-color: #a93226; }
+  .eslot.filled.stun  { background: #9b59b6; border-color: #9b59b6; }
+  .eslot.filled.atkup { background: #e67e22; border-color: #e67e22; }
+  .eslot.filled.defup { background: #16a085; border-color: #16a085; }
+  .eslot.filled.hpmax { background: #1a5c2a; border-color: #1a5c2a; }
+  .eslot.preview { border-color: #f1c40f; background: rgba(241,196,15,0.08); }
+
+  /* ---- preview / combo display ---- */
+  #combo-bar {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    font-size: 10px;
+    padding: 1px 0;
+    min-height: 18px;
+    flex-wrap: wrap;
+  }
+  .combo-tag {
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 10px;
+  }
+  .combo-tag.atk   { background: #5c1a1a; color: #e74c3c; }
+  .combo-tag.def   { background: #1a2d5c; color: #3498db; }
+  .combo-tag.heal  { background: #3d0a1e; color: #e91e63; }
+  .combo-tag.debuf { background: #2d1a3d; color: #bb86fc; }
+  .combo-tag.vuln  { background: #2d0a0a; color: #e74c3c; }
+  .combo-tag.stun  { background: #2d1a3d; color: #ce93d8; }
+  .combo-tag.atkup { background: #3d1a00; color: #e67e22; }
+  .combo-tag.defup { background: #0a2a1a; color: #16a085; }
+  .combo-tag.hpmax { background: #0a2a0a; color: #27ae60; }
+  .combo-none { color: #555; font-size: 10px; }
+
+  /* ---- actions ---- */
+  #actions {
+    display: flex;
+    gap: 4px;
+  }
+  #actions button {
+    flex: 1;
+    padding: 7px;
+    border: none;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.06s, opacity 0.1s;
+    touch-action: manipulation;
+  }
+  #actions button:active { transform: scale(0.96); }
+  #actions button:disabled { opacity: 0.3; cursor: default; transform: none; }
+  #btn-end-turn {
+    background: #e67e22;
+    color: #fff;
+  }
+  #btn-end-turn:disabled { background: #7f8c8d; }
+  #btn-reset {
+    background: #2c3e50;
+    color: #ccc;
+  }
+
+  /* ---- log ---- */
+  #log {
+    background: #0d1b2a;
+    border-radius: 6px;
+    padding: 3px 6px;
+    font-size: 9px;
+    min-height: 28px;
+    max-height: 56px;
+    overflow-y: auto;
+    color: #7f8c8d;
+    line-height: 1.3;
+  }
+  #log .highlight { color: #f1c40f; }
+  #log .dmg { color: #e74c3c; }
+  #log .def { color: #3498db; }
+  #log .heal { color: #2ecc71; }
+
+  /* ---- player state display ---- */
+  #player-state {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+    justify-content: center;
+    font-size: 8px;
+    color: #666;
+    min-height: 14px;
+    padding: 0;
+  }
+  #player-state .state-badge {
+    padding: 0 4px;
+    border-radius: 3px;
+    font-weight: bold;
+  }
+  .state-atkup  { background: #3d1a00; color: #e67e22; }
+  .state-defup  { background: #0a2a1a; color: #16a085; }
+  .state-vuln   { background: #2d0a0a; color: #e74c3c; }
+  .state-debuf  { background: #2d1a3d; color: #bb86fc; }
+  .state-stun   { background: #2d1a3d; color: #ce93d8; }
+
+  /* ---- result overlay ---- */
+  #result-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(4px);
+  }
+  #result-overlay.show { display: flex; }
+  #result-box {
+    background: #16213e;
+    border-radius: 16px;
+    padding: 22px 28px;
+    text-align: center;
+    max-width: 260px;
+  }
+  #result-box h2 { font-size: 22px; margin-bottom: 8px; }
+  #result-box p { color: #aaa; margin-bottom: 14px; font-size: 13px; }
+  #result-box button {
+    padding: 8px 30px;
+    border: none;
+    border-radius: 8px;
+    background: #e67e22;
+    color: #fff;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    margin: 4px;
+  }
+  #result-box button:active { transform: scale(0.96); }
+  #result-box button.btn-reward {
+    background: #f1c40f;
+    color: #111;
+  }
+
+  /* ---- responsive ---- */
+  @media (max-width: 380px) {
+    #app { padding: 3px; gap: 3px; }
+    .card-slot .card .card-icon { font-size: 16px; }
+    .card-slot .card .card-label { font-size: 6px; }
+    .card-slot .stack-count { font-size: 10px; padding: 0 2px; }
+    .avatar { font-size: 22px; }
+    .enemy-avatar { font-size: 28px; }
+    .stat-row .stat-item { font-size: 8px; padding: 0 3px; }
+    #actions button { padding: 6px; font-size: 11px; }
+    .eslot { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- top row: player | enemy -->
+  <div id="top-row">
+    <div class="player-box">
+      <div class="avatar">🦸</div>
+      <div class="entity-name">勇 者</div>
+      <div class="stat-row">
+        <span class="stat-item stat-hp"><span>❤️</span><span class="val" id="player-hp">100</span><span id="player-maxhp-label" style="color:#aaa;font-size:9px">/100</span></span>
+        <span class="stat-item stat-shield"><span>🛡️</span><span class="val" id="player-shield">0</span></span>
+      </div>
+      <div id="player-state"></div>
+    </div>
+    <div class="enemy-box">
+      <div class="avatar enemy-avatar">💀</div>
+      <div class="entity-name">骷 髅</div>
+      <div class="stat-row">
+        <span class="stat-item stat-hp"><span>❤️</span><span class="val" id="enemy-hp">100</span></span>
+        <span class="stat-item stat-shield"><span>🛡️</span><span class="val" id="enemy-shield">20</span></span>
+        <span class="stat-item stat-power"><span>⚡</span><span class="val" id="enemy-power">0</span></span>
+      </div>
+      <div id="enemy-intent">⚔️ 准备攻击</div>
+      <div id="enemy-stun-badge" style="display:none;font-size:9px;color:#ce93d8;margin-top:1px;">💫 晕眩中</div>
+      <div id="enemy-vuln-badge" style="display:none;font-size:9px;color:#e74c3c;margin-top:1px;">💔 易伤</div>
+    </div>
+  </div>
+
+  <!-- spirit bomb progress -->
+  <div id="spirit-bomb-bar-wrap"><div id="spirit-bomb-bar"></div></div>
+  <div id="spirit-bomb-label" style="font-size:8px;color:#666;text-align:center;">元气弹 0%</div>
+
+  <!-- deck info -->
+  <div id="deck-info">
+    <span>🃏 <span id="deck-remain">250</span> 张</span>
+    <span>🔒 <span id="hidden-cards">0</span> 暗牌</span>
+    <span>🔍 <span id="visible-cards">0</span> 可见</span>
+  </div>
+
+  <!-- board -->
+  <div id="board"></div>
+
+  <!-- combo preview bar -->
+  <div id="combo-bar"></div>
+
+  <!-- elimination slot -->
+  <div id="slot-bar"></div>
+
+  <!-- actions -->
+  <div id="actions">
+    <button id="btn-end-turn" disabled>结束回合</button>
+    <button id="btn-reset">重置</button>
+  </div>
+
+  <!-- log -->
+  <div id="log"></div>
+</div>
+
+<!-- result overlay -->
+<div id="result-overlay">
+  <div id="result-box">
+    <h2 id="result-title">⚔️</h2>
+    <p id="result-desc"></p>
+    <button id="btn-reward" class="btn-reward" style="display:none">🎁 选择奖励</button>
+    <button id="btn-restart">再来一局</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  斩 Plus — 正式版第一关
+//  - 5x5 牌堆，250张卡，10种类型
+//  - 10格消除槽，3连及以上触发效果
+//  - 战斗系统：敌我回合、护盾、状态效果
+//  - 元气弹进度条
+// ============================================================
+
+// ─── Card Type Definitions ───
+const CARD_TYPES = [
+  { id:'atk',   icon:'🗡', name:'攻击',     css:'card-atk',   color:'atk',   count:50, bg:'#c0392b' },
+  { id:'def',   icon:'🛡️', name:'防御',     css:'card-def',   color:'def',   count:50, bg:'#2980b9' },
+  { id:'heal',  icon:'❤️', name:'回血',     css:'card-heal',  color:'heal',  count:25, bg:'#e91e63' },
+  { id:'wild',  icon:'💎', name:'万能',     css:'card-wild',  color:'wild',  count:10, bg:'#f39c12' },
+  { id:'debuf', icon:'⬇️', name:'降攻',     css:'card-debuf', color:'debuf', count:25, bg:'#8e44ad' },
+  { id:'vuln',  icon:'💔', name:'易伤',     css:'card-vuln',  color:'vuln',  count:25, bg:'#a93226' },
+  { id:'stun',  icon:'💫', name:'眩晕',     css:'card-stun',  color:'stun',  count:15, bg:'#9b59b6' },
+  { id:'atkup', icon:'⚡', name:'攻击加成', css:'card-atkup', color:'atkup', count:20, bg:'#e67e22' },
+  { id:'defup', icon:'💨', name:'防御加成', css:'card-defup', color:'defup', count:20, bg:'#16a085' },
+  { id:'hpmax', icon:'🔝', name:'生命上限', css:'card-hpmax', color:'hpmax', count:10, bg:'#1a5c2a' },
+];
+const TYPE_MAP = {};
+for (const t of CARD_TYPES) TYPE_MAP[t.id] = t;
+
+// ─── Damage / Shield / Heal formulas ───
+function comboDamage(n) {
+  if (n >= 10) return Math.round(n * 12.5);
+  if (n >= 8)  return Math.round(n * 9);
+  if (n >= 6)  return Math.round(n * 6);
+  if (n >= 4)  return Math.round(n * 4);
+  return Math.round(n * 2.5);
+}
+function comboShield(n) {
+  if (n >= 10) return Math.round(n * 10);
+  if (n >= 8)  return Math.round(n * 7.5);
+  if (n >= 6)  return Math.round(n * 5);
+  if (n >= 4)  return Math.round(n * 3.5);
+  return Math.round(n * 2);
+}
+function comboHeal(n) {
+  if (n >= 10) return Math.round(n * 9);
+  if (n >= 8)  return Math.round(n * 6.5);
+  if (n >= 6)  return Math.round(n * 4.5);
+  if (n >= 4)  return Math.round(n * 3);
+  return Math.round(n * 1.5);
+}
+
+
+// ─── Combo duration helpers ───
+function stunTurns(n) { if (n >= 7) return 4; if (n >= 6) return 3; if (n >= 5) return 2; return 1; }
+function comboAtkDefTurns(n) { if (n >= 7) return 4; if (n >= 6) return 3; if (n >= 5) return 2; return 1; }
+function debufAmount(n) { if (n >= 5) return 50 + (n - 5) * 10; if (n >= 4) return 40; return 30; }
+
+// ─── Game State ───
+let G = {};
+
+function newGame() {
+  G = {
+    deck: [], piles: [], slot: [],
+    playerHP: 100, playerMaxHP: 100, playerShield: 0,
+    enemyHP: 100, enemyShield: 20, enemyPower: 0, enemyStunned: 0, enemyDmgReduced: 0, enemyDebufTurns: 0,
+    turn: 0, phase: 'player', over: false,
+    enemyVulnerable: 0,
+    enemyPowerReduced: 0,
+    playerAtkBoost: 0, playerDefBoost: 0,
+    logLines: [], totalCardsCount: 250, idCounter: 0,
+  };
+  buildDeck(); shuffle(G.deck); buildPiles();
+  render(); updateEnemyIntent(); updateSpiritBomb();
+  log('🦞 斩 Plus 第一关！双击或向下拖拽卡牌进槽');
+}
+
+function buildDeck() {
+  G.deck = [];
+  for (const t of CARD_TYPES)
+    for (let i = 0; i < t.count; i++)
+      G.deck.push({ type: t.id, id: G.idCounter++ });
+}
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+}
+
+function buildPiles() {
+  G.piles = [];
+  for (let r = 0; r < 5; r++) {
+    G.piles[r] = [];
+    for (let c = 0; c < 5; c++) G.piles[r][c] = [];
+  }
+  let idx = 0;
+  for (const pile of G.piles.flat())
+    for (let j = 0; j < 10; j++) pile.push(G.deck[idx++]);
+  // shallow-shuffle top layers for visual variety
+  for (const pile of G.piles.flat()) {
+    if (pile.length > 1) {
+      const top = pile.slice(0, Math.min(4, pile.length));
+      for (let i = top.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [top[i], top[j]] = [top[j], top[i]];
+      }
+      for (let i = 0; i < top.length; i++) pile[i] = top[i];
+    }
+  }
+}
+
+function getTop(pile) { return pile && pile.length ? pile[pile.length-1] : null; }
+function popTop(pile) { return pile && pile.length ? pile.pop() : null; }
+
+function pullCard(r, c) {
+  if (G.phase !== 'player' || G.over) return false;
+  const pile = G.piles[r][c];
+  const top = getTop(pile);
+  if (!top || G.slot.length >= 10) return false;
+  const card = popTop(pile);
+  if (!card) return false;
+  G.slot.push(card);
+  updateComboPreview();
+  const t = TYPE_MAP[card.type];
+  log(t.icon + t.name + '\u2192\u69FD(' + G.slot.length + '/10)');
+  render();
+  document.getElementById('btn-end-turn').disabled = false;
+  return true;
+}
+
+// ─── Combo Detection with Wild Cards ───
+function resolveWildTypes(slot) {
+  const types = slot.map(c => c.type);
+  const resolved = types.slice();
+  for (let i = 0; i < resolved.length; i++) {
+    if (resolved[i] !== 'wild') continue;
+    let leftType = null, rightType = null, leftCount = 0, rightCount = 0;
+    for (let j = i - 1; j >= 0; j--) {
+      if (resolved[j] !== 'wild') { leftType = resolved[j]; break; }
+    }
+    if (leftType !== null) {
+      for (let j = i - 1; j >= 0; j--) {
+        if (resolved[j] === leftType || resolved[j] === 'wild') leftCount++;
+        else break;
+      }
+    }
+    for (let j = i + 1; j < resolved.length; j++) {
+      if (resolved[j] !== 'wild') { rightType = resolved[j]; break; }
+    }
+    if (rightType !== null) {
+      for (let j = i + 1; j < resolved.length; j++) {
+        if (resolved[j] === rightType || resolved[j] === 'wild') rightCount++;
+        else break;
+      }
+    }
+    if (leftType !== null && rightType !== null)
+      resolved[i] = leftCount >= rightCount ? leftType : rightType;
+    else if (leftType !== null) resolved[i] = leftType;
+    else if (rightType !== null) resolved[i] = rightType;
+  }
+  return resolved;
+}
+
+function computeCombos(slot) {
+  if (!slot.length) return [];
+  const resolved = resolveWildTypes(slot);
+  const combos = [];
+  let i = 0;
+  while (i < resolved.length) {
+    if (resolved[i] === 'wild') { i++; continue; }
+    const type = resolved[i]; let j = i + 1;
+    while (j < resolved.length && resolved[j] === type) j++;
+    if (j - i >= 3)
+      combos.push({ n: j - i, type: type, start: i, end: j });
+    i = j;
+  }
+  return combos;
+}
+
+function updateComboPreview() {
+  const combos = computeCombos(G.slot);
+  const el = document.getElementById('combo-bar');
+  if (!combos.length) {
+    el.innerHTML = G.slot.length ? '<span class="combo-none">\u26AA \u672A\u5F62\u6210\u8FDE\u51FB</span>' : '';
+    return;
+  }
+  el.innerHTML = combos.map(c => {
+    const t = TYPE_MAP[c.type]; if (!t) return '';
+    let val = '';
+    switch(c.type) {
+      case 'atk': val = '\uD83D\uDD25'+comboDamage(c.n); break;
+      case 'def': val = '\uD83D\uDEE1\uFE0F+'+comboShield(c.n); break;
+      case 'heal': val = '\uD83D\uDC9A+'+comboHeal(c.n); break;
+      case 'debuf': val = '\u2b07-'+debufAmount(c.n); break;
+      case 'vuln': val = '\uD83D\uDC94\u00D71.5'; break;
+      case 'stun': val = '\ud83d\udcab\u6655(' + stunTurns(c.n) + '\u56de\u5408)'; break;
+      case 'atkup': val = '\u26a1\u00d71.5 (' + comboAtkDefTurns(c.n) + '\u56de\u5408)'; break;
+      case 'defup': val = '\ud83d\udca8\u00d71.5 (' + comboAtkDefTurns(c.n) + '\u56de\u5408)'; break;
+      case 'hpmax': val = '\uD83D\uDD1D+5'; break;
+      case 'wild': val = '\uD83D\uDC8E\u4E07\u80FD'; break;
+    }
+    return '<span class="combo-tag '+c.type+'">'+t.icon+t.name+c.n+'\u8FDE\u2192'+val+'</span>';
+  }).join(' ');
+}
+
+// ─── Enemy Intent ───
+function getEnemyIntent(turn) {
+  const cycle = turn % 7;
+  const atk = 12 + Math.max(0, G.enemyPower - G.enemyPowerReduced);
+  if (G.enemyStunned > 0) return '\uD83D\uDCAB \u6655\u7729\u4E2D\uFF0C\u8DF3\u8FC7\u884C\u52A8\uFF01';
+  if (turn === 0 || cycle === 0) return '\u2694\uFE0F \u653B\u51FB <span class="num-dmg">'+atk+'</span>';
+  if (cycle === 1) return '\uD83D\uDEE1\uFE0F \u9632\u5FA1 <span class="num-shield">+15</span>';
+  if (cycle === 2) return '\u26A1 \u84C4\u529B +2';
+  if (cycle === 3) return '\u2694\uFE0F \u653B\u51FB <span class="num-dmg">'+atk+'</span>';
+  if (cycle === 4) return '\uD83D\uDCA5 \u53CC\u91CD\u653B\u51FB <span class="num-dmg">'+atk+'\u00D72</span>';
+  if (cycle === 5) return '\uD83D\uDEE1\uFE0F \u9632\u5FA1 <span class="num-shield">+20</span>';
+  if (cycle === 6) return turn >= 7 ? '\uD83D\uDCA2 \u66B4\u6012' : '\u26A1 \u84C4\u529B';
+  return '\u2753';
+}
+
+function updateEnemyIntent() {
+  const el = document.getElementById('enemy-intent');
+  if (G.phase === 'enemy') { el.innerHTML = '\u23F3 \u884C\u52A8\u4E2D...'; return; }
+  el.innerHTML = getEnemyIntent(G.turn);
+}
+
+// ─── Spirit Bomb ───
+function updateSpiritBomb() {
+  const totalRemaining = G.piles.flat().reduce((s,p) => s + p.length, 0);
+  const eliminated = G.totalCardsCount - totalRemaining;
+  const pct = G.totalCardsCount > 0 ? Math.round(eliminated / G.totalCardsCount * 100) : 0;
+  const bar = document.getElementById('spirit-bomb-bar');
+  bar.style.width = pct + '%';
+  bar.classList.toggle('full', pct >= 95);
+  document.getElementById('spirit-bomb-label').textContent = '\u5143\u6C14\u5F39 ' + pct + '%';
+}
+
+// ─── Execute Turn ───
+function executeTurn() {
+  if (G.phase !== 'player' || G.over) return;
+  G.phase = 'resolving';
+
+  log('<span class="highlight">\u25B6 \u56DE\u5408' + (G.turn+1) + '</span>');
+  log('<span class="highlight">\u2694\uFE0F \u52C7\u8005\u884C\u52A8</span>');
+
+  G.playerShield = 0;
+  const atkActive = G.playerAtkBoost > 0; let atkMult = atkActive ? 1.5 : 1.0;
+  const defActive = G.playerDefBoost > 0; let defMult = defActive ? 1.5 : 1.0;
+  if (G.playerAtkBoost > 0) G.playerAtkBoost--;
+  if (G.playerDefBoost > 0) G.playerDefBoost--;
+
+  const combos = computeCombos(G.slot);
+  const matchedSet = new Set();
+  for (const c of combos) for (let k = c.start; k < c.end; k++) matchedSet.add(k);
+  const unmatched = G.slot.length - matchedSet.size;
+
+  let totalDmg = 0, totalDef = 0, totalHeal = 0, totalDebuf = 0;
+  let applyVuln = 0, applyStun = 0;
+  let applyAtkBoost = 0, applyDefBoost = 0;
+  let applyHpMax = 0;
+
+  for (const c of combos) {
+    switch(c.type) {
+      case 'atk':   totalDmg += comboDamage(c.n); break;
+      case 'def':   totalDef += comboShield(c.n); break;
+      case 'heal':  totalHeal += comboHeal(c.n); break;
+      case 'debuf': totalDebuf += debufAmount(c.n); break;
+      case 'vuln':  applyVuln += stunTurns(c.n); break;
+      case 'stun':  applyStun += stunTurns(c.n); break;
+      case 'atkup': applyAtkBoost += comboAtkDefTurns(c.n); break;
+      case 'defup': applyDefBoost += comboAtkDefTurns(c.n); break;
+      case 'hpmax': applyHpMax += 5; break;
+    }
+  }
+
+  // 1. Heal
+  if (totalHeal > 0) {
+    G.playerHP = Math.min(G.playerMaxHP, G.playerHP + totalHeal);
+    log('<span class="heal">\uD83D\uDC9A +'+totalHeal+'\u8840 \u2764\uFE0F'+G.playerHP+'/'+G.playerMaxHP+'</span>');
+  }
+  // 2. Shield
+  totalDef = Math.round(totalDef * defMult);
+  if (totalDef > 0) {
+    G.playerShield += totalDef;
+    log('<span class="def">\uD83D\uDEE1\uFE0F +'+totalDef+'\u76FE (\u62A4\u76FE:'+G.playerShield+')</span>');
+  }
+  // 3. Attack
+  totalDmg = Math.round(totalDmg * atkMult);
+  if (totalDmg > 0) {
+    let d = totalDmg;
+    if (G.enemyVulnerable > 0) { d = Math.round(d * 1.5); if (G.enemyVulnerable > 0) G.enemyVulnerable--; log('\uD83D\uDC94 \u6613\u4F24\u89E6\u53D1\uFF01\u4F24\u5BB3\u00D71.5'); }
+    if (G.enemyShield > 0) { const ab = Math.min(G.enemyShield, d); G.enemyShield -= ab; d -= ab; }
+    G.enemyHP = Math.max(0, G.enemyHP - d);
+    log('<span class="dmg">\uD83D\uDDE1 '+totalDmg+'\u4F24\u5BB3 \u2192 \uD83D\uDC80HP'+G.enemyHP+' \uD83D\uDEE1\uFE0F'+G.enemyShield+'</span>');
+  }
+  // 4. Debuff (reduces enemy attack damage by %%)
+  if (totalDebuf > 0) {
+    G.enemyDmgReduced = Math.max(G.enemyDmgReduced, totalDebuf);
+    G.enemyDebufTurns += stunTurns(totalDebuf === 30 ? 3 : totalDebuf === 40 ? 4 : 5);
+    log('\u2b07\ufe0f \u964d\u653b\uff01\u654c\u4eba\u653b\u51fb-'+totalDebuf+'% (\u5269\u4f59'+G.enemyDebufTurns+'\u56de\u5408)');
+  }
+  // 5. Vuln
+  if (applyVuln > 0) { G.enemyVulnerable += applyVuln; log('\ud83d\udc94 \u6613\u4f24\u6807\u8bb0\uff01\u654c\u4eba\u4e0b'+applyVuln+'\u56de\u5408\u53d7\u4f24\u5bb3\u00d71.5 (\u5269\u4f59'+G.enemyVulnerable+')'); }
+  // 6. Stun
+  if (applyStun > 0) { G.enemyStunned += applyStun; log('\uD83D\uDCAB \u7729\u6655\uFF01\u654C\u4EBA\u8DF3\u8FC7\u4E0B\u56DE\u5408'); }
+  // 7. Atk boost
+  if (applyAtkBoost > 0) { G.playerAtkBoost += applyAtkBoost; log('\u26A1 \u653B\u51FB\u52A0\u6210\uFF01\u4E0B\u56DE\u5408\u653B\u51FB\u00D71.5'); }
+  // 8. Def boost
+  if (applyDefBoost > 0) { G.playerDefBoost += applyDefBoost; log('\uD83D\uDCA8 \u9632\u5FA1\u52A0\u6210\uFF01\u4E0B\u56DE\u5408\u62A4\u76FE\u00D71.5'); }
+  // 9. HP Max
+  if (applyHpMax > 0) {
+    G.playerMaxHP = Math.min(120, G.playerMaxHP + applyHpMax);
+    G.playerHP = Math.min(G.playerMaxHP, G.playerHP + applyHpMax);
+    log('\uD83D\uDD1D \u751F\u547D\u4E0A\u9650+'+applyHpMax+'\uFF01\u6700\u5927HP:'+G.playerMaxHP+' (\u6062\u590D\u7B49\u91CF)');
+  }
+  // Unmatched penalty
+  if (unmatched > 0) {
+    G.playerHP = Math.max(0, G.playerHP - unmatched);
+    log('<span class="dmg">\u26A0 \u672A\u6D88\u9664-' + unmatched + 'HP</span>');
+  }
+
+  G.slot = [];
+
+  if (G.enemyHP <= 0) { endGame(true, '\uD83D\uDC80 \u9AB7\u9AC5\u738B\u5012\u4E0B\u4E86\uFF01'); return; }
+  if (G.playerHP <= 0) { endGame(false, '\u52C7\u8005\u5012\u4E0B\u4E86...'); return; }
+  const totalRemaining = G.piles.flat().reduce((s,p) => s + p.length, 0);
+  if (totalRemaining === 0) { endGame(true, '\u2728 \u724C\u5E93\u5168\u6D88\uFF01\u5143\u6C14\u5F39\u65A9\u6740\uFF01'); return; }
+
+  render(); updateEnemyIntent(); updateSpiritBomb();
+  document.getElementById('btn-end-turn').disabled = true;
+  setTimeout(() => enemyTurn(), 400);
+}
+
+function enemyTurn() {
+  log('<span class="highlight">\uD83D\uDC80 \u9AB7\u9AC5\u884C\u52A8</span>');
+  G.enemyShield = 0;
+
+  if (G.enemyStunned > 0) {
+    log('\uD83D\uDCAB \u9AB7\u9AC5\u6655\u7729\u4E2D\uFF0C\u8DF3\u8FC7\u672C\u56DE\u5408\u884C\u52A8');
+    G.enemyStunned--;
+  } else {
+    const t = G.turn; const cycle = t % 7;
+    const effective = Math.max(0, G.enemyPower - G.enemyPowerReduced);
+  const dmgReduction = G.enemyDebufTurns > 0 ? G.enemyDmgReduced / 100 : 0;
+    const atk = Math.round((12 + effective) * (1 - dmgReduction));
+
+    if (t === 0 || cycle === 0) {
+      let d = atk;
+      if (G.playerShield > 0) { const ab = Math.min(G.playerShield, d); G.playerShield -= ab; d -= ab; }
+      G.playerHP = Math.max(0, G.playerHP - d);
+      log('<span class="dmg">\uD83D\uDC80\u653B\u51FB' + atk + ' \u2192 \u2764\uFE0F-' + d + ' \uD83D\uDEE1\uFE0F' + G.playerShield + '</span>');
+    } else if (cycle === 1) {
+      G.enemyShield += 15;
+      log('<span class="def">\uD83D\uDC80\u9632\u5FA1+15 \uD83D\uDEE1\uFE0F' + G.enemyShield + '</span>');
+    } else if (cycle === 2) {
+      G.enemyPower += 2;
+      log('<span class="highlight">\uD83D\uDC80\u84C4\u529B+2 \u26A1' + G.enemyPower + '</span>');
+    } else if (cycle === 3) {
+      let d = atk;
+      if (G.playerShield > 0) { const ab = Math.min(G.playerShield, d); G.playerShield -= ab; d -= ab; }
+      G.playerHP = Math.max(0, G.playerHP - d);
+      log('<span class="dmg">\uD83D\uDC80\u653B\u51FB' + atk + ' \u2192 \u2764\uFE0F-' + d + '</span>');
+    } else if (cycle === 4) {
+      let d = atk * 2;
+      if (G.playerShield > 0) { const ab = Math.min(G.playerShield, d); G.playerShield -= ab; d -= ab; }
+      G.playerHP = Math.max(0, G.playerHP - d);
+      log('<span class="dmg">\uD83D\uDCA5\u53CC\u91CD\u653B\u51FB' + (atk*2) + ' \u2192 \u2764\uFE0F-' + d + '</span>');
+    } else if (cycle === 5) {
+      G.enemyShield += 20;
+      log('<span class="def">\uD83D\uDC80\u9632\u5FA1+20 \uD83D\uDEE1\uFE0F' + G.enemyShield + '</span>');
+    } else if (cycle === 6) {
+      const gain = t >= 7 ? 8 : 3;
+      G.enemyPower += gain;
+      log('<span class="highlight">\uD83D\uDCA2' + (t >= 7 ? '\u66B4\u6012' : '\u84C4\u529B') + '+' + gain + ' \u26A1' + G.enemyPower + '</span>');
+    }
+  }
+
+  if (G.playerHP <= 0) { endGame(false, '\u52C7\u8005\u5012\u4E0B\u4E86...'); return; }
+
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  if (G.enemyDebufTurns > 0) G.enemyDebufTurns--;
+  G.turn++; G.phase = 'player';
+  if (G.enemyVulnerable > 0) G.enemyVulnerable--;
+  log('<span class="highlight">\u23ED \u56DE\u5408' + (G.turn+1) + '\u5F00\u59CB</span>');
+  log('\uD83D\uDC80HP:' + G.enemyHP + ' \uD83D\uDEE1\uFE0F' + G.enemyShield + ' \u26A1' + G.enemyPower + ' \u51CF:' + G.enemyPowerReduced);
+
+  render(); updateEnemyIntent(); updateSpiritBomb();
+  document.getElementById('btn-end-turn').disabled = true;
+}
+
+function endGame(win, msg) {
+  G.over = true; G.phase = 'over';
+  render(); updateSpiritBomb();
+  document.getElementById('btn-end-turn').disabled = true;
+  const overlay = document.getElementById('result-overlay');
+  overlay.classList.add('show');
+  document.getElementById('result-title').textContent = win ? '\uD83C\uDF89 \u80DC\u5229\uFF01' : '\uD83D\uDC80 \u8D25\u5317';
+  document.getElementById('result-desc').textContent = msg + ' (\u5B58\u6D3B' + G.turn + '\u56DE\u5408)';
+  document.getElementById('btn-reward').style.display = win ? 'inline-block' : 'none';
+  document.getElementById('btn-restart').style.display = 'inline-block';
+  log('<span class="highlight">' + (win ? '\uD83C\uDF89\u80DC\u5229' : '\uD83D\uDC80\u8D25\u5317') + ' ' + msg + '</span>');
+}
+
+// ─── Render ───
+function render() {
+  document.getElementById('player-hp').textContent = G.playerHP;
+  document.getElementById('player-maxhp-label').textContent = '/' + G.playerMaxHP;
+  document.getElementById('player-shield').textContent = G.playerShield;
+  document.getElementById('enemy-hp').textContent = G.enemyHP;
+  document.getElementById('enemy-shield').textContent = G.enemyShield;
+  document.getElementById('enemy-power').textContent = G.enemyPower;
+
+  // Player state badges
+  const ps = document.getElementById('player-state');
+  let badges = '';
+  if (G.playerHP <= 20) badges += '<span class="state-badge" style="background:#5c1a1a;color:#e74c3c">\u26A0 \u5371\u9669</span>';
+  if (G.playerAtkBoost) badges += '<span class="state-badge state-atkup">\u26A1\u653B\u51FB\u2191</span>';
+  if (G.playerDefBoost) badges += '<span class="state-badge state-defup">\uD83D\uDCA8\u9632\u5FA1\u2191</span>';
+  ps.innerHTML = badges;
+
+  document.getElementById('enemy-stun-badge').style.display = G.enemyStunned ? 'block' : 'none';
+  document.getElementById('enemy-vuln-badge').style.display = G.enemyVulnerable > 0 ? 'block' : 'none';
+
+  const totalRemaining = G.piles.flat().reduce((s,p) => s + p.length, 0);
+  document.getElementById('deck-remain').textContent = totalRemaining;
+
+  let hiddenCount = 0, visibleCount = 0;
+  for (const pile of G.piles.flat()) {
+    if (!pile.length) continue;
+    visibleCount++;
+    if (pile.length > 1) hiddenCount += pile.length - 1;
+  }
+  document.getElementById('hidden-cards').textContent = hiddenCount;
+  document.getElementById('visible-cards').textContent = visibleCount;
+
+  renderBoard(); renderSlot(); updateSpiritBomb();
+  const btn = document.getElementById('btn-end-turn');
+  btn.disabled = !(G.phase === 'player' && !G.over && G.slot.length > 0);
+}
+
+function renderBoard() {
+  const board = document.getElementById('board'); board.innerHTML = '';
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      const pile = G.piles[r][c];
+      const top = getTop(pile);
+      const div = document.createElement('div');
+      div.className = 'card-slot';
+      div.dataset.r = r; div.dataset.c = c;
+
+      if (!top) { div.classList.add('card-empty'); board.appendChild(div); continue; }
+
+      const t = TYPE_MAP[top.type];
+      const inner = document.createElement('div');
+      inner.className = 'card ' + (t ? t.css : '');
+      const icon = document.createElement('div'); icon.className = 'card-icon';
+      icon.textContent = t ? t.icon : '?';
+      inner.appendChild(icon);
+      const label = document.createElement('div'); label.className = 'card-label';
+      label.textContent = t ? t.name : '?';
+      inner.appendChild(label);
+      div.appendChild(inner);
+
+      if (pile.length > 1) {
+        const sc = document.createElement('div'); sc.className = 'stack-count';
+        sc.textContent = pile.length; div.appendChild(sc);
+      }
+
+      // Double-click
+      let lastTap = 0;
+      div.addEventListener('click', (e) => {
+        if (G.phase !== 'player' || G.over) return;
+        const now = Date.now();
+        if (now - lastTap < 350) {
+          e.preventDefault();
+          pullCard(r, c);
+          lastTap = 0; return;
+        }
+        lastTap = now;
+        if (getTop(pile)) {
+          div.classList.add('double-tap-active');
+          setTimeout(() => div.classList.remove('double-tap-active'), 200);
+        }
+      });
+
+      // Swipe down
+      let swiping = false, startY = 0, startX = 0;
+      div.addEventListener('touchstart', (e) => {
+        startY = e.touches[0].clientY; startX = e.touches[0].clientX; swiping = false;
+      }, { passive: true });
+      div.addEventListener('touchmove', (e) => {
+        if (G.phase !== 'player' || G.over) return;
+        const dy = e.touches[0].clientY - startY;
+        const dx = Math.abs(e.touches[0].clientX - startX);
+        if (dy > 20 && dy > dx * 1.5) {
+          e.preventDefault();
+          if (!swiping && getTop(pile)) { swiping = true; pullCard(r, c); }
+        }
+      }, { passive: false });
+
+      board.appendChild(div);
+    }
+  }
+}
+
+function renderSlot() {
+  const bar = document.getElementById('slot-bar'); bar.innerHTML = '';
+  for (let i = 0; i < 10; i++) {
+    const div = document.createElement('div'); div.className = 'eslot';
+    if (i < G.slot.length) {
+      const card = G.slot[i];
+      const t = TYPE_MAP[card.type];
+      div.classList.add('filled', card.type);
+      div.textContent = t ? t.icon : '?';
+    }
+    bar.appendChild(div);
+  }
+}
+
+document.getElementById('btn-end-turn').addEventListener('click', () => {
+  if (G.phase !== 'player' || G.over || G.slot.length === 0) return;
+  executeTurn();
+});
+document.getElementById('btn-reset').addEventListener('click', () => {
+  document.getElementById('result-overlay').classList.remove('show');
+  newGame();
+});
+document.getElementById('btn-restart').addEventListener('click', () => {
+  document.getElementById('result-overlay').classList.remove('show');
+  newGame();
+});
+document.getElementById('btn-reward').addEventListener('click', () => {
+  document.getElementById('result-overlay').classList.remove('show');
+  newGame();
+});
+
+function log(msg) {
+  G.logLines.push(msg);
+  if (G.logLines.length > 100) G.logLines.shift();
+  const el = document.getElementById('log');
+  el.innerHTML = G.logLines.map(m => '<div>' + m + '</div>').join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+newGame();
+</script>
+</body>
+</html>
