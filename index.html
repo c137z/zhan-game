@@ -238,7 +238,6 @@
   .card-stun         { background: #9b59b6; color: #fff; }
   .card-atk-buff     { background: #e67e22; color: #fff; }
   .card-def-buff     { background: #16a085; color: #fff; }
-  .card-hp-buff      { background: #1a5c2a; color: #fff; }
 
   /* ---- elimination slot ---- */
   #slot-bar {
@@ -272,7 +271,6 @@
   .eslot.filled.stun          { background: #9b59b6; border-color: #9b59b6; }
   .eslot.filled.atk-buff      { background: #e67e22; border-color: #e67e22; }
   .eslot.filled.def-buff      { background: #16a085; border-color: #16a085; }
-  .eslot.filled.hp-buff       { background: #1a5c2a; border-color: #1a5c2a; }
   .eslot.preview { border-color: #f1c40f; background: rgba(241,196,15,0.08); }
 
   /* ---- preview / combo display ---- */
@@ -301,7 +299,6 @@
   .combo-preview.stun         { border-left: 2px solid #9b59b6; color: #d2b4de; }
   .combo-preview.atk-buff     { border-left: 2px solid #e67e22; color: #f0b27a; }
   .combo-preview.def-buff     { border-left: 2px solid #16a085; color: #76d7c4; }
-  .combo-preview.hp-buff      { border-left: 2px solid #1a5c2a; color: #7dcea0; }
   .combo-none { color: #555; font-size: 10px; }
 
   /* ---- actions ---- */
@@ -493,8 +490,6 @@ const CONFIG = {
   ATK_BUFF_MULT: 1.5,
   DEF_BUFF_RATIO: 0.7,
   ATK_DOWN_PCT: 30,
-  HP_BUFF_PER_COMBO: 5,
-  MAX_HP_CAP: 120,
   UNMATCHED_PENALTY: 1,
 };
 
@@ -538,7 +533,6 @@ const CARD_TYPES = {
   stun:       { emoji: '\uD83D\uDCAB', label: '\u7729\u6655', color: 'stun',        cssClass: 'card-stun' },
   atk_buff:   { emoji: '\u26A1', label: '\u653B\u52A0', color: 'atk-buff',    cssClass: 'card-atk-buff' },
   def_buff:   { emoji: '\uD83D\uDCA8', label: '\u51CF\u4F24', color: 'def-buff',    cssClass: 'card-def-buff' },
-  hp_buff:    { emoji: '\uD83D\uDD1D', label: '\u547D\u4E0A', color: 'hp-buff',     cssClass: 'card-hp-buff' },
 };
 
 const DECK_SIZES = {
@@ -551,7 +545,6 @@ const DECK_SIZES = {
   stun:       15,
   atk_buff:   20,
   def_buff:   20,
-  hp_buff:    10,
 };
 
 (function() {
@@ -707,10 +700,7 @@ function getEffectDescription(type, n) {
     case 'atk_buff':   return '\u26A1\u653B\u51FB\u00D7' + CONFIG.ATK_BUFF_MULT + ' ' + dur + '\u56DE\u5408';
     case 'def_buff':   return '\uD83D\uDCA8\u51CF\u4F24\u00D7' + CONFIG.DEF_BUFF_RATIO + ' ' + dur + '\u56DE\u5408';
     case 'atk_down':   return '\u2B07\uFE0F\u964D\u653B-' + CONFIG.ATK_DOWN_PCT + '% ' + dur + '\u56DE\u5408';
-    case 'hp_buff': {
-      var hpGain = (n - 2) * CONFIG.HP_BUFF_PER_COMBO;
-      return '\uD83D\uDD1D\u6700\u5927HP+' + hpGain + ' ' + dur + '\u56DE\u5408';
-    }
+
     default: return '';
   }
 }
@@ -746,7 +736,7 @@ function executeTurn() {
   // 阶段2: 再结算攻击/防御/回血（此时buff已生效）
   // 阶段3: buff层数衰减
 
-  var BUFF_TYPES = { vulnerable:1, stun:1, atk_buff:1, def_buff:1, atk_down:1, hp_buff:1 };
+  var BUFF_TYPES = { vulnerable:1, stun:1, atk_buff:1, def_buff:1, atk_down:1 };
 
   // --- Phase 1: Buff/Debuff ---
   log('  \u2728 \u7F13\u51B2\u7ED3\u7B97...');
@@ -776,14 +766,7 @@ function executeTurn() {
         G.enemyEffects.atk_down = Math.max(G.enemyEffects.atk_down || 0, dur);
         log('<span class="buff">\u2B07\u9AB7\u9AC5\u964D\u653B -' + CONFIG.ATK_DOWN_PCT + '% ' + dur + '\u56DE\u5408</span>');
         break;
-      case 'hp_buff': {
-        var hpGain = (c.n - 2) * CONFIG.HP_BUFF_PER_COMBO;
-        G.playerEffects.hp_buff = Math.max(G.playerEffects.hp_buff || 0, dur);
-        G.playerMaxHP = Math.min(CONFIG.MAX_HP_CAP, G.playerMaxHP + hpGain);
-        G.playerHP = Math.min(G.playerMaxHP, G.playerHP + hpGain);
-        log('<span class="buff">\uD83D\uDD1D\u6700\u5927HP+' + hpGain + ' \u2192 ' + G.playerMaxHP + '(' + dur + '\u56DE\u5408)</span>');
-        break;
-      }
+
     }
   }
 
@@ -885,15 +868,9 @@ function executeTurn() {
   var totalRemaining = G.piles.flat().reduce(function(s, p) { return s + p.length; }, 0);
   if (totalRemaining === 0) { endGame(true, '\u2728 \u724C\u5E93\u5168\u6D88\uFF01\u5143\u6C14\u5F39\u65A9\u6740\uFF01'); return; }
 
-  // --- Phase 3: 护盾衰减 & Buff层数衰减 ---
-  // 护盾：勇者行动结束时衰减为0（已在上方清空）
-  // Buff层数：atk_buff / hp_buff 每回合衰减1层
+  // --- Phase 3: Buff层数衰减 ---
+  // atk_buff 每回合衰减1层
   if ((G.playerEffects.atk_buff || 0) > 0) G.playerEffects.atk_buff--;
-  if ((G.playerEffects.hp_buff || 0) > 0) G.playerEffects.hp_buff--;
-  if (!G.playerEffects.hp_buff || G.playerEffects.hp_buff <= 0) {
-    G.playerMaxHP = CONFIG.PLAYER_MAX_HP;
-    G.playerHP = Math.min(CONFIG.PLAYER_MAX_HP, G.playerHP);
-  }
 
   render();
   updateEnemyIntent();
@@ -1025,7 +1002,6 @@ function render() {
   var pbHtml = '';
   if ((pe.atk_buff || 0) > 0) pbHtml += '<span class="badge badge-atk-up">\u26A1\u653B\u00D7' + CONFIG.ATK_BUFF_MULT + ' ' + pe.atk_buff + 'T</span>';
   if ((pe.def_buff || 0) > 0) pbHtml += '<span class="badge badge-def-up">\uD83D\uDCA8\u51CF\u4F24\u00D7' + CONFIG.DEF_BUFF_RATIO + ' ' + pe.def_buff + 'T</span>';
-  if ((pe.hp_buff || 0) > 0) pbHtml += '<span class="badge badge-hp-up">\uD83D\uDD1DHP\u4E0A\u9650 ' + pe.hp_buff + 'T</span>';
   document.getElementById('player-badges').innerHTML = pbHtml;
 
   // Enemy badges
@@ -1134,7 +1110,7 @@ function updateComboPreview() {
   if (!combos.length && !G.slot.length) { el.innerHTML = ''; return; }
 
   // 全槽统计每种类型总个数 + 最长连击段
-  var BUFF_TYPES = { vulnerable:1, stun:1, atk_buff:1, def_buff:1, atk_down:1, hp_buff:1 };
+  var BUFF_TYPES = { vulnerable:1, stun:1, atk_buff:1, def_buff:1, atk_down:1 };
   var slotTypeCount = {};
   for (var si = 0; si < G.slot.length; si++) {
     var st = resolveWildType(G.slot, si);
