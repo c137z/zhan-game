@@ -319,7 +319,7 @@ var BOSSES = {
       { type: 'attack' },
       { type: 'double_attack' },
       { type: 'defend', shield: 20 },
-      { type: 'rage', bonus: 3 },
+      { type: 'rage', multiplier: 2, powerBoost: 3 },
     ],
     traits: [],
     hpTriggers: [],

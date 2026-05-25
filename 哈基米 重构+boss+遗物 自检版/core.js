@@ -114,6 +114,13 @@ function newGame() {
   }
 
   buildDeck();
+  // 救命毫毛：特殊卡插入
+  if (G.specialCards) {
+    for (var sc = 0; sc < G.specialCards.length; sc++) {
+      G.deck.unshift({ type: G.specialCards[sc].type, id: G.pickedId++, special: G.specialCards[sc] });
+    }
+    log('🪶 救命毫毛！获得' + G.specialCards.length + '张特殊卡');
+  }
   shuffle(G.deck);
   buildPiles();
   render();
@@ -515,14 +522,16 @@ function enemyTurn() {
       break;
 
     case 'rage':
-      var rageDmg = rawAtk * 2;
+      if (cycle.powerBoost) G.enemyPower += cycle.powerBoost;
+      var rageMult = cycle.multiplier || 2;
+      var rageDmg = rawAtk * rageMult;
       if ((G.playerEffects.def_buff || 0) > 0) {
         var rratio = G.effectiveDefBuffRatio || CONFIG.DEF_BUFF_RATIO;
         rageDmg = Math.floor(rageDmg * rratio);
       }
       if (G.playerShield > 0) { var rab = Math.min(G.playerShield, rageDmg); G.playerShield -= rab; rageDmg -= rab; }
       G.playerHP = Math.max(0, G.playerHP - rageDmg);
-      log('💥怒击' + (rawAtk*2) + ' → ❤-' + rageDmg);
+      log('💥怒击×' + rageMult + (cycle.powerBoost ? ' +⚡' + cycle.powerBoost : '') + '=' + (rawAtk * rageMult) + ' → ❤-' + rageDmg);
       break;
 
     case 'double_attack':
