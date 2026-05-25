@@ -308,7 +308,19 @@ var BOSSES = {
     hpTriggers: [GROOM_TRIGGER, HISS_TRIGGER],
   },
 
-  // 教学关骷髅（保留供第一关使用）
+  // 第一关：逗猫棒
+  catToy: {
+    id: 'catToy', name: '逗猫棒', emoji: '🪄',
+    maxHP: 50, baseAtk: 5, startShield: 0,
+    cycle: [
+      { type: 'attack' },
+      { type: 'defend', shield: 5 },
+    ],
+    traits: [],
+    hpTriggers: [],
+  },
+
+  // 第二关骷髅
   skeleton: {
     id: 'skeleton', name: '骷髅', emoji: '💀',
     maxHP: 100, baseAtk: 12, startShield: 0,

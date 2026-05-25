@@ -592,20 +592,19 @@ function endGame(win, msg) {
   document.getElementById('btn-end-turn').disabled = true;
 
   if (win) {
-    // 三关流程：通过当前关卡
     G.currentStage = (G.currentStage || 1) + 1;
 
-    if (G.currentStage === 1) {
-      // 第一关（教学关）通过 → 直接进第二关，不选圣物
+    if (G.currentStage === 2) {
+      // 第一关（逗猫棒）通过 → 直接进第二关
       startNextStage();
       return;
     }
-    if (G.currentStage === 2) {
-      // 第二关通过 → 选圣物
+    if (G.currentStage === 3) {
+      // 第二关（骷髅）通过 → 选圣物
       showRelicSelect();
       return;
     }
-    // 第三关通过 → 胜利！
+    // 第三关（猫猫Boss）通过 → 通关！
     var overlay = document.getElementById('result-overlay');
     overlay.classList.add('show');
     document.getElementById('result-title').textContent = '🎉 通关！';
@@ -647,32 +646,53 @@ function updateEnemyIntent() {
 // ========== 三关流程 & 圣物选择 ==========
 
 var STAGES = [
-  { name: '第一关', bossId: 'skeleton' },
-  { name: '第二关', bossId: 'skeleton' },
-  { name: '第三关·Boss', bossId: null },
+  { name: '第一关·逗猫棒', bossId: 'catToy' },
+  { name: '第二关·骷髅', bossId: 'skeleton' },
+  { name: '第三关·猫猫Boss', bossId: null }, // 随机
 ];
 
 function showRelicSelect() {
+  G.relicRerolls = G.relicRerolls || 0;
   var allRelicIds = Object.keys(RELICS);
   shuffleArray(allRelicIds);
-  var options = allRelicIds.slice(0, 2);
-  G.pendingRelicOptions = options;
-  G.pendingRelicStage = G.currentStage;
+  G.relicOptions = allRelicIds.slice(0, 2);
+  renderRelicOptions();
+  document.getElementById('relic-select-desc').textContent =
+    '第二关通过！选择圣物' + (G.relicRerolls < 1 ? '（可重抽1次）' : '');
+  document.getElementById('relic-select-overlay').classList.add('show');
+}
+
+function renderRelicOptions() {
   var el = document.getElementById('relic-select-options');
   el.innerHTML = '';
-  for (var oi = 0; oi < options.length; oi++) {
-    var relic = RELICS[options[oi]];
+  for (var oi = 0; oi < G.relicOptions.length; oi++) {
+    var relic = RELICS[G.relicOptions[oi]];
     var card = document.createElement('div');
     card.className = 'relic-card';
     card.innerHTML = '<div class="relic-name">' + relic.name + '</div>' +
       '<div class="relic-type">' + relic.type + '</div>' +
       '<div class="relic-desc">' + relic.desc + '</div>';
-    (function(rid) { card.addEventListener('click', function() { pickRelic(rid); }); })(options[oi]);
+    (function(rid) { card.addEventListener('click', function() { pickRelic(rid); }); })(G.relicOptions[oi]);
     el.appendChild(card);
   }
-  document.getElementById('relic-select-desc').textContent =
-    STAGES[G.currentStage-2].name + '通过！选择一个圣物';
-  document.getElementById('relic-select-overlay').classList.add('show');
+
+  // 重抽按钮
+  if (G.relicRerolls < 1) {
+    var btnBox = document.createElement('div');
+    btnBox.style.cssText = 'width:100%;margin-top:6px;';
+    var rerollBtn = document.createElement('button');
+    rerollBtn.textContent = '🔄 重抽（剩1次）';
+    rerollBtn.style.cssText = 'padding:6px 16px;border:none;border-radius:8px;background:#2980b9;color:#fff;font-size:12px;font-weight:bold;cursor:pointer;';
+    rerollBtn.addEventListener('click', function() {
+      G.relicRerolls++;
+      var allRelicIds = Object.keys(RELICS);
+      shuffleArray(allRelicIds);
+      G.relicOptions = allRelicIds.slice(0, 2);
+      renderRelicOptions();
+    });
+    btnBox.appendChild(rerollBtn);
+    el.appendChild(btnBox);
+  }
 }
 
 function pickRelic(relicId) {
@@ -695,7 +715,7 @@ function startNextStage() {
   var stage = STAGES[stageIdx];
   var bossId = stage.bossId;
   if (!bossId) {
-    var catIds = Object.keys(BOSSES).filter(function(k) { return k !== 'skeleton'; });
+    var catIds = Object.keys(BOSSES).filter(function(k) { return k !== 'skeleton' && k !== 'catToy'; });
     bossId = catIds[Math.floor(Math.random() * catIds.length)];
   }
   G.bossId = bossId;
