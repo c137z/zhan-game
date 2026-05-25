@@ -353,7 +353,9 @@ function executeTurn() {
     var d = calcAttackValue(atkTotal, atkMaxLen, G);
     if (d > 0) {
       d = applyRelicModifiers('attack', d, G);
-      d = applyStatusEffects('attack', d, G);
+      // 读取 buff 层数（像V13一样直接从 playerEffects / enemyEffects 判断）
+      if ((G.playerEffects.atk_buff || 0) > 0) d = Math.ceil(d * (G.atkBuffMult || CONFIG.ATK_BUFF_MULT));
+      if ((G.enemyEffects.vulnerable || 0) > 0) d = Math.ceil(d * (G.vulnMult || CONFIG.VULN_MULT));
       var pursuitLog = '';
       if (atkMaxLen >= 4) pursuitLog = ' ' + atkMaxLen + '连×' + calcPursuitMultiplier(atkMaxLen).toFixed(1);
       if (G.enemyShield > 0) { var ab = Math.min(G.enemyShield, d); G.enemyShield -= ab; d -= ab; }
@@ -414,9 +416,6 @@ function executeTurn() {
 
   // --- Phase 3: Buff层数衰减 ---
   if ((G.playerEffects.atk_buff || 0) > 0) G.playerEffects.atk_buff--;
-  if (G.playerEffects.atk_buff <= 0) G.effectiveAtkBuffMult = 0;
-  if ((G.enemyEffects.vulnerable || 0) > 0) G.enemyEffects.vulnerable--;
-  if (G.enemyEffects.vulnerable <= 0) G.effectiveVulnMult = 0;
 
   // 检查胜负/元气弹
   if (G.enemyHP <= 0) { endGame(true, '💀 击败！'); return; }
@@ -659,13 +658,15 @@ var STAGES = [
 
 function showRelicSelect() {
   G.relicRerolls = G.relicRerolls || 0;
+  G.selectedRelic = null;
   var allRelicIds = Object.keys(RELICS);
   shuffleArray(allRelicIds);
   G.relicOptions = allRelicIds.slice(0, 2);
   renderRelicOptions();
   document.getElementById('relic-select-desc').textContent =
-    '第二关通过！选择圣物' + (G.relicRerolls < 1 ? '（可重抽1次）' : '');
+    '第二关通过！选择一个圣物' + (G.relicRerolls < 1 ? '（可刷新1次）' : '');
   document.getElementById('relic-select-overlay').classList.add('show');
+  updateConfirmButton();
 }
 
 function renderRelicOptions() {
@@ -675,45 +676,61 @@ function renderRelicOptions() {
     var relic = RELICS[G.relicOptions[oi]];
     var card = document.createElement('div');
     card.className = 'relic-card';
+    card.id = 'relic-opt-' + oi;
+    if (G.selectedRelic === G.relicOptions[oi]) card.style.borderColor = '#f1c40f';
     card.innerHTML = '<div class="relic-name">' + relic.name + '</div>' +
       '<div class="relic-type">' + relic.type + '</div>' +
       '<div class="relic-desc">' + relic.desc + '</div>';
-    (function(rid) { card.addEventListener('click', function() { pickRelic(rid); }); })(G.relicOptions[oi]);
+    (function(rid, idx) {
+      card.addEventListener('click', function() {
+        G.selectedRelic = G.selectedRelic === rid ? null : rid;
+        renderRelicOptions();
+        updateConfirmButton();
+      });
+    })(G.relicOptions[oi], oi);
     el.appendChild(card);
   }
+}
 
-  // 重抽按钮
-  if (G.relicRerolls < 1) {
-    var btnBox = document.createElement('div');
-    btnBox.style.cssText = 'width:100%;margin-top:6px;';
-    var rerollBtn = document.createElement('button');
-    rerollBtn.textContent = '🔄 重抽（剩1次）';
-    rerollBtn.style.cssText = 'padding:6px 16px;border:none;border-radius:8px;background:#2980b9;color:#fff;font-size:12px;font-weight:bold;cursor:pointer;';
-    rerollBtn.addEventListener('click', function() {
+function updateConfirmButton() {
+  var btn = document.getElementById('btn-relic-confirm');
+  btn.disabled = !G.selectedRelic;
+  btn.style.opacity = G.selectedRelic ? '1' : '0.4';
+}
+
+// 刷新按钮
+(function() {
+  var btn = document.getElementById('btn-relic-reroll');
+  btn.addEventListener('click', function() {
+    G.selectedRelic = null;
+    var allRelicIds = Object.keys(RELICS);
+    shuffleArray(allRelicIds);
+    G.relicOptions = allRelicIds.slice(0, 2);
+    renderRelicOptions();
+    updateConfirmButton();
+    // 刷新消耗次数
+    if (G.relicRerolls < 1) {
       G.relicRerolls++;
-      var allRelicIds = Object.keys(RELICS);
-      shuffleArray(allRelicIds);
-      G.relicOptions = allRelicIds.slice(0, 2);
-      renderRelicOptions();
-    });
-    btnBox.appendChild(rerollBtn);
-    el.appendChild(btnBox);
-  }
-}
+      btn.disabled = true;
+      btn.style.opacity = '0.4';
+      btn.textContent = '🔄 刷新（已用完）';
+      document.getElementById('relic-select-desc').textContent = '第二关通过！选择一个圣物';
+    }
+  });
+})();
 
-function pickRelic(relicId) {
-  G.activeRelics = G.activeRelics || [];
-  G.activeRelics.push(relicId);
-  log('🎁 获得圣物：' + RELICS[relicId].name + ' — ' + RELICS[relicId].desc);
-  document.getElementById('relic-select-overlay').classList.remove('show');
-  startNextStage();
-}
-
-document.getElementById('btn-relic-skip').addEventListener('click', function() {
-  document.getElementById('relic-select-overlay').classList.remove('show');
-  log('⏭ 跳过圣物选择');
-  startNextStage();
-});
+// 确认按钮
+(function() {
+  var btn = document.getElementById('btn-relic-confirm');
+  btn.addEventListener('click', function() {
+    if (!G.selectedRelic) return;
+    G.activeRelics = G.activeRelics || [];
+    G.activeRelics.push(G.selectedRelic);
+    log('🎁 获得圣物：' + RELICS[G.selectedRelic].name + ' — ' + RELICS[G.selectedRelic].desc);
+    document.getElementById('relic-select-overlay').classList.remove('show');
+    startNextStage();
+  });
+})();
 
 function startNextStage() {
   var stageIdx = G.currentStage - 1;

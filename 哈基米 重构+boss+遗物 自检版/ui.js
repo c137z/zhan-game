@@ -276,3 +276,33 @@ function log(msg) {
   el.innerHTML = G.logLines.map(function(m) { return '<div>' + m + '</div>'; }).join('');
   el.scrollTop = el.scrollHeight;
 }
+
+// ========== Boss 描述弹窗（长按头像） ==========
+(function() {
+  var el = document.getElementById('enemy-avatar');
+  var timer;
+  el.addEventListener('touchstart', function(e) {
+    timer = setTimeout(function() { showBossInfo(); }, 600);
+  }, {passive: true});
+  el.addEventListener('touchend', function() { clearTimeout(timer); });
+  el.addEventListener('touchmove', function() { clearTimeout(timer); });
+  // 桌面端右键
+  el.addEventListener('contextmenu', function(e) { e.preventDefault(); showBossInfo(); });
+})();
+
+function showBossInfo() {
+  if (!G.boss || !G.boss.desc) return;
+  document.getElementById('boss-info-emoji').textContent = G.boss.emoji || '?';
+  document.getElementById('boss-info-name').textContent = G.boss.name;
+  document.getElementById('boss-info-mechanic').textContent = G.boss.desc;
+  document.getElementById('boss-info-stats').textContent =
+    'HP ' + G.boss.maxHP + ' | 攻击 ' + G.boss.baseAtk + ' | 护盾 ' + (G.boss.startShield || 0);
+  document.getElementById('boss-info-overlay').style.display = 'flex';
+}
+
+document.getElementById('btn-boss-info-close').addEventListener('click', function() {
+  document.getElementById('boss-info-overlay').style.display = 'none';
+});
+document.getElementById('boss-info-overlay').addEventListener('click', function(e) {
+  if (e.target === this) this.style.display = 'none';
+});

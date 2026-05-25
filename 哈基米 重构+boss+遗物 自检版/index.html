@@ -59,13 +59,27 @@
   </div>
 </div>
 
+<!-- Boss 描述弹窗 -->
+<div id="boss-info-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;align-items:center;justify-content:center;">
+  <div style="background:#16213e;border-radius:12px;padding:16px 20px;max-width:300px;text-align:center;">
+    <div id="boss-info-emoji" style="font-size:40px;margin-bottom:4px;"></div>
+    <div id="boss-info-name" style="font-size:16px;font-weight:bold;color:#f1c40f;margin-bottom:4px;"></div>
+    <div id="boss-info-mechanic" style="font-size:11px;color:#aaa;line-height:1.4;margin-bottom:6px;"></div>
+    <div id="boss-info-stats" style="font-size:10px;color:#888;"></div>
+    <button id="btn-boss-info-close" style="margin-top:10px;padding:4px 20px;border:none;border-radius:6px;background:#e67e22;color:#fff;font-size:12px;cursor:pointer;">关闭</button>
+  </div>
+</div>
+
 <!-- 圣物选择界面 -->
 <div id="relic-select-overlay">
   <div id="relic-select-box">
     <h2>🎁 选择圣物</h2>
     <p id="relic-select-desc">第二关通过！选择一个圣物</p>
     <div id="relic-select-options"></div>
-    <button id="btn-relic-skip" style="background:#2c3e50;color:#ccc;margin-top:8px;">跳过（不选）</button>
+    <div id="relic-select-buttons" style="display:flex;gap:6px;margin-top:8px;justify-content:center;">
+      <button id="btn-relic-reroll" style="padding:6px 16px;border:none;border-radius:8px;background:#2c3e50;color:#ccc;font-size:12px;font-weight:bold;cursor:pointer;">🔄 刷新</button>
+      <button id="btn-relic-confirm" style="padding:6px 16px;border:none;border-radius:8px;background:#e67e22;color:#fff;font-size:12px;font-weight:bold;cursor:pointer;" disabled>✅ 确认选择</button>
+    </div>
   </div>
 </div>
 

@@ -113,6 +113,7 @@ var HISS_TRIGGER = {
 var BOSSES = {
   tabby: {  // 狸花猫
     id: 'tabby', name: '狸花猫', emoji: '🐱',
+    desc: '每2回合随机锁定2摞牌2回合\n被锁的牌无法点选',
     maxHP: 300, baseAtk: 24, startShield: 0,
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
@@ -145,6 +146,7 @@ var BOSSES = {
 
   sphynx: {  // 斯芬克斯
     id: 'sphynx', name: '斯芬克斯', emoji: '🐱',
+    desc: '每3回合舔掉玩家所有Buff\n（不清Debuff和Boss自身）',
     maxHP: 300, baseAtk: 24, startShield: 0,
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
@@ -163,6 +165,7 @@ var BOSSES = {
 
   british_shorthair: {  // 英短蓝猫
     id: 'british_shorthair', name: '英短蓝猫', emoji: '🐱',
+    desc: '每3回合锁定2个槽位2回合\n锁定的槽位无法放入牌',
     maxHP: 300, baseAtk: 24, startShield: 0,
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
@@ -193,6 +196,7 @@ var BOSSES = {
 
   american_shorthair: {  // 美短虎斑
     id: 'american_shorthair', name: '美短虎斑', emoji: '🐱',
+    desc: '永久隐藏下一回合行动意图\n无法预判Boss下一步',
     maxHP: 300, baseAtk: 24, startShield: 0,
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{ id: 'hide_intent', onTurnStart: function(G) { G.hideIntent = true; } }],
@@ -201,6 +205,7 @@ var BOSSES = {
 
   abyssinian: {  // 阿比西尼亚
     id: 'abyssinian', name: '阿比西尼亚', emoji: '🐱',
+    desc: '玩家消除结算时随机弃掉1张牌\n优先破坏连击链',
     maxHP: 300, baseAtk: 24, startShield: 0,
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
@@ -217,6 +222,7 @@ var BOSSES = {
 
   ragdoll: {  // 布偶猫
     id: 'ragdoll', name: '布偶猫', emoji: '🐱',
+    desc: '每回合涂抹随机2摞牌\n被涂的牌面信息不可见',
     maxHP: 300, baseAtk: 24, startShield: 0,
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
@@ -241,6 +247,7 @@ var BOSSES = {
 
   bengal: {  // 豹猫
     id: 'bengal', name: '豹猫', emoji: '🐱',
+    desc: '最大回合数24回合\n超时直接判负',
     maxHP: 300, baseAtk: 24, startShield: 0,
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
@@ -257,6 +264,7 @@ var BOSSES = {
 
   siamese: {  // 暹罗猫
     id: 'siamese', name: '暹罗猫', emoji: '🐱',
+    desc: '前半血每2回塞1张废牌\n半血后每回塞1张废牌',
     maxHP: 300, baseAtk: 24, startShield: 0,
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
@@ -283,6 +291,7 @@ var BOSSES = {
 
   scottish_fold: {  // 折耳猫
     id: 'scottish_fold', name: '折耳猫', emoji: '🐱',
+    desc: '每5回合爆发一次\n玩家跳过下一回合无法行动',
     maxHP: 300, baseAtk: 24, startShield: 0,
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
@@ -299,6 +308,7 @@ var BOSSES = {
 
   maine_coon: {  // 缅因猫
     id: 'maine_coon', name: '缅因猫', emoji: '🐱',
+    desc: '每回合Boss先于玩家行动\n必须先承受伤害再出牌',
     maxHP: 300, baseAtk: 24, startShield: 0,
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
@@ -311,6 +321,7 @@ var BOSSES = {
   // 第一关：逗猫棒
   catToy: {
     id: 'catToy', name: '逗猫棒', emoji: '🪄',
+    desc: '教学关Boss\n攻击5防御5交替循环',
     maxHP: 50, baseAtk: 5, startShield: 0,
     cycle: [
       { type: 'attack' },
@@ -323,6 +334,7 @@ var BOSSES = {
   // 第二关骷髅
   skeleton: {
     id: 'skeleton', name: '骷髅', emoji: '💀',
+    desc: '第二关Boss\n7回合循环：攻/防/蓄/攻/双/防/怒',
     maxHP: 100, baseAtk: 12, startShield: 0,
     cycle: [
       { type: 'attack' },
