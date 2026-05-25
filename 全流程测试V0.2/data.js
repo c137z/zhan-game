@@ -76,7 +76,7 @@ var BOSS_CYCLE_TEMPLATE = [
 // ========== Boss 通用触发器 ==========
 var GROOM_TRIGGER = {
   id: 'groom',
-  condition: function(turn) { return turn > 0 && turn % 4 === 0; },
+  condition: function(G) { return G.turn > 0 && G.turn % 4 === 0; },
   execute: function(G) {
     // 清空 Boss 自身 Debuff
     G.enemyEffects.atk_down = 0;
