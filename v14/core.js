@@ -63,6 +63,7 @@ function newGame() {
   var bossId = G.bossId || 'skeleton';
   var boss = BOSSES[bossId];
   var relics = G.activeRelics || [];
+  var stage = G.currentStage || 1;
 
   G = {
     deck: [], piles: [], slot: [],
@@ -94,6 +95,7 @@ function newGame() {
     smearedPiles: {},
     hideIntent: false,
     playerSkipped: false,
+    currentStage: stage,
   };
 
   // 初始化圣物
@@ -582,11 +584,29 @@ function endGame(win, msg) {
   G.phase = 'over';
   render();
   document.getElementById('btn-end-turn').disabled = true;
-  var overlay = document.getElementById('result-overlay');
-  overlay.classList.add('show');
-  document.getElementById('result-title').textContent = win ? '🎉 胜利！' : '💀 败北';
-  document.getElementById('result-desc').textContent = msg + '（存活' + G.turn + '回合）';
-  log((win ? '🎉胜利' : '💀败北') + ' ' + msg);
+
+  if (win) {
+    // 三关流程：通过当前关卡
+    G.currentStage = (G.currentStage || 1) + 1;
+
+    if (G.currentStage <= 2) {
+      // 第一关/第二关通过 → 选圣物
+      showRelicSelect();
+      return;
+    }
+    // 第三关通过 → 胜利！
+    var overlay = document.getElementById('result-overlay');
+    overlay.classList.add('show');
+    document.getElementById('result-title').textContent = '🎉 通关！';
+    document.getElementById('result-desc').textContent = msg + '（存活' + G.turn + '回合）';
+    log('🎉通关！' + msg);
+  } else {
+    var overlay = document.getElementById('result-overlay');
+    overlay.classList.add('show');
+    document.getElementById('result-title').textContent = '💀 败北';
+    document.getElementById('result-desc').textContent = msg + '（存活' + G.turn + '回合）';
+    log('💀败北 ' + msg);
+  }
 }
 
 function updateEnemyIntent() {
@@ -611,4 +631,63 @@ function updateEnemyIntent() {
     case 'double_attack':document.getElementById('enemy-intent').innerHTML = '💥 双重攻击 ' + (atk*2); break;
     default:             document.getElementById('enemy-intent').innerHTML = '❓'; break;
   }
+}
+
+// ========== 三关流程 & 圣物选择 ==========
+
+var STAGES = [
+  { name: '第一关', bossId: 'skeleton' },
+  { name: '第二关', bossId: 'skeleton' },
+  { name: '第三关·Boss', bossId: null },
+];
+
+function showRelicSelect() {
+  var allRelicIds = Object.keys(RELICS);
+  shuffleArray(allRelicIds);
+  var options = allRelicIds.slice(0, 2);
+  G.pendingRelicOptions = options;
+  G.pendingRelicStage = G.currentStage;
+  var el = document.getElementById('relic-select-options');
+  el.innerHTML = '';
+  for (var oi = 0; oi < options.length; oi++) {
+    var relic = RELICS[options[oi]];
+    var card = document.createElement('div');
+    card.className = 'relic-card';
+    card.innerHTML = '<div class="relic-name">' + relic.name + '</div>' +
+      '<div class="relic-type">' + relic.type + '</div>' +
+      '<div class="relic-desc">' + relic.desc + '</div>';
+    (function(rid) { card.addEventListener('click', function() { pickRelic(rid); }); })(options[oi]);
+    el.appendChild(card);
+  }
+  document.getElementById('relic-select-desc').textContent =
+    STAGES[G.currentStage-2].name + '通过！选择一个圣物';
+  document.getElementById('relic-select-overlay').classList.add('show');
+}
+
+function pickRelic(relicId) {
+  G.activeRelics = G.activeRelics || [];
+  G.activeRelics.push(relicId);
+  log('🎁 获得圣物：' + RELICS[relicId].name + ' — ' + RELICS[relicId].desc);
+  document.getElementById('relic-select-overlay').classList.remove('show');
+  startNextStage();
+}
+
+document.getElementById('btn-relic-skip').addEventListener('click', function() {
+  document.getElementById('relic-select-overlay').classList.remove('show');
+  log('⏭ 跳过圣物选择');
+  startNextStage();
+});
+
+function startNextStage() {
+  var stageIdx = G.currentStage - 1;
+  if (stageIdx >= STAGES.length) return;
+  var stage = STAGES[stageIdx];
+  var bossId = stage.bossId;
+  if (!bossId) {
+    var catIds = Object.keys(BOSSES).filter(function(k) { return k !== 'skeleton'; });
+    bossId = catIds[Math.floor(Math.random() * catIds.length)];
+  }
+  G.bossId = bossId;
+  log('🏁 ' + stage.name + ' — 对手：' + BOSSES[bossId].name + ' ' + BOSSES[bossId].emoji);
+  newGame();
 }
