@@ -234,7 +234,7 @@ var BOSSES = {
         G.smearedPiles[candidates[1]] = true;
         log('🐱 布偶趴牌：涂抹了2摞牌');
       },
-      onTurnEnd: function(G) { G.smearedPiles = {}; }
+      onTurnEnd: function(G) { G.smearedPiles = {}; } // 每回合结束清空涂抹
     }],
     hpTriggers: [GROOM_TRIGGER, HISS_TRIGGER],
   },

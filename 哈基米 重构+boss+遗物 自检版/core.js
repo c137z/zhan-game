@@ -471,9 +471,6 @@ function enemyTurn() {
       var trigger = G.boss.hpTriggers[hi];
       if (trigger.condition && trigger.condition(G)) {
         trigger.execute(G);
-      } else if (trigger.condition && trigger.condition.constructor === Function && G.boss.hpTriggers[hi].id === 'hiss') {
-        // 哈气特殊处理：内部已维护 prevHP
-        trigger.execute(G);
       }
     }
   }
@@ -589,8 +586,13 @@ function endGame(win, msg) {
     // 三关流程：通过当前关卡
     G.currentStage = (G.currentStage || 1) + 1;
 
-    if (G.currentStage <= 2) {
-      // 第一关/第二关通过 → 选圣物
+    if (G.currentStage === 1) {
+      // 第一关（教学关）通过 → 直接进第二关，不选圣物
+      startNextStage();
+      return;
+    }
+    if (G.currentStage === 2) {
+      // 第二关通过 → 选圣物
       showRelicSelect();
       return;
     }
