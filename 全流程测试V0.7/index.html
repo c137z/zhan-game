@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>斩 v14</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="relic.css">
+</head>
+<body>
+<div id="app">
+  <div id="spirit-bar-wrap">
+    <span class="spirit-label">💥 元气弹</span>
+    <div id="spirit-bar-outer"><div id="spirit-bar-inner"></div></div>
+    <span id="spirit-text">0%</span>
+  </div>
+  <div id="top-row">
+    <div class="player-box">
+      <div class="avatar" id="player-avatar">🦸</div>
+      <div class="entity-name">勇 者</div>
+      <div class="stat-row">
+        <span class="stat-item stat-hp"><span>❤️</span><span class="val" id="player-hp">100</span></span>
+        <span class="stat-item stat-shield"><span>🛡️</span><span class="val" id="player-shield">0</span></span>
+      </div>
+      <div class="badge-row" id="player-badges"></div>
+    </div>
+    <div class="enemy-box">
+      <div class="avatar enemy-avatar" id="enemy-avatar">💀</div>
+      <div class="entity-name" id="enemy-name">骷 髅</div>
+      <div class="stat-row">
+        <span class="stat-item stat-hp"><span>❤️</span><span class="val" id="enemy-hp">100</span></span>
+        <span class="stat-item stat-shield"><span>🛡️</span><span class="val" id="enemy-shield">20</span></span>
+        <span class="stat-item stat-power"><span>⚡</span><span class="val" id="enemy-power">0</span></span>
+      </div>
+      <div class="badge-row" id="enemy-badges"></div>
+      <div id="enemy-intent">⚔️ 准备攻击</div>
+    </div>
+  </div>
+  <div id="deck-info">
+    <span>🃏 <span id="deck-remain">250</span> 张</span>
+    <span>🔒 <span id="hidden-cards">0</span> 暗牌</span>
+    <span>🔍 <span id="visible-cards">0</span> 可见</span>
+  </div>
+  <div id="board"></div>
+  <div id="prophet-row" class="prophet-row" style="display:none;"></div>
+  <div id="combo-bar"></div>
+  <div id="slot-bar"></div>
+  <div id="actions">
+    <button id="btn-end-turn" disabled>结束回合</button>
+    <button id="btn-reset">重置</button>
+  </div>
+  <div id="log"></div>
+</div>
+<div id="result-overlay">
+  <div id="result-box">
+    <h2 id="result-title">⚔️</h2>
+    <p id="result-desc"></p>
+    <button id="btn-restart">再来一局</button>
+  </div>
+</div>
+
+<!-- Boss 描述弹窗 -->
+<div id="boss-info-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;align-items:center;justify-content:center;">
+  <div style="background:#16213e;border-radius:12px;padding:16px 20px;max-width:300px;text-align:center;">
+    <div id="boss-info-emoji" style="font-size:40px;margin-bottom:4px;"></div>
+    <div id="boss-info-name" style="font-size:16px;font-weight:bold;color:#f1c40f;margin-bottom:4px;"></div>
+    <div id="boss-info-mechanic" style="font-size:11px;color:#aaa;line-height:1.4;margin-bottom:6px;"></div>
+    <div id="boss-info-stats" style="font-size:10px;color:#888;"></div>
+    <button id="btn-boss-info-close" style="margin-top:10px;padding:4px 20px;border:none;border-radius:6px;background:#e67e22;color:#fff;font-size:12px;cursor:pointer;">关闭</button>
+  </div>
+</div>
+
+<!-- 圣物选择界面 -->
+<div id="relic-select-overlay">
+  <div id="relic-select-box">
+    <h2>🎁 选择圣物</h2>
+    <p id="relic-select-desc">第二关通过！选择一个圣物</p>
+    <div id="relic-select-options"></div>
+    <div id="relic-select-buttons" style="display:flex;gap:6px;margin-top:8px;justify-content:center;">
+      <button id="btn-relic-reroll" style="padding:6px 16px;border:none;border-radius:8px;background:#2c3e50;color:#ccc;font-size:12px;font-weight:bold;cursor:pointer;">🔄 刷新</button>
+      <button id="btn-relic-confirm" style="padding:6px 16px;border:none;border-radius:8px;background:#e67e22;color:#fff;font-size:12px;font-weight:bold;cursor:pointer;">✅ 确认（全拿）</button>
+    </div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="core.js"></script>
+<script src="ui.js"></script>
+<script>
+// 启动：默认骷髅怪
+G.currentStage = 1;
+G.bossId = 'skeleton';
+newGame();
+</script>
+</body>
+</html>
