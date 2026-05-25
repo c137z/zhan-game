@@ -1,0 +1,124 @@
+斩 · V14 重构预留设计
+代码污染风险评估 + 最少预留方案
+2026-05-25
+
+
+一、V13 代码污染风险评估
+
+看完 V13 全部 1210 行代码后，按"未来加圣物/Boss 后会被污染的程度"分级：
+
+【污染重灾区 #1】结算阶段（第 797-855 行）
+现在攻击/防御/回血的结算代码是直线硬写的——每个类型独立一段 if-block：
+  总个数 → 基础值 → 追击倍率 → buff加成 → 扣血
+未来加了圣物，if (hasRelic(...)) 会到处散落。如果不提前留入口，这块会变成最臭的代码。
+
+【污染重灾区 #2】敌人回合（第 900-950 行）
+80 行 switch-case 硬编码骷髅行为。未来 10 个 Boss 不能每个复制 80 行。
+
+【污染中度区】游戏状态 G 对象
+现在是 16 个字段的平铺对象。加了圣物和 Boss 后字段会暴增，不加结构将来也是散沙。
+
+【安全区】计算公式 / 牌堆构建 / 渲染
+这些逻辑稳定，圣物和 Boss 不直接改动它们。
+
+
+二、V14 最少预留方案（3 样，不多做）
+
+不是 10 个接口，不是 Hook 框架。只做 3 个预留，总共改 160 行左右。
+
+预留 #1：结算管道（圣物介入点）— 约50行改动
+
+现在攻击结算是一条直线。V14 改成带钩子的管道：
+
+function resolveAction(type, totalCount, maxLen, context) {
+  var val = calcBaseValue(totalCount) * calcPursuitMultiplier(maxLen);
+  val = Math[type === 'attack' ? 'ceil' : 'floor'](val);
+  // 圣物介入点
+  val = applyRelicModifiers(type, val, context);
+  // 状态效果介入点
+  val = applyStatusEffects(type, val, context);
+  return val;
+}
+
+applyRelicModifiers 里面用配置表而不是 if-else：
+
+var RELIC_MODIFIERS = {
+  combo_core:   { hook: 'minCombo',    value: 2 },
+  overload:     { hook: 'buffMult',    value: 2.0 },
+  fury_core:    { hook: 'hpScalar',    enabled: true },
+  // 未来新圣物 = 这里加一行
+};
+
+好处：加新圣物只加一行配置，不改结算核心逻辑。
+
+预留 #2：Boss 行为配置表 — 约80行改动
+
+现在 V13 的敌人逻辑是个 switch-case。V14 变成一张表：
+
+var BOSS_CYCLE_TEMPLATE = [
+  { type: 'attack' },
+  { type: 'defend', shield: 15 },
+  { type: 'buff_power', value: 2 },
+  { type: 'attack' },
+  { type: 'defend', shield: 20 },
+  { type: 'charge' },
+  { type: 'rage', multiplier: 2 },
+];
+
+未来 10 个 Boss = 10 个配置对象，executeEnemyTurn(bossConfig, turn, gameState) 一个函数统一执行。
+
+好处：新 Boss = 一个新配置对象，不动执行函数。
+
+预留 #3：存档格式（versioned JSON）— 约30行改动
+
+V13 的 G 对象是平铺的。V14 改成带版本号的结构：
+
+var saveData = {
+  version: 1,
+  run: {
+    playerHP, playerMaxHP, shield, turn, phase,
+  },
+  relics: [],          // 当前持有圣物ID列表
+  boss: 'sphynx',      // 当前BossID
+  deck: { remaining: 240, consumed: 0 },
+  meta: {              // 局外数据（P1之后用）
+    totalRuns: 0, clears: 0, bestCombo: 0,
+    unlockedBosses: [], unlockedRelics: [],
+    skins: [], collection: {},
+  }
+};
+
+好处：以后加排行榜/图鉴/皮肤只需扩展 meta 字段，存档兼容不崩。
+
+
+三、V14 不留的东西
+
+以下不在 V14 做，只在思想上知道以后会有：
+
+- 排行榜表结构 — P2 才需要，到时存 localStorage 或云函数
+- 图鉴 UI 框架 — P2 才做，预留 meta.collection 字段就行
+- 皮肤渲染管道 — P3 才做，预留 meta.skins 字段就行
+- 广告 SDK 抽象层 — P1 才接入，现在写个 showAd(type, callback) 占位函数
+- 多语言框架 — P3 才做，现在文字直接写中文
+
+
+四、预留 vs 未来阶段的覆盖关系
+
+预留                      覆盖哪些未来功能
+结算管道（圣物介入点）     全部12圣物、未来新卡牌效果、局外数值加成
+Boss 行为配置表            10只猫猫、未来赛季Boss、活动地图特殊敌人
+存档 versioned JSON        排行榜、图鉴、皮肤、局外养成、关卡进度
+
+
+五、设计原则
+
+不做 HookManager、不做 IRelic 接口、不做 EventBus。
+1200 行代码的项目不需要企业级框架。
+
+目标是"配置驱动"而非"架构驱动"：
+  配置数据描述"是什么"
+  核心引擎执行"怎么算"
+  不在引擎里写 if-boss-xxx 或 if-relic-xxx
+
+这三样做完，后面加排行榜、图鉴、皮肤、活动地图
+都是在已有结构上扩展字段，不需要大规模修改核心逻辑。
