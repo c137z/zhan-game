@@ -1,0 +1,12 @@
+/* relic select */
+#relic-select-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(4px); }
+#relic-select-overlay.show { display: flex; }
+#relic-select-box { background: #16213e; border-radius: 16px; padding: 18px 22px; text-align: center; max-width: 360px; width: 90%; }
+#relic-select-box h2 { font-size: 18px; margin-bottom: 4px; color: #f1c40f; }
+#relic-select-desc { color: #aaa; font-size: 11px; margin-bottom: 10px; }
+#relic-select-options { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.relic-card { background: #0f3460; border-radius: 10px; padding: 10px 14px; cursor: pointer; flex: 1; min-width: 120px; max-width: 160px; border: 2px solid transparent; transition: border-color 0.15s; }
+.relic-card:hover, .relic-card:active { border-color: #f1c40f; }
+.relic-card .relic-name { font-size: 13px; font-weight: bold; color: #fff; margin-bottom: 3px; }
+.relic-card .relic-type { font-size: 9px; color: #888; margin-bottom: 4px; }
+.relic-card .relic-desc { font-size: 10px; color: #aaa; line-height: 1.3; }
