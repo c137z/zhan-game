@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>斩 v14</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <div id="spirit-bar-wrap">
+    <span class="spirit-label">💥 元气弹</span>
+    <div id="spirit-bar-outer"><div id="spirit-bar-inner"></div></div>
+    <span id="spirit-text">0%</span>
+  </div>
+  <div id="top-row">
+    <div class="player-box">
+      <div class="avatar">🦸</div>
+      <div class="entity-name">勇 者</div>
+      <div class="stat-row">
+        <span class="stat-item stat-hp"><span>❤️</span><span class="val" id="player-hp">100</span></span>
+        <span class="stat-item stat-shield"><span>🛡️</span><span class="val" id="player-shield">0</span></span>
+      </div>
+      <div class="badge-row" id="player-badges"></div>
+    </div>
+    <div class="enemy-box">
+      <div class="avatar enemy-avatar" id="enemy-avatar">💀</div>
+      <div class="entity-name" id="enemy-name">骷 髅</div>
+      <div class="stat-row">
+        <span class="stat-item stat-hp"><span>❤️</span><span class="val" id="enemy-hp">100</span></span>
+        <span class="stat-item stat-shield"><span>🛡️</span><span class="val" id="enemy-shield">20</span></span>
+        <span class="stat-item stat-power"><span>⚡</span><span class="val" id="enemy-power">0</span></span>
+      </div>
+      <div class="badge-row" id="enemy-badges"></div>
+      <div id="enemy-intent">⚔️ 准备攻击</div>
+    </div>
+  </div>
+  <div id="deck-info">
+    <span>🃏 <span id="deck-remain">250</span> 张</span>
+    <span>🔒 <span id="hidden-cards">0</span> 暗牌</span>
+    <span>🔍 <span id="visible-cards">0</span> 可见</span>
+  </div>
+  <div id="board"></div>
+  <div id="combo-bar"></div>
+  <div id="slot-bar"></div>
+  <div id="actions">
+    <button id="btn-end-turn" disabled>结束回合</button>
+    <button id="btn-reset">重置</button>
+  </div>
+  <div id="log"></div>
+</div>
+<div id="result-overlay">
+  <div id="result-box">
+    <h2 id="result-title">⚔️</h2>
+    <p id="result-desc"></p>
+    <button id="btn-restart">再来一局</button>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="core.js"></script>
+<script src="ui.js"></script>
+<script>
+// 启动：默认骷髅怪
+G.bossId = 'skeleton';
+newGame();
+</script>
+</body>
+</html>
