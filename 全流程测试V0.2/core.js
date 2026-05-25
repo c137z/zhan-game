@@ -662,6 +662,17 @@ function updateEnemyIntent() {
     case 'double_attack':document.getElementById('enemy-intent').innerHTML = '💥 双重攻击 ' + (atk*2); break;
     default:             document.getElementById('enemy-intent').innerHTML = '❓'; break;
   }
+
+  // 舔毛/哈气预告
+  var extra = [];
+  if (G.turn > 0 && G.turn % 4 === 0) extra.push('🐱舔毛');
+  // 哈气预告：检查下一次攻击是否跨100血阈值
+  if (G.boss.maxHP >= 300 && Math.floor((G.enemyHP - 1) / 100) < Math.floor(G.enemyHP / 100) && G.enemyHP > 0) {
+    extra.push('💨哈气预告');
+  }
+  if (extra.length) {
+    document.getElementById('enemy-intent').innerHTML += ' <span style="font-size:9px;color:#f39c12;">' + extra.join(' ') + '</span>';
+  }
 }
 
 // ========== 三关流程 & 圣物选择 ==========
