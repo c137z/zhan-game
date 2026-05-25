@@ -591,27 +591,23 @@ function endGame(win, msg) {
   render();
   document.getElementById('btn-end-turn').disabled = true;
 
+  var overlay = document.getElementById('result-overlay');
   if (win) {
     G.currentStage = (G.currentStage || 1) + 1;
 
     if (G.currentStage === 2) {
-      // 第一关（逗猫棒）通过 → 直接进第二关
       startNextStage();
       return;
     }
     if (G.currentStage === 3) {
-      // 第二关（骷髅）通过 → 选圣物
       showRelicSelect();
       return;
     }
-    // 第三关（猫猫Boss）通过 → 通关！
-    var overlay = document.getElementById('result-overlay');
     overlay.classList.add('show');
     document.getElementById('result-title').textContent = '🎉 通关！';
     document.getElementById('result-desc').textContent = msg + '（存活' + G.turn + '回合）';
     log('🎉通关！' + msg);
   } else {
-    var overlay = document.getElementById('result-overlay');
     overlay.classList.add('show');
     document.getElementById('result-title').textContent = '💀 败北';
     document.getElementById('result-desc').textContent = msg + '（存活' + G.turn + '回合）';
