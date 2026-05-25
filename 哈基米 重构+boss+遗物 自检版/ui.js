@@ -102,7 +102,23 @@ function renderBoard() {
         inner.appendChild(icon);
         inner.appendChild(label);
         div.appendChild(inner);
-        if (pile.length > 1) {
+
+        // 先知圣物：额外显示一行（下层牌信息）
+        if (G.extraVisible && pile.length > 1) {
+          var subCard = pile[pile.length-2];
+          var sct = CARD_TYPES[subCard.type] || { emoji: '⬜', label: '废牌', cssClass: 'card-junk' };
+          var subInner = document.createElement('div');
+          subInner.className = 'card ' + sct.cssClass;
+          subInner.style.cssText = 'position:absolute;bottom:0;left:0;width:100%;height:40%;font-size:10px;opacity:0.6;border-radius:0 0 4px 4px;';
+          var subIcon = document.createElement('span');
+          subIcon.className = 'card-icon';
+          subIcon.style.cssText = 'font-size:11px;';
+          subIcon.textContent = sct.emoji;
+          subInner.appendChild(subIcon);
+          div.appendChild(subInner);
+        }
+
+        if (pile.length > (G.extraVisible ? 2 : 1)) {
           var sc = document.createElement('div');
           sc.className = 'stack-count';
           sc.textContent = pile.length;

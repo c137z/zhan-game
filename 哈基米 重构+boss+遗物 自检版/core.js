@@ -484,7 +484,15 @@ function enemyTurn() {
 
   // 执行 Boss 行动循环
   var t = G.turn;
-  var cycle = G.boss.cycle[t % G.boss.cycle.length];
+  // 8+回合 → 4回快速循环（攻/防/蓄/怒）
+  var fastCycle = [
+    { type: 'attack' },
+    { type: 'defend' },
+    { type: 'charge' },
+    { type: 'rage' },
+  ];
+  var useCycle = t >= 7 ? fastCycle : G.boss.cycle;
+  var cycle = useCycle[t >= 7 ? (t - 7) % fastCycle.length : t % G.boss.cycle.length];
   var rawAtk = G.boss.baseAtk + G.enemyPower;
 
   // 降攻效果
@@ -625,7 +633,9 @@ function updateEnemyIntent() {
     return;
   }
   var t = G.turn;
-  var cycle = G.boss.cycle[t % G.boss.cycle.length];
+  var fastCycle = [{ type: 'attack' },{ type: 'defend' },{ type: 'charge' },{ type: 'rage' }];
+  var useCycle = t >= 7 ? fastCycle : G.boss.cycle;
+  var cycle = useCycle[t >= 7 ? (t - 7) % fastCycle.length : t % G.boss.cycle.length];
   var atk = G.boss.baseAtk + G.enemyPower;
   var shieldVal = 40 + Math.floor(G.enemyPower / 2) * 2;
   switch (cycle.type) {
