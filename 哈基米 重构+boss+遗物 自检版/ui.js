@@ -61,6 +61,7 @@ function render() {
   document.getElementById('visible-cards').textContent = visibleCount;
 
   renderBoard();
+  renderProphetRow();
   renderSlot();
 
   var btn = document.getElementById('btn-end-turn');
@@ -103,22 +104,7 @@ function renderBoard() {
         inner.appendChild(label);
         div.appendChild(inner);
 
-        // 先知圣物：额外显示一行（下层牌信息）
-        if (G.extraVisible && pile.length > 1) {
-          var subCard = pile[pile.length-2];
-          var sct = CARD_TYPES[subCard.type] || { emoji: '⬜', label: '废牌', cssClass: 'card-junk' };
-          var subInner = document.createElement('div');
-          subInner.className = 'card ' + sct.cssClass;
-          subInner.style.cssText = 'position:absolute;bottom:0;left:0;width:100%;height:40%;font-size:10px;opacity:0.6;border-radius:0 0 4px 4px;';
-          var subIcon = document.createElement('span');
-          subIcon.className = 'card-icon';
-          subIcon.style.cssText = 'font-size:11px;';
-          subIcon.textContent = sct.emoji;
-          subInner.appendChild(subIcon);
-          div.appendChild(subInner);
-        }
-
-        if (pile.length > (G.extraVisible ? 2 : 1)) {
+        if (pile.length > 1) {
           var sc = document.createElement('div');
           sc.className = 'stack-count';
           sc.textContent = pile.length;
@@ -150,6 +136,32 @@ function renderBoard() {
         board.appendChild(div);
       })(r, c);
     }
+  }
+}
+
+// ========== 先知预览条 ==========
+function renderProphetRow() {
+  var row = document.getElementById('prophet-row');
+  if (!G.extraVisible) { row.style.display = 'none'; return; }
+  row.style.display = 'flex';
+  row.innerHTML = '';
+  var flatPiles = G.piles.flat();
+  for (var i = 0; i < flatPiles.length; i++) {
+    var pile = flatPiles[i];
+    var chip = document.createElement('div');
+    chip.className = 'prophet-chip';
+    if (pile.length > 1) {
+      var subCard = pile[pile.length-2];
+      var sct = CARD_TYPES[subCard.type] || { emoji: '⬜', color: '#555' };
+      chip.textContent = sct.emoji;
+    } else if (pile.length === 1) {
+      chip.textContent = '·';
+      chip.style.opacity = '0.3';
+    } else {
+      chip.textContent = '';
+      chip.style.opacity = '0.1';
+    }
+    row.appendChild(chip);
   }
 }
 

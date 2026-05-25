@@ -139,3 +139,25 @@ body {
   .card-slot .stack-count { font-size: 8px; }
   .badge { font-size: 7px; }
 }
+
+/* prophet row */
+.prophet-row {
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+  background: #16213e;
+  border-radius: 0 0 10px 10px;
+  padding: 2px 4px 4px;
+  margin-top: -2px;
+  min-height: 22px;
+}
+.prophet-row .prophet-chip {
+  flex: 1;
+  max-width: calc(20% - 3px);
+  background: #0f3460;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 12px;
+  padding: 1px 0;
+  opacity: 0.7;
+}
