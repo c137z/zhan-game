@@ -1,8 +1,8 @@
 # CLAUDE.md — Claude Code 项目规则（斩）
 
 > 本文档定义了 Claude Code 在「斩」项目中的行为边界和协作规范。
-> 注意：Claude Code 在斩项目中是**外部工程执行者**，不是主开发工具。
-> 主开发工具为 OpenClaw + DeepSeek V4 Pro（详见 context/操作手册.md）。
+> Claude Code 是斩项目的**主力工程执行者**（T2 级系统修改）。
+> 哈基米（OpenClaw）为调度层 + T0/T1 轻量执行。
 
 ---
 
