@@ -54,7 +54,6 @@ projects/zhan/
 - `core.js` 中的 `applyRelicModifiers()` 圣物修正器入口
 - `data.js` 中的 `BOSS_CYCLE_TEMPLATE` 结构
 - `data.js` 中的 `CONFIG` 顶层常量定义
-- Save/load 逻辑（如果存在）
 
 **判断标准**：如果需要改上述任何东西，必须先通过 Spec 流程（见第五章）。
 
@@ -127,10 +126,12 @@ Spec: context/斩.md v2.5 §三
 ## 六、与调度者的协作
 
 - 调度者为**哈基米**（OpenClaw AI Agent）
+- **老大只和哈基米对话**，Claude Code 不直接对接老大
 - Claude Code 收到任务后，先判断是否需要 Spec（参考第四章）
 - 如果需要 Spec 但未提供，应询问而非自行脑补
 - 执行完成后，告知哈基米改动范围，由哈基米负责 commit / changelog / 飞书同步
-- **交叉审阅**：哈基米改完的代码，会发给你审阅。检查语法错误、引用一致性、文件冲突并反馈意见。审阅不通过会打回重改
+- **哈基米对最终结果负全责**，Claude Code 是执行层，哈基米是问责层
+- **交叉审阅**：哈基米改完的代码，会发给 Claude Code 审阅（检查语法错误、引用一致性、文件冲突）。审阅不通过会打回重改
 
 ---
 
