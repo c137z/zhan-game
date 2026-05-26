@@ -227,28 +227,6 @@ function updateComboPreview() {
   el.innerHTML = previewParts.length ? previewParts.join(' ') : '<span class="combo-none">⚪ 未形成连击</span>';
 }
 
-// ========== 结算面板 ==========
-function renderStatsPanel(G) {
-  var panel = document.getElementById('stats-panel');
-  if (!panel) return;
-
-  var relicNames = G.activeRelicNames || [];
-  var relicsHtml = '';
-  if (relicNames.length) {
-    relicsHtml = '<div class="stat-row-item"><span class="stat-label">🏆 圣物</span><span class="stat-value">' + relicNames.join(', ') + '</span></div>';
-  }
-
-  panel.innerHTML =
-    '<div class="stats-card">' +
-      '<div class="stat-row-item"><span class="stat-label">⏱ 存活回合</span><span class="stat-value">' + (G.turn + 1) + '</span></div>' +
-      '<div class="stat-row-item"><span class="stat-label">❤️ 剩余HP</span><span class="stat-value">' + G.playerHP + ' / ' + G.playerMaxHP + '</span></div>' +
-      '<div class="stat-row-item"><span class="stat-label">💥 最高单次伤害</span><span class="stat-value">' + G.maxDamage + '</span></div>' +
-      '<div class="stat-row-item"><span class="stat-label">🔥 最高连击</span><span class="stat-value">' + G.maxCombo + ' 连</span></div>' +
-      '<div class="stat-row-item"><span class="stat-label">⚔️ 总伤害输出</span><span class="stat-value">' + G.totalDamage + '</span></div>' +
-      relicsHtml +
-    '</div>';
-}
-
 // ========== 事件绑定 ==========
 document.getElementById('btn-end-turn').addEventListener('click', function() {
   if (G.phase !== 'player' || G.over || G.slot.length === 0) return;

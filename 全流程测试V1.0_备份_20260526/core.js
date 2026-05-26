@@ -99,10 +99,6 @@ function newGame() {
     hideIntent: false,
     playerSkipped: false,
     currentStage: stage,
-    maxCombo: 0,
-    maxDamage: 0,
-    totalDamage: 0,
-    activeRelicNames: relics.map(function(r) { return (RELICS[r] && RELICS[r].name) || r; }),
   };
 
   // 初始化圣物
@@ -331,11 +327,6 @@ function executeTurn() {
 
   var combos = computeCombos(G.slot);
 
-  // 追踪最大连击数
-  for (var _ci = 0; _ci < combos.length; _ci++) {
-    if (combos[_ci].n > G.maxCombo) G.maxCombo = combos[_ci].n;
-  }
-
   // --- Phase 1: Buff/Debuff ---
   log('  ✨ 缓冲结算...');
   for (var ci = 0; ci < combos.length; ci++) {
@@ -402,9 +393,6 @@ function executeTurn() {
       // 读取 buff 层数（像V13一样直接从 playerEffects / enemyEffects 判断）
       if ((G.playerEffects.atk_buff || 0) > 0) d = Math.ceil(d * (G.atkBuffMult || CONFIG.ATK_BUFF_MULT));
       if ((G.enemyEffects.vulnerable || 0) > 0) d = Math.ceil(d * (G.vulnMult || CONFIG.VULN_MULT));
-      // 追踪伤害统计
-      if (d > G.maxDamage) G.maxDamage = d;
-      G.totalDamage += d;
       var pursuitLog = '';
       if (atkMaxLen >= 4) pursuitLog = ' ' + atkMaxLen + '连×' + calcPursuitMultiplier(atkMaxLen).toFixed(1);
       if (G.enemyShield > 0) { var ab = Math.min(G.enemyShield, d); G.enemyShield -= ab; d -= ab; }
@@ -677,7 +665,6 @@ function endGame(win, msg) {
     if (G.currentStage === 3) {
       // 第二关（猫猫Boss）通过 → 通关！
       overlay.classList.add('show');
-      renderStatsPanel(G);
       document.getElementById('result-title').textContent = '🎉 通关！';
       document.getElementById('result-desc').textContent = msg + '（存活' + G.turn + '回合）';
       // 显示两个按钮
@@ -693,7 +680,6 @@ function endGame(win, msg) {
       var allDefeated = allCatIds.every(function(id) { return ENDLESS_DEFEATED[id]; });
       if (allDefeated) {
         overlay.classList.add('show');
-        renderStatsPanel(G);
         document.getElementById('result-title').textContent = '🏆 全猫征服！';
         document.getElementById('result-desc').textContent = '所有猫猫Boss已被击败！（存活' + G.turn + '回合）';
         log('🏆 全猫征服！所有猫猫Boss已被击败！');
@@ -707,7 +693,6 @@ function endGame(win, msg) {
     }
   } else {
     overlay.classList.add('show');
-    renderStatsPanel(G);
     document.getElementById('result-title').textContent = '💀 败北';
     document.getElementById('result-desc').textContent = msg + '（存活' + G.turn + '回合）';
     btnEndless.style.display = 'none';

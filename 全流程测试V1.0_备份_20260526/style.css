@@ -128,34 +128,6 @@ body {
 #result-box button { padding: 8px 30px; border: none; border-radius: 8px; background: #e67e22; color: #fff; font-size: 14px; font-weight: bold; cursor: pointer; }
 #result-box button:active { transform: scale(0.96); }
 
-/* stats panel */
-#stats-panel { margin: 6px 0 10px 0; }
-.stats-card {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 10px;
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  animation: statsSlideUp 0.4s ease-out;
-}
-@keyframes statsSlideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.stat-row-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  padding: 3px 4px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-.stat-row-item:last-child { border-bottom: none; }
-.stat-label { color: #888; white-space: nowrap; }
-.stat-value { color: #f1c40f; font-weight: bold; text-align: right; word-break: break-all; }
-
 @media (max-width: 380px) {
   #app { padding: 3px; gap: 3px; }
   .card-slot .card .card-icon { font-size: 14px; }
