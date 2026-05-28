@@ -39,8 +39,9 @@ function calcBaseValue(totalCount) {
 }
 
 function calcPursuitMultiplier(maxComboLen) {
-  if (maxComboLen < 4) return 1;
-  return 1 + (maxComboLen - 3) * 0.1;
+  var minCombo = G.effectiveMinCombo || CONFIG.MIN_COMBO;
+  if (maxComboLen < minCombo + 1) return 1;
+  return 1 + (maxComboLen - minCombo) * 0.1;
 }
 
 function calcAttackValue(totalCount, maxComboLen, G) {
@@ -515,7 +516,8 @@ function executeTurn() {
       if (d > G.maxDamage) G.maxDamage = d;
       G.totalDamage += d;
       var pursuitLog = '';
-      if (atkMaxLen >= 4) pursuitLog = ' ' + atkMaxLen + '连×' + calcPursuitMultiplier(atkMaxLen).toFixed(1);
+      var _pml = G.effectiveMinCombo || CONFIG.MIN_COMBO;
+      if (atkMaxLen >= _pml + 1) pursuitLog = ' ' + atkMaxLen + '连×' + calcPursuitMultiplier(atkMaxLen).toFixed(1);
       if (G.enemyShield > 0) { var ab = Math.min(G.enemyShield, d); G.enemyShield -= ab; d -= ab; }
       G.enemyHP = Math.max(0, G.enemyHP - d);
       log('🗡×' + atkTotal + '→' + baseAtk + pursuitLog + '→总' + d + ' → ' + G.boss.emoji + G.enemyHP + '🛡' + G.enemyShield);
@@ -530,7 +532,8 @@ function executeTurn() {
     var shieldVal = calcDefendValue(defTotal, defMaxLen, G);
     if (shieldVal > 0) {
       var pursuitLog = '';
-      if (defMaxLen >= 4) pursuitLog = ' ' + defMaxLen + '连×' + calcPursuitMultiplier(defMaxLen).toFixed(1);
+      var _pml = G.effectiveMinCombo || CONFIG.MIN_COMBO;
+      if (defMaxLen >= _pml + 1) pursuitLog = ' ' + defMaxLen + '连×' + calcPursuitMultiplier(defMaxLen).toFixed(1);
       G.playerShield += shieldVal;
       log('🛡×' + defTotal + '→' + baseDef + pursuitLog + '→总' + shieldVal + ' 🛡' + G.playerShield);
     }
@@ -544,7 +547,8 @@ function executeTurn() {
     var healVal = calcHealValue(healTotal, healMaxLen, G);
     if (healVal > 0) {
       var pursuitLog = '';
-      if (healMaxLen >= 4) pursuitLog = ' ' + healMaxLen + '连×' + calcPursuitMultiplier(healMaxLen).toFixed(1);
+      var _pml = G.effectiveMinCombo || CONFIG.MIN_COMBO;
+      if (healMaxLen >= _pml + 1) pursuitLog = ' ' + healMaxLen + '连×' + calcPursuitMultiplier(healMaxLen).toFixed(1);
       G.playerHP = Math.min(G.playerMaxHP, G.playerHP + healVal);
       log('❤×' + healTotal + '→' + baseHeal + pursuitLog + '→总' + healVal + ' ❤' + G.playerHP);
     }
