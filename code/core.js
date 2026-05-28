@@ -597,14 +597,8 @@ function executeTurn() {
 
   // --- Phase 3: Buff层数衰减 ---
   if ((G.playerEffects.atk_buff || 0) > 0) G.playerEffects.atk_buff--;
-  // 减攻衰减：先衰减旧值，再叠加新值（Phase 1 已处理叠加）
-  if ((G.enemyEffects.atk_down || 0) > 0) {
-    G.enemyEffects.atk_down--;
-    if (G.enemyEffects.atk_down <= 0) {
-      G.enemyEffects.atk_down = 0;
-      G.enemyEffects.atk_down_pct = 0;
-    }
-  }
+  // atk_down 衰减已移至 enemyTurn 末尾（保证先衰减再叠加：
+  //   敌回合结束衰减 → 下回合 Phase 1 叠新的 atk_down）
 
   // 检查胜负/元气弹
   if (G.enemyHP <= 0) { endGame(true, G.boss.emoji + ' 击败！'); return; }
@@ -785,10 +779,14 @@ function enemyTurn() {
     }
   }
 
-  // 衰减敌方效果 + 玩家def_buff（atk_down 已移至 executeTurn Phase 3）
+  // 衰减敌方效果 + 玩家def_buff
   for (var k in G.enemyEffects) {
-    if (k === 'atk_down' || k === 'atk_down_pct') continue;
     if (G.enemyEffects[k] > 0) G.enemyEffects[k]--;
+  }
+  // atk_down 衰减后清理 pct（atk_down=0 时清除降攻百分比）
+  if ((G.enemyEffects.atk_down || 0) <= 0) {
+    G.enemyEffects.atk_down = 0;
+    G.enemyEffects.atk_down_pct = 0;
   }
   if ((G.playerEffects.def_buff || 0) > 0) G.playerEffects.def_buff--;
   if ((G.playerEffects.divine || 0) > 0) G.playerEffects.divine--; // 免伤衰减
