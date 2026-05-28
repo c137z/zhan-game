@@ -341,8 +341,10 @@ function computeCombos(slot) {
 
 // T1: COMBO_DURATION_UNCAP — 每多1连+1T, 无上限
 // 3连=1T, 4连=2T, 10连=8T
+// minCombo-aware: duration = max(1, n - minCombo + 1)
 function getComboDuration(n) {
-  return Math.max(1, n - 2);
+  var minCombo = G.effectiveMinCombo || CONFIG.MIN_COMBO;
+  return Math.max(1, n - minCombo + 1);
 }
 
 // T1: getStunDuration 统一使用 getComboDuration
