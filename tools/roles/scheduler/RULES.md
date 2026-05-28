@@ -105,6 +105,35 @@ pwsh -ExecutionPolicy Bypass -File tools/backup_project.ps1 -Reason "before_<tas
 ```
 备份完成确认后再发 Writer。
 
+## STALL PROTOCOL（停摆协议）
+
+出现以下任一情况时，Scheduler 必须立即停摆：
+- Writer 超时无响应
+- Verifier 未全部返回（发射 N 个，收到 < N 个）
+- diff 无法确认改了什么
+- task 状态不明确
+- 文件修改来源不明确
+- verdict report 缺失
+- build 未完成
+
+停摆时 Scheduler 必须：
+1. 停止推进流程，不做任何下一步操作
+2. 标记状态为 STALLED
+3. 向老大汇报：哪个环节卡住了、当前已知什么、不知道什么
+4. 等待老大指令
+
+停摆期间绝对禁止：
+- commit
+- merge
+- build release
+- 宣布 PASS
+- 推断 Writer 已完成
+- 通过文件时间戳推断代码已改
+- 通过 token 输出长度推断任务完成
+- 通过"感觉差不多"推断状态
+- 通过单个 verifier 返回推断全绿
+- 未经指令重新发射 Writer 或 Verifier
+
 ## 唯一允许的越权
 
 如果在连续 3 轮 Writer → Verifier → FAIL 循环后仍未修复：

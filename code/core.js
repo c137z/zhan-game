@@ -172,6 +172,15 @@ function newGame() {
   }
 
   buildDeck();
+  // 美短虎斑 hide_intent：必须在首次 render() 前设置，避免第一回合意图泄漏
+  if (boss.traits) {
+    for (var _bi = 0; _bi < boss.traits.length; _bi++) {
+      if (boss.traits[_bi].id === 'hide_intent') {
+        G.hideIntent = true;
+        break;
+      }
+    }
+  }
   // 救命毫毛：特殊卡插入
   if (G.specialCards) {
     for (var sc = 0; sc < G.specialCards.length; sc++) {
@@ -509,7 +518,7 @@ function executeTurn() {
       if (atkMaxLen >= 4) pursuitLog = ' ' + atkMaxLen + '连×' + calcPursuitMultiplier(atkMaxLen).toFixed(1);
       if (G.enemyShield > 0) { var ab = Math.min(G.enemyShield, d); G.enemyShield -= ab; d -= ab; }
       G.enemyHP = Math.max(0, G.enemyHP - d);
-      log('🗡×' + atkTotal + '→' + baseAtk + pursuitLog + '→总' + d + ' → 🧶' + G.enemyHP + '🛡' + G.enemyShield);
+      log('🗡×' + atkTotal + '→' + baseAtk + pursuitLog + '→总' + d + ' → ' + G.boss.emoji + G.enemyHP + '🛡' + G.enemyShield);
     }
   }
 
@@ -551,7 +560,7 @@ function executeTurn() {
       G.enemyHP = Math.max(0, G.enemyHP - spDmg);
       if (spDmg > G.maxDamage) G.maxDamage = spDmg;
       G.totalDamage += spDmg;
-      log('🙈 特攻！→' + (sc.special.dmg || 0) + ' → 🧶' + G.enemyHP + '🛡' + G.enemyShield);
+      log('🙈 特攻！→' + (sc.special.dmg || 0) + ' → ' + G.boss.emoji + G.enemyHP + '🛡' + G.enemyShield);
     } else if (sc.type === 'special_def') {
       G.playerShield += (sc.special.shield || 0);
       log('🙉 特防！+🛡' + (sc.special.shield || 0) + ' 🛡' + G.playerShield);
@@ -588,9 +597,17 @@ function executeTurn() {
 
   // --- Phase 3: Buff层数衰减 ---
   if ((G.playerEffects.atk_buff || 0) > 0) G.playerEffects.atk_buff--;
+  // 减攻衰减：先衰减旧值，再叠加新值（Phase 1 已处理叠加）
+  if ((G.enemyEffects.atk_down || 0) > 0) {
+    G.enemyEffects.atk_down--;
+    if (G.enemyEffects.atk_down <= 0) {
+      G.enemyEffects.atk_down = 0;
+      G.enemyEffects.atk_down_pct = 0;
+    }
+  }
 
   // 检查胜负/元气弹
-  if (G.enemyHP <= 0) { endGame(true, '🧶 击败！'); return; }
+  if (G.enemyHP <= 0) { endGame(true, G.boss.emoji + ' 击败！'); return; }
   if (G.playerHP <= 0) { endGame(false, '勇者倒下了...'); return; }
   var totalRemaining = 0;
   var fp = flatten(G.piles);
@@ -612,7 +629,7 @@ function executeTurn() {
     G._maineCoonFirst = false;
     G.phase = 'player';
     log('⏭ 回合' + (G.turn+1) + '开始');
-    log('🧶HP:' + G.enemyHP + '🛡' + G.enemyShield + '⚡' + G.enemyPower);
+    log(G.boss.emoji + 'HP:' + G.enemyHP + '🛡' + G.enemyShield + '⚡' + G.enemyPower);
     render();
     updateEnemyIntent();
     document.getElementById('btn-end-turn').disabled = false;
@@ -653,7 +670,7 @@ function applyDamageToPlayer(dmg, rawAtk, label) {
 
 // ========== 敌人回合 ==========
 function enemyTurn() {
-  log('🧶 ' + G.boss.name + '行动');
+  log(G.boss.emoji + ' ' + G.boss.name + '行动');
   G.enemyShield = 0;
 
   // T2: BOSS_TURN_REORDER — 哈气→舔毛→眩晕检查→行动
@@ -725,21 +742,21 @@ function enemyTurn() {
   switch (cycle.type) {
     case 'attack':
       var d = rawAtk;
-      applyDamageToPlayer(d, rawAtk, '🧶攻击');
+      applyDamageToPlayer(d, rawAtk, G.boss.emoji + '攻击');
       break;
 
     case 'defend':
       G.enemyShield += (cycle.shield || shieldVal);
-      log('🧶防御+' + (cycle.shield || shieldVal) + ' 🛡' + G.enemyShield);
+      log(G.boss.emoji + '防御+' + (cycle.shield || shieldVal) + ' 🛡' + G.enemyShield);
       break;
 
     case 'buff_power':
       G.enemyPower += 2;
-      log('🧶蓄力+2 ⚡' + G.enemyPower);
+      log(G.boss.emoji + '蓄力+2 ⚡' + G.enemyPower);
       break;
 
     case 'charge':
-      log('🧶 蓄力中……');
+      log(G.boss.emoji + ' 蓄力中……');
       break;
 
     case 'rage':
@@ -755,7 +772,7 @@ function enemyTurn() {
       break;
 
     default:
-      log('🧶 ' + G.boss.name + ' 未定义行动');
+      log(G.boss.emoji + ' ' + G.boss.name + ' 未定义行动');
   }
 
   if (G.playerHP <= 0) { endGame(false, '勇者倒下了...'); return; }
@@ -768,10 +785,10 @@ function enemyTurn() {
     }
   }
 
-  // 衰减敌方效果 + 玩家def_buff
+  // 衰减敌方效果 + 玩家def_buff（atk_down 已移至 executeTurn Phase 3）
   for (var k in G.enemyEffects) {
+    if (k === 'atk_down' || k === 'atk_down_pct') continue;
     if (G.enemyEffects[k] > 0) G.enemyEffects[k]--;
-    if (G.enemyEffects[k] === 0 && k === 'atk_down') G.enemyEffects.atk_down_pct = 0;
   }
   if ((G.playerEffects.def_buff || 0) > 0) G.playerEffects.def_buff--;
   if ((G.playerEffects.divine || 0) > 0) G.playerEffects.divine--; // 免伤衰减
@@ -791,7 +808,7 @@ function enemyTurn() {
   G.phase = 'player';
   // 缅因猫：下一回合Boss也先手（在executeTurn开头处理）
   log('⏭ 回合' + (G.turn+1) + '开始');
-  log('🧶HP:' + G.enemyHP + '🛡' + G.enemyShield + '⚡' + G.enemyPower);
+  log(G.boss.emoji + 'HP:' + G.enemyHP + '🛡' + G.enemyShield + '⚡' + G.enemyPower);
   render();
   updateEnemyIntent();
   document.getElementById('btn-end-turn').disabled = false;
@@ -856,11 +873,11 @@ function endGame(win, msg) {
   } else {
     overlay.classList.add('show');
     renderStatsPanel(G);
-    document.getElementById('result-title').textContent = '🧶 败北';
+    document.getElementById('result-title').textContent = G.boss.emoji + ' 败北';
     document.getElementById('result-desc').textContent = msg + '（存活' + G.turn + '回合）';
     btnEndless.style.display = 'none';
     document.getElementById('btn-restart').textContent = '🔄 再来一局';
-    log('🧶败北 ' + msg);
+    log(G.boss.emoji + '败北 ' + msg);
   }
 }
 

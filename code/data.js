@@ -101,15 +101,17 @@ var HISS_TRIGGER = {
   id: 'hiss',
   condition: function(G) {
     if (G.hissPrevHP === undefined) G.hissPrevHP = G.enemyMaxHP;
-    var triggered = false;
-    // 检查是否跨越了 100 血阈值
-    var prevThreshold = Math.floor(G.hissPrevHP / 100);
-    var curThreshold = Math.floor(G.enemyHP / 100);
-    if (curThreshold < prevThreshold && G.enemyHP > 0) {
-      triggered = true;
+    // 固定阈值点：200 HP 和 100 HP
+    var thresholds = [200, 100];
+    for (var i = 0; i < thresholds.length; i++) {
+      // 当前 HP 已跌破阈值，且之前未跌破（触发过一次）
+      if (G.enemyHP < thresholds[i] && G.hissPrevHP >= thresholds[i]) {
+        G.hissPrevHP = G.enemyHP;
+        return true;
+      }
     }
     G.hissPrevHP = G.enemyHP;
-    return triggered;
+    return false;
   },
   execute: function(G) {
     // 清空全场 Buff/Debuff
