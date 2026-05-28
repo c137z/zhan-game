@@ -757,12 +757,12 @@ function enemyTurn() {
       if (cycle.powerBoost) G.enemyPower += cycle.powerBoost;
       var rageMult = cycle.multiplier || 2;
       var rageDmg = rawAtk * rageMult;
-      applyDamageToPlayer(rageDmg, rawAtk * rageMult, '💥怒击×' + rageMult + (cycle.powerBoost ? ' +⚡' + cycle.powerBoost : '') + '=');
+      applyDamageToPlayer(rageDmg, rawAtk * rageMult, G.boss.emoji + '怒击×' + rageMult + (cycle.powerBoost ? ' +⚡' + cycle.powerBoost : '') + '=');
       break;
 
     case 'double_attack':
       var d2 = rawAtk * 2;
-      applyDamageToPlayer(d2, rawAtk * 2, '💥双重攻击');
+      applyDamageToPlayer(d2, rawAtk * 2, G.boss.emoji + '双重攻击');
       break;
 
     default:
