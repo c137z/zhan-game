@@ -355,6 +355,7 @@ function getStunDuration(n) {
 function getEffectDescription(type, n) {
   var dur = getComboDuration(n);
   var minCombo = G.effectiveMinCombo || CONFIG.MIN_COMBO;
+  dur += G.buffDurationBonus || 0;
   // TASK: FURY_DYNAMIC — 预览显示 fury 翻倍后的 dur，与 runtime/badge 一致
   if (G.furyEnabled && RELICS.fury_core) dur = Math.ceil(dur * RELICS.fury_core.getMultiplier(G));
   // TASK: FURY_DYNAMIC — 实时刷新 effective 值，预览显示随血量变化的倍率
