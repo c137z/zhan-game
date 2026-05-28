@@ -1,164 +1,215 @@
-# Verdict: bug_hiss_endless
+# Verdict: bug_hiss_endless — 哈气阈值 + 无尽去重
 
-> 验证日期：2026-05-28
-> 验证人：Verifier（subagent）
-> 来源 expected：`tools/tasks/expected_bug_hiss_endless.md`
-> 来源代码：`code/data.js` `code/core.js`
-
----
-
-## 1. INPUT CASE
-
-来源：`expected_bug_hiss_endless.md` § INPUT CASE + EXPECTED VALUE
-
-Case 1:
-- 条件: boss maxHP=300，HP 从 250 攻击至 190
-- 预期: 触发哈气（跨越 200 阈值点）
-
-Case 2:
-- 条件: boss HP 从 150 攻击至 90
-- 预期: 触发哈气（跨越 100 阈值点）
-
-Case 3:
-- 条件: boss HP 从 280 攻击至 210（仍在 200-300 范围）
-- 预期: 不触发哈气
-
-Case 4:
-- 条件: 已击败 tabby/siamese，当前 startEndlessNextCat
-- 预期: 随机出来的 boss 既不是 tabby，也不是 siamese
+Contract version: a038d75
+Date: 2026-05-28
+Role: Verifier (verify-only, no code changes)
 
 ---
 
-## 2. EXPECTED VALUE
+## Checklist Verification
 
-来源：`expected_bug_hiss_endless.md` § VERIFICATION CHECKLIST + INPUT CASE
+### 1. HISS_TRIGGER 使用固定阈值 [200, 100]，不再 per-100-HP 检验
+**Verdict: ✅ PASS**
 
-Case 1:
-- 哈气触发: 是（跨越 200 阈值）
-
-Case 2:
-- 哈气触发: 是（跨越 100 阈值）
-
-Case 3:
-- 哈气触发: 否（未跨越任何阈值）
-
-Case 4:
-- 随机 Boss: 不含 tabby, 不含 siamese
-
-CHECKLIST 逐项：
-1. 猫猫Boss HP 从 300 到 200-299 区间不触发哈气 → 预期不触发
-2. 猫猫Boss HP 跌破 200 阈值触发哈气 → 预期触发
-3. 猫猫Boss HP 跌破 100 阈值触发哈气 → 预期触发
-4. 一次攻击跨越两级阈值（300→199）至少触发一次哈气 → 预期至少触发一次
-5. 哈气仍然清空全场 buff/debuff → 预期清空
-6. 无尽模式从未击败的池中随机选 Boss（不包含已击败）→ 预期不含已击败
-7. 所有猫猫全部击败 → 显示全猫征服 → 预期显示
-8. no side-effect on mechanics
-9. no UI mismatch
-10. no runtime mismatch
-
----
-
-## 3. ACTUAL VALUE
-
-来源见每个字段标注。
-
-### Case 1: HP 250→190
-
-- 哈气触发: **是**（来源：`data.js` 第 67-82 行，HISS_TRIGGER.condition）
-
-推演路径：
-- `G.hissPrevHP` 初始 = 300（boss.maxHP），攻击前经上一轮已更新为 250
-- 条件判定: `hissPrevHP=250 > threshold=200 && enemyHP=190 <= 200` → `true`
-- `hissPrevHP` 更新为 190，返回 `true`
-
-触发后执行 `HISS_TRIGGER.execute`（来源：`data.js` 第 84-89 行）：
-- `G.playerEffects = {}; G.enemyEffects = {};`
-- 输出日志 "🐱 哈气！！全场 Buff/Debuff 清空！"
-
-### Case 2: HP 150→90
-
-- 哈气触发: **是**（来源：`data.js` 第 67-82 行，HISS_TRIGGER.condition）
-
-推演路径：
-- `hissPrevHP=150`，`enemyHP=90`
-- Loop t=0: `150 > 200` → false，继续
-- Loop t=1: `150 > 100 && 90 <= 100` → true → triggered=true, break
-- 返回 true
-
-同样执行 `HISS_TRIGGER.execute` 清空全场 Buff/Debuff。
-
-### Case 3: HP 280→210
-
-- 哈气触发: **否**（来源：`data.js` 第 67-82 行，HISS_TRIGGER.condition）
-
-推演路径：
-- `hissPrevHP=280`，`enemyHP=210`
-- Loop t=0: `280 > 200 && 210 <= 200` → false（210 > 200）
-- Loop t=1: `280 > 100 && 210 <= 100` → false（210 > 100）
-- 返回 false → 不触发
-
-### Case 4: 已击败 tabby/siamese，调用 startEndlessNextCat
-
-- 随机池: **不含 tabby, 不含 siamese**（来源：`core.js` 第 648-663 行，startEndlessNextCat 函数）
-
-推演路径：
-- `allCatIds = ['tabby','sphynx','british_shorthair','american_shorthair','abyssinian','ragdoll','bengal','siamese','scottish_fold','maine_coon']`
-- `ENDLESS_DEFEATED = { tabby: true, siamese: true }`
-- `remaining = allCatIds.filter(id => !ENDLESS_DEFEATED[id])`
-- 结果：`['sphynx','british_shorthair','american_shorthair','abyssinian','ragdoll','bengal','scottish_fold','maine_coon']`
-- 不含 tabby, 不含 siamese ✅
-
-### CHECKLIST 第 4 项：300→199 跨越两级阈值
-
-- 哈气至少触发一次: **是**（来源：`data.js` 第 74-76 行）
-
-推演路径：
-- `hissPrevHP=300`，`enemyHP=199`
-- Loop t=0: `300 > 200 && 199 <= 200` → true → triggered=true, **break**
-- 由于 break，虽跨越 100 阈值但不重复触发 → 触发恰好 **1 次**，满足"至少触发一次"
-
-### CHECKLIST 第 5 项：哈气清空全场 Buff/Debuff
-
-- execute 执行: **是，仍清空**（来源：`data.js` 第 84-89 行）
-
-推演路径：
-- `G.playerEffects = {}; G.enemyEffects = {};` — 全局赋值为空对象，彻底清空
-- 与修复前行为一致（修复只改动 condition 阈值逻辑，不动 execute）
-
-### CHECKLIST 第 7 项：全猫击败 → 全猫征服
-
-- 显示全猫征服: **是**（来源：`core.js` 第 653-654 行 + 第 635-644 行）
-
-推演路径：
-- `startEndlessNextCat()` 中 `remaining.length === 0` → 调用 `endGame(true, '全猫征服！')`
-- `endGame()` 中 `allDefeated === true` → overlay 显示 "🏆 全猫征服！" 标题 + 提示文字
+来源: `data.js` L79-L93
+```js
+var HISS_TRIGGER = {
+  id: 'hiss',
+  condition: function(G) {
+    if (G.hissPrevHP === undefined) G.hissPrevHP = G.enemyMaxHP;
+    var thresholds = [200, 100];  // ← 固定阈值
+    for (var i = 0; i < thresholds.length; i++) {
+      if (G.enemyHP < thresholds[i] && G.hissPrevHP >= thresholds[i]) {
+        G.hissPrevHP = G.enemyHP;
+        return true;
+      }
+    }
+    G.hissPrevHP = G.enemyHP;
+    return false;
+  },
+  ...
+};
+```
+- 阈值数组 `[200, 100]` 是硬编码常量，无 `Math.floor(G.enemyHP/100)` 或其他 per-100-HP 计算。
+- 逻辑正确：当 HP 从 ≥200 降至 <200，或从 ≥100 降至 <100 时触发。
+- `G.hissPrevHP` 追踪上一次 HP 值，阻止重复触发。
 
 ---
 
-## 4. DIFF
+### 2. Boss HP 从 300 降至 250 → 不触发哈气
+**Verdict: ✅ PASS (逻辑推导)**
 
-| # | CHECKLIST 项 | Expected | Actual | 判定 |
-|---|------------|----------|--------|------|
-| 1 | HP 200-299 不触发哈气 | 不触发 | 不触发（280→210: `210<=200`=false, `210<=100`=false） | ✅ |
-| 2 | HP 跌破 200 触发哈气 | 触发 | 触发（250→190: `190<=200`=true） | ✅ |
-| 3 | HP 跌破 100 触发哈气 | 触发 | 触发（150→90: `90<=100`=true） | ✅ |
-| 4 | 一次跨两级阈值至少触发一次 | 至少一次 | 触发 1 次（300→199: loop t=0 命中后 break） | ✅ |
-| 5 | 哈气清空全场 Buff/Debuff | 清空 | 清空（`playerEffects={}; enemyEffects={}`） | ✅ |
-| 6 | 无尽模式从剩余池随机 | 不含已击败 | 不含（filter by `!ENDLESS_DEFEATED[id]`） | ✅ |
-| 7 | 全猫击败显示全猫征服 | 显示 | 显示（`remaining.length===0` → `'全猫征服！'`） | ✅ |
-| 8 | no side-effect on mechanics | 无副作用 | 无：condition 只改动阈值判定逻辑，execute 不变；`hissPrevHP` 更新时机不变（condition 末尾） | ✅ |
-| 9 | no UI mismatch | 无 UI 不匹配 | 无：HISS_TRIGGER 不涉及 UI；`startEndlessNextCat` 无新增 DOM 操作 | ✅ |
-| 10 | no runtime mismatch | 无运行时错误 | 无：`FIXED_THRESHOLDS` 是局部数组，无全局污染；`ENDLESS_DEFEATED` 已为全局持久对象 | ✅ |
+- `hissPrevHP` 初始化为 `boss.maxHP` = 300（`core.js` L155-L159）
+- 攻击后 `G.enemyHP = 250`
+- 条件检查: `250 < 200`? No. `250 < 100`? No.
+- 返回值: `false`，不触发哈气。
+- `hissPrevHP` 更新为 250。
 
 ---
 
-## 5. FINAL DECISION: PASS
+### 3. Boss HP 跌破 200（如 250→190）→ 触发哈气
+**Verdict: ✅ PASS (逻辑推导)**
 
-通过：**10/10**
+- `hissPrevHP` = 250（来自上一轮）
+- 攻击后 `G.enemyHP = 190`
+- 遍历阈值: `190 < 200 && 250 >= 200`? **Yes**. → 设置 `hissPrevHP = 190`, return `true`。
+- 哈气执行: `execute(G)` → `G.playerEffects = {}; G.enemyEffects = {};`（清空全场 Buff/Debuff）。
 
-无失败项。
+---
 
-两个核心修复均已验证：
-1. **HISS_TRIGGER** 使用固定阈值 `[200, 100]`（`data.js:70`），不再按 per-100-HP 检验 — 旧逻辑的过早触发 bug 已修复
-2. **startEndlessNextCat** 从 `allCatIds.filter(id => !ENDLESS_DEFEATED[id])` 生成的剩余池中随机挑选（`core.js:649-650`），不会重复遇到已击败 Boss
+### 4. Boss HP 跌破 100（如 150→90）→ 触发哈气
+**Verdict: ✅ PASS (逻辑推导)**
+
+- `hissPrevHP` = 150
+- 攻击后 `G.enemyHP = 90`
+- 遍历阈值: `90 < 200 && 150 >= 200`? No.
+- 下一个阈值: `90 < 100 && 150 >= 100`? **Yes**. → 触发。
+
+---
+
+### 5. Boss HP 一次跨越多阈值（300→199）→ 只触发一次（不因同时过 200 和 100 触发两次）
+**Verdict: ✅ PASS (逻辑推导)**
+
+- `hissPrevHP` = 300
+- 攻击后 `G.enemyHP = 199`
+- 遍历阈值:
+  - `199 < 200 && 300 >= 200`? **Yes** → 进入 if-block:
+    - `G.hissPrevHP = 199`（立即更新！）
+    - `return true`
+  - 循环第2轮: `199 < 100 && 199 >= 100`? No（`199 < 100` 为 false）。
+- 仅触发一次。`hissPrevHP` 在第一次匹配后被立即设为 199，等效于只记录一次 crossing。
+
+---
+
+### 6. 哈气效果仍为清空全场 Buff/Debuff
+**Verdict: ✅ PASS**
+
+来源: `data.js` L93-L96
+```js
+execute: function(G) {
+  G.playerEffects = {};
+  G.enemyEffects = {};
+  log('🐱 哈气！！全场 Buff/Debuff 清空！');
+}
+```
+- 与原始设计一致，无变更。
+
+---
+
+### 7. startEndlessNextCat 从未击败的 pool 中随机（已从 allCatIds 中 filter 掉 ENDLESS_DEFEATED 中的 boss）
+**Verdict: ✅ PASS**
+
+来源: `core.js` L868-L874
+```js
+function startEndlessNextCat() {
+  var allCatIds = Object.keys(BOSSES).filter(function(k) { return k !== 'skeleton' && k !== 'catToy'; });
+  var remaining = allCatIds.filter(function(id) { return !ENDLESS_DEFEATED[id]; });
+  if (!remaining.length) {
+    endGame(true, '全猫征服！');
+    return;
+  }
+  var bossId = remaining[Math.floor(Math.random() * remaining.length)];
+  ...
+}
+```
+- `allCatIds` 过滤出 10 只猫猫 boss（排除 skeleton/catToy）。
+- `remaining` 过滤掉 `ENDLESS_DEFEATED[id]` 为 `true` 的 bossId。
+- 随机从 remaining 中选择。
+
+---
+
+### 8. 全部猫猫击败后 → 显示全猫征服
+**Verdict: ✅ PASS**
+
+来源: `core.js` L819-L827（`endGame` 中）
+```js
+var allCatIds = Object.keys(BOSSES).filter(function(k) { return k !== 'skeleton' && k !== 'catToy'; });
+var allDefeated = allCatIds.every(function(id) { return ENDLESS_DEFEATED[id]; });
+if (allDefeated) {
+  overlay.classList.add('show');
+  renderStatsPanel(G);
+  document.getElementById('result-title').textContent = '🏆 全猫征服！';
+  document.getElementById('result-desc').textContent = '所有猫猫Boss已被击败！（存活' + G.turn + '回合）';
+  log('🏆 全猫征服！所有猫猫Boss已被击败！');
+  btnEndless.style.display = 'none';
+  ...
+}
+```
+- 正确使用 `allCatIds.every()` 检查所有 10 只猫猫是否在 `ENDLESS_DEFEATED` 中。
+- 全部击败时显示 "🏆 全猫征服！"，隐藏无尽按钮。
+
+---
+
+### 9. Contract C2: cycle 数组非空未破坏
+**Verdict: ✅ PASS**
+
+来源: `data.js` L55-L63
+```js
+var BOSS_CYCLE_TEMPLATE = [
+  { type: 'attack' },
+  { type: 'defend' },
+  { type: 'buff_power' },
+  { type: 'attack' },
+  { type: 'defend' },
+  { type: 'charge' },
+  { type: 'rage' },
+];
+```
+- 所有 10 只猫猫 Boss 的 `cycle` 字段均为 `BOSS_CYCLE_TEMPLATE`，7 元素数组非空。
+- `core.js` 中 `enemyTurn()` 正确索引 cycle（包括 8+ 回合快速循环 fallback）。
+- cycle 数组未被本次改动修改。
+
+---
+
+### 10. No side-effect on mechanics
+**Verdict: ✅ PASS**
+
+检查范围:
+- `HISS_TRIGGER.condition`: 只读 `G.enemyHP`, `G.hissPrevHP`, `G.enemyMaxHP`，仅写入 `G.hissPrevHP`。不修改其他 game state。
+- `HISS_TRIGGER.execute`: 只写入 `G.playerEffects` 和 `G.enemyEffects`（与原始行为一致）。
+- `startEndlessNextCat`: 只读 `ENDLESS_DEFEATED` 和 `BOSSES`，只写入 `G.isEndless`, `G.activeRelics`, `G.bossId`, `G.currentStage`，然后调用 `newGame()`。
+- `endGame` 中全猫征服检查: 只读 `ENDLESS_DEFEATED`，写入 UI overlay 和按钮状态（与原始流程一致）。
+- 无对 `GROOM_TRIGGER`、combat resolution、damage formula、cycle execution 的修改。
+
+---
+
+### 11. No UI mismatch
+**Verdict: ✅ PASS**
+
+- HISS_TRIGGER 仅通过 `log()` 输出消息（`core.js` 中 `enemyTurn()` 调用 trigger.execute，其中包含 `log('🐱 哈气！！全场 Buff/Debuff 清空！')`）。
+- `G.playerEffects` 和 `G.enemyEffects` 被清空后，下一帧 `render()` 会自然反映状态变化（buff/debuff 图标消失）。
+- 全猫征服 UI（"🏆 全猫征服！"）使用与现有 overlay 一致的 DOM 操作模式。
+- 无新增 DOM 元素或 CSS 类名冲突。
+
+---
+
+### 12. No runtime mismatch
+**Verdict: ✅ PASS**
+
+- `G.hissPrevHP` 在 `newGame()` 中正确初始化为 `boss.maxHP`（`core.js` L155-L159）。
+- `hissPrevHP` 挂载在 `G` 对象上而非全局单例，确保每局独立。
+- `HISS_TRIGGER.condition` 在 `enemyTurn()` 阶段调用（`core.js` L558-L564），时机为敌回合开始、眩晕检查之前，符合设计意图。
+- `STARTENDLESSCAT` 在 `endGame(true)` 且 `currentStage >= 4` 时调用（`core.js` L819-L834），时机正确（无尽模式赢后下一只）。
+
+---
+
+## Verdict Summary
+
+| # | Item | Result |
+|---|------|--------|
+| 1 | 固定阈值 [200, 100] | ✅ PASS |
+| 2 | 300→250 不触发 | ✅ PASS |
+| 3 | 250→190 触发 | ✅ PASS |
+| 4 | 150→90 触发 | ✅ PASS |
+| 5 | 跨多阈值只触发一次 | ✅ PASS |
+| 6 | 哈气效果不变 | ✅ PASS |
+| 7 | 无尽去重 filter | ✅ PASS |
+| 8 | 全猫征服 | ✅ PASS |
+| 9 | cycle 数组非空 | ✅ PASS |
+| 10 | No side-effect | ✅ PASS |
+| 11 | No UI mismatch | ✅ PASS |
+| 12 | No runtime mismatch | ✅ PASS |
+
+**OVERALL VERDICT: ✅ ALL 12/12 ITEMS PASS — NO BUGS FOUND**
+
+代码实现了所有预期行为。HISS_TRIGGER 正确使用固定阈值 [200, 100]，startEndlessNextCat 正确过滤已击败 boss。无副作用、无 UI/运行时偏差。
