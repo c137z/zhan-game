@@ -1,32 +1,40 @@
-# Expected: bug_hiss_endless — 哈气过早 + 无尽模式随机
+# Expected: bug_hiss_endless — 哈气阈值 + 无尽去重
+
+Contract version: a038d75
 
 ## VERIFICATION CHECKLIST (IMMUTABLE)
 
-1. 猫猫Boss HP 从 300 到 200-299 区间不触发哈气
-2. 猫猫Boss HP 跌破 200 阈值触发哈气
-3. 猫猫Boss HP 跌破 100 阈值触发哈气
-4. 一次攻击跨越两级阈值（300→199）至少触发一次哈气
-5. 哈气仍然清空全场 buff/debuff
-6. 无尽模式从未击败的池中随机选 Boss（不包含已击败）
-7. 所有猫猫全部击败 → 显示全猫征服
-8. no side-effect on mechanics
-9. no UI mismatch
-10. no runtime mismatch
+1. HISS_TRIGGER 使用固定阈值 [200, 100]，不再 per-100-HP 检验
+2. Boss HP 从 300 降至 250 → 不触发哈气
+3. Boss HP 跌破 200（如 250→190）→ 触发哈气
+4. Boss HP 跌破 100（如 150→90）→ 触发哈气
+5. Boss HP 一次跨越多阈值（300→199）→ 只触发一次（不因同时过 200 和 100 触发两次）
+6. 哈气效果仍为清空全场 Buff/Debuff
+7. startEndlessNextCat 从未击败的 pool 中随机（已从 allCatIds 中 filter 掉 ENDLESS_DEFEATED 中的 boss）
+8. 全部猫猫击败后 → 显示全猫征服
+9. Contract C2: cycle 数组非空未破坏
+10. no side-effect on mechanics
+11. no UI mismatch
+12. no runtime mismatch
 
 ## INPUT CASE + EXPECTED VALUE
 
-### Case 1: 哈气 200 HP 阈值
-- 条件：boss maxHP=300，HP 从 250 攻击至 190
-- 预期：触发哈气（跨越 200 阈值点）
-
-### Case 2: 哈气 100 HP 阈值
-- 条件：boss HP 从 150 攻击至 90
-- 预期：触发哈气（跨越 100 阈值点）
-
-### Case 3: 哈气不触发
-- 条件：boss HP 从 280 攻击至 210（仍在 200-300 范围）
+### Case 1: 哈气不触发（仍在 200-300 范围）
+- 条件：boss maxHP=300，HP 从 280 攻击至 210
 - 预期：不触发哈气
 
-### Case 4: 无尽模式去重
-- 条件：已击败 tabby/siamese，当前 startEndlessNextCat
-- 预期：随机出来的 boss 既不是 tabby，也不是 siamese
+### Case 2: 哈气触发（跌破 200）
+- 条件：boss HP 从 250 攻击至 190
+- 预期：触发哈气，全场 Buff/Debuff 清空
+
+### Case 3: 哈气触发（跌破 100）
+- 条件：boss HP 从 150 攻击至 90
+- 预期：触发哈气
+
+### Case 4: 跨多阈值只触发一次
+- 条件：boss HP 从 300 攻击至 199
+- 预期：触发哈气（一次），不触发两次
+
+### Case 5: 无尽去重
+- 条件：ENDLESS_DEFEATED = [tabby, siamese]，startEndlessNextCat
+- 预期：新 boss 既不是 tabby 也不是 siamese
