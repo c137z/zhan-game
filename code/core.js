@@ -35,7 +35,7 @@ function flatten(arr) {
 
 // ========== 伤害公式 ==========
 function calcBaseValue(totalCount) {
-  return 4 + (totalCount - 3) * 2;
+  var minCombo = G.effectiveMinCombo || CONFIG.MIN_COMBO; return 4 + (totalCount - minCombo) * 2;
 }
 
 function calcPursuitMultiplier(maxComboLen) {
