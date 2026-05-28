@@ -1,4 +1,4 @@
-# Scheduler 行为约束
+# Scheduler 行为约束 v3.0
 
 ## 角色
 Scheduler（OpenClaw/哈基米）只做调度，不做判断。
@@ -31,12 +31,29 @@ Scheduler（OpenClaw/哈基米）只做调度，不做判断。
        11. no runtime mismatch
    - 检查 `docs/contracts/` 下所有 contract 文件，如果本 task 的 ALLOWED FILES 与 contract 的检查范围有交集，将相关 contract 条款追加到 CHECKLIST 末尾（在最后 3 条固定项之前），格式：`Contract <ID>: <Rule一行描述>`
    - **INPUT CASE + EXPECTED VALUE**：输入条件 → 预期输出（preview / badge / runtime 三轨一致）
+4. **记录 contract 版本**：
+   - 读取 contract 后，执行 `git log -1 --format=%h docs/contracts/combat-core.contract.md`
+   - 将 contract 版本 hash 写入 expected 文件头部：`Contract version: <hash>`
 
 ### Phase 2: 分发给 Writer
 
-1. 通过 sessions_spawn 启动 Writer（context=isolated，与 Scheduler 无共享状态）
-2. Writer 必须读 task + expected + RULE_BLOCK
-3. 等待 Writer 完成
+1. **强制备份**：`pwsh -ExecutionPolicy Bypass -File tools/backup_project.ps1 -Reason "before_<task_id>"`
+2. 通过 sessions_spawn 启动 Writer（context=isolated，与 Scheduler 无共享状态）
+3. Writer 必须读 task + expected + RULE_BLOCK
+4. 等待 Writer 完成
+
+#### Phase 2 — Writer 完成硬校验
+
+Writer 声称完成后，Scheduler 必须逐项执行：
+
+1. `git diff --stat` → 确认修改文件数与 ALLOWED FILES 一致
+   - 若多了或少了 → STALL
+2. `git diff --name-only` → 确认每个修改文件都在 ALLOWED FILES 白名单内
+   - 若出现白名单外文件 → STALL
+3. 检查 Writer 输出是否包含完整字符串 `FINAL CONSISTENCY PASS`
+   - 若缺失 → STALL
+4. 以上三项全部通过 → 进入 Phase 3
+   任一项失败 → STALL，汇报老大
 
 ### Phase 3: 分发给 Verifier
 
@@ -45,28 +62,73 @@ Scheduler（OpenClaw/哈基米）只做调度，不做判断。
 3. Verifier 独立读 code/ 验证
 4. 等待 Verifier 完成
 
+#### Phase 3 — Verifier 完成硬校验
+
+每个 Verifier 声称完成后，Scheduler 必须逐项检查：
+
+1. **文件存在**：`Test-Path qa/reports/verdict_<id>.md` → 不存在则 STALL
+2. **完整性检查**：文件大小 > 500 bytes → 不足则 STALL
+3. **结论完整性**：文件包含 `Verdict: PASS` 或 `Verdict: FAIL`
+   - 若缺失 → STALL
+4. **CHECKLIST 覆盖**：文件中出现 CHECKLIST 全部条目的编号（1. 2. 3. ...）
+   - 若条目缺失 → STALL
+5. 所有已发射 Verifier 全部通过以上 4 项检查 → 进入 Phase 4
+   任一 Verifier 未通过 → STALL，汇报老大
+
 ### Phase 4: 转发结果
 
 1. 读 `qa/reports/verdict_<task_id>.md`
 2. 原样转发给用户，不添加工自己的判断
-3. 如果是 FAIL：创建新 task，回写 Writer（重试最多 3 次）
+3. 如果是 FAIL：
+   - **重试计数器**：首次重试前在 `tools/tasks/` 下创建 `task_<id>_retries.md`，内容为当前重试次数（1）
+   - 每次重试前读取，+1 写入
+   - 若读取值 ≥ 3 → 不再重试，STALL 转人工
+   - task 完成后删除 retries 文件
+   - 创建新 task，回写 Writer（重试最多 3 次）
 
 ### Phase 5: Git Commit + Build
 
-**仅在 Verdict = PASS 时执行。FAIL 时跳过本阶段。**
+**仅在 Verdict = PASS 且所有 Verifier 全部通过硬校验后执行。**
 
-1. 检查 `git status`，确认只有 ALLOWED FILES 中的文件被修改
-2. 执行 `git add` 所有变更文件（code/ 下的改动 + task/expected/verdict 文件）
-3. Commit message 格式：`task_<id>: <简述> [VERDICT: PASS]`
-4. 如果 git status 显示 code/ 外有未预期的变更 → 暂停，向用户汇报
-5. 如果 repo 未初始化或无 commit 历史 → 先 `git init` + 初始 commit 所有现有文件
-6. **自动构建 standalone HTML**：
+1. **范围锁定**：
+   - `git diff --name-only` → 提取变更文件列表
+   - 逐文件比对 ALLOWED FILES + task/expected/verdict 文件
+   - 若出现超范围文件 → STALL，汇报老大（列出超范围文件）
+
+2. **逐文件审查**：
+   - 对每个变更文件执行 `git diff <file>`
+   - Scheduler 只确认改动与 task 目标相关（不判断对错）
+   - 若发现无关改动 → STALL
+
+3. **安全 add**（禁止 `git add .` 或 `git add code/`）：
+   - 必须显式列出每个允许的文件，不使用通配符：
+   ```
+   git add code/<allowed_file_1> code/<allowed_file_2> ...
+   git add tools/tasks/<task_file> tools/tasks/<expected_file>
+   git add qa/reports/<verdict_file>
+   ```
+   - 如果 repo 未初始化或无 commit 历史 → 先 `git init` + 初始 commit 所有现有文件
+
+4. **commit**：
+   ```
+   git commit -m "task_<id>: <简述> [VERDICT: PASS]"
+   ```
+
+5. **build**：
    - 运行 `tools/build_standalone.py`
    - 输出文件名格式：`artifacts/zhan_v<MAJOR>.<COMMIT_COUNT>.html`
      - MAJOR：从 artifacts/ 下现有文件提取（如 v1.9 → 1），无现有文件则用 1
      - COMMIT_COUNT：`git rev-list --count HEAD`
-   - 构建成功后 git add artifacts/ 产物，单独 commit：`build: v<MAJOR>.<COMMIT_COUNT>`
-   - 将构建产物路径附在汇报中发给用户
+   - 若 exit code ≠ 0 → STALL，不进入步骤 6
+
+6. **产物 commit**：
+   ```
+   git add artifacts/zhan_v*.html
+   git commit -m "build: v<MAJOR>.<COMMIT_COUNT> [task_<id>]"
+   ```
+
+7. **汇报**：
+   - 发送 commit hash + 产物路径 + `git diff --stat` 摘要
 
 ---
 
@@ -91,8 +153,8 @@ Scheduler（OpenClaw/哈基米）只做调度，不做判断。
 
 允许的 git 命令（白名单）：
 - `git status`
-- `git diff` / `git diff --stat`
-- `git add`
+- `git diff` / `git diff --stat` / `git diff --name-only`
+- `git add`（仅 Phase 5 安全 add，禁止 `git add .`）
 - `git commit`
 - `git log`
 - `git rev-list --count HEAD`
@@ -103,18 +165,26 @@ Scheduler（OpenClaw/哈基米）只做调度，不做判断。
 ```
 pwsh -ExecutionPolicy Bypass -File tools/backup_project.ps1 -Reason "before_<task_id>"
 ```
+
+备份范围：`projects/zhan/` 全量（自动排除 `.git/` 和 `node_modules/`）
+包括：`code/`、`docs/`、`tools/`、`qa/`、`artifacts/`、`context/` 等所有子目录
+保留最近 10 份备份
+
 备份完成确认后再发 Writer。
 
 ## STALL PROTOCOL（停摆协议）
 
 出现以下任一情况时，Scheduler 必须立即停摆：
 - Writer 超时无响应
+- Writer 完成硬校验任一失败
 - Verifier 未全部返回（发射 N 个，收到 < N 个）
+- Verifier 完成硬校验任一失败
 - diff 无法确认改了什么
 - task 状态不明确
 - 文件修改来源不明确
-- verdict report 缺失
-- build 未完成
+- verdict report 缺失或不完整
+- build 失败（exit code ≠ 0）
+- 范围锁定发现超范围文件
 
 停摆时 Scheduler 必须：
 1. 停止推进流程，不做任何下一步操作
@@ -133,6 +203,22 @@ pwsh -ExecutionPolicy Bypass -File tools/backup_project.ps1 -Reason "before_<tas
 - 通过"感觉差不多"推断状态
 - 通过单个 verifier 返回推断全绿
 - 未经指令重新发射 Writer 或 Verifier
+- **git add**（任何文件、任何参数）
+- **git reset**（任何参数）
+- **git checkout**（任何参数）
+- **build_standalone.py** / 任何写文件操作
+- 写 task/expected/verdict 文件
+- 写 docs/ 下任何文件
+
+停摆期间只允许：
+- git status（只读）
+- git diff / git diff --cached（只读）
+- git log（只读）
+- 读文件（Get-Content, Select-String）
+
+若发现已 staged 未 commit 的文件：
+1. 执行 `git reset HEAD`（取消 staged，不丢工作区修改）
+2. 汇报老大："发现未完成的 staged 变更，已取消，等你指令"
 
 ## 唯一允许的越权
 
