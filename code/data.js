@@ -168,7 +168,7 @@ var BOSSES = {
           // 舔掉玩家 Buff（保留 Debuff）
           if (G.playerEffects.atk_buff) delete G.playerEffects.atk_buff;
           if (G.playerEffects.def_buff) delete G.playerEffects.def_buff;
-          log('🐱 斯芬克斯舔主角！玩家 Buff 被舔掉');
+          log('🐱 斯芬克斯舔你！玩家 Buff 被舔掉');
         }
       }
     }],
