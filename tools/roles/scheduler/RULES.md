@@ -80,6 +80,31 @@ Scheduler（OpenClaw/哈基米）只做调度，不做判断。
 - 禁止跳过 Writer 或 Verifier 直接执行
 - 禁止在 task 中掺入自己的代码判断
 
+## Git 硬禁令（绝对不可违反）
+
+以下 git 命令在任何情况下都禁止执行：
+- `git reset --hard`
+- `git clean -fd` / `git clean -f`
+- `git checkout -- .` / `git checkout -- <file>`（覆盖式回滚）
+- `git merge` / `git rebase`
+- `rm` / `mv` / `Remove-Item` 对 code/ 目录的文件
+
+允许的 git 命令（白名单）：
+- `git status`
+- `git diff` / `git diff --stat`
+- `git add`
+- `git commit`
+- `git log`
+- `git rev-list --count HEAD`
+
+## 强制备份
+
+在 Phase 2（分发给 Writer）之前，必须先执行：
+```
+pwsh -ExecutionPolicy Bypass -File tools/backup_project.ps1 -Reason "before_<task_id>"
+```
+备份完成确认后再发 Writer。
+
 ## 唯一允许的越权
 
 如果在连续 3 轮 Writer → Verifier → FAIL 循环后仍未修复：
