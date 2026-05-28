@@ -101,16 +101,12 @@ var HISS_TRIGGER = {
   id: 'hiss',
   condition: function(G) {
     if (G.hissPrevHP === undefined) G.hissPrevHP = G.enemyMaxHP;
-    // BUGFIX: 使用固定阈值（200和100）代替每100HP阈值，
-    // 避免300HP→250就触发哈气。一次跨越多阈值只触发一次。
-    var FIXED_THRESHOLDS = [200, 100];
     var triggered = false;
-    for (var t = 0; t < FIXED_THRESHOLDS.length; t++) {
-      var threshold = FIXED_THRESHOLDS[t];
-      if (G.hissPrevHP > threshold && G.enemyHP <= threshold) {
-        triggered = true;
-        break;
-      }
+    // 检查是否跨越了 100 血阈值
+    var prevThreshold = Math.floor(G.hissPrevHP / 100);
+    var curThreshold = Math.floor(G.enemyHP / 100);
+    if (curThreshold < prevThreshold && G.enemyHP > 0) {
+      triggered = true;
     }
     G.hissPrevHP = G.enemyHP;
     return triggered;
