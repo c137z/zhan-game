@@ -1,20 +1,19 @@
-# Verdict: getComboDuration minCombo-aware 改造
+# 验证报告：getComboDuration minCombo-aware
 
-**Date:** 2026-05-29  
-**Verifier:** subagent (verification-only, no code changes)  
-**Scope:** `code/core.js` — `getComboDuration` (L345)、`getStunDuration` (L351)、`getEffectDescription` (L355)
-
----
-
-## ✅ VERDICT: PASS
-
-All three checkpoints verified. The fix is correctly applied.
+**日期**: 2026-05-29  
+**验证文件**: `code/core.js`  
+**验证方法**: 纯代码审查（只读，未修改代码）  
+**注意**: `tools/roles/verifier/RULES.md` 不存在，本报告基于代码直接审查。
 
 ---
 
-### Check 1: `getComboDuration` — 硬编码 `n - 2` 已移除，改用 `G.effectiveMinCombo`
+## 结论：✅ PASS — 两项验证均通过
 
-**L345–348:**
+---
+
+## 1. getComboDuration 已改为 minCombo-aware
+
+**位置**: core.js 第 348-351 行
 
 ```js
 function getComboDuration(n) {
@@ -23,26 +22,18 @@ function getComboDuration(n) {
 }
 ```
 
-- ✅ 已读取 `G.effectiveMinCombo`（fallback `CONFIG.MIN_COMBO`）
-- ✅ 公式为 `Math.max(1, n - minCombo + 1)`（clamp 到 1，防负值）
-- ✅ 旧 `n - 2` 硬编码已不在
-- ✅ 与注释 `// minCombo-aware: duration = max(1, n - minCombo + 1)` 一致
-
-**语义验证（CONFIG.MIN_COMBO = 3 时）：**
-| n（连击数） | n - 3 + 1 | max(1, ...) | 结果 |
-|------------|-----------|-------------|------|
-| 3          | 1         | 1           | 1T   |
-| 4          | 2         | 2           | 2T   |
-| 10         | 8         | 8           | 8T   |
-| 2          | 0         | 1           | 1T   |
-
-→ 与注释 "3连=1T, 4连=2T, 10连=8T" 完全一致 ✅
+### 验证通过点：
+- **不再有** `n - 2` 硬编码 — 已完全移除
+- **读取** `G.effectiveMinCombo`（回退到 `CONFIG.MIN_COMBO`）
+- **公式** 已变为 `max(1, n - minCombo + 1)` — 与要求完全一致
+- 当 `minCombo = 2` 时，行为等价于旧版 `max(1, n - 1)` 即 `max(1, n - 2 + 1)`
+- 当 `minCombo = 3` 时（通过圣物/机制修改），公式自适应为 `max(1, n - 2)`
 
 ---
 
-### Check 2: `getStunDuration` 仍通过调用 `getComboDuration` 间接继承 minCombo-aware
+## 2. getStunDuration 调用 getComboDuration（间接继承 minCombo-aware）
 
-**L351–353:**
+**位置**: core.js 第 354-356 行
 
 ```js
 function getStunDuration(n) {
@@ -50,26 +41,30 @@ function getStunDuration(n) {
 }
 ```
 
-- ✅ 直接委托 `getComboDuration(n)`，因此自动继承 minCombo-aware 逻辑
-- ✅ 无独立硬编码，无绕过
+### 验证通过点：
+- `getStunDuration` 直接委托给 `getComboDuration(n)`
+- 因为 `getComboDuration` 读取 `G.effectiveMinCombo`，所以 `getStunDuration` 也**间接继承 minCombo-aware 行为**
+- 无需在 `getStunDuration` 中重复读取 `effectiveMinCombo`
 
 ---
 
-### Check 3: `G.effectiveMinCombo` 全局引用一致
+## 3. 调用方一致性检查（附加验证）
 
-全文件 `G.effectiveMinCombo` 出现点（共 16 处，均在 L38/42/48/54/60/139/315/346/357/505/521/530/537/545/552/592）：
+| 调用位置 | 使用的函数 | minCombo-aware? |
+|---|---|---|
+| `executeTurn` Phase 1 (vulnerable) | `getComboDuration(c.n)` | ✅ |
+| `executeTurn` Phase 1 (stun) | `getStunDuration(c.n)` | ✅ (委托) |
+| `executeTurn` Phase 1 (atk_buff) | `getComboDuration(c.n)` | ✅ |
+| `executeTurn` Phase 1 (def_buff) | `getComboDuration(c.n)` | ✅ |
+| `executeTurn` Phase 1 (atk_down) | `getComboDuration(c.n)` | ✅ |
+| `getEffectDescription` (预览) | `getComboDuration(n)` / `getStunDuration(n)` | ✅ |
 
-- ✅ **L139** 初始化：`effectiveMinCombo: CONFIG.MIN_COMBO`（游戏状态初始化）
-- ✅ **L346**（getComboDuration）：`var minCombo = G.effectiveMinCombo || CONFIG.MIN_COMBO`
-- ✅ **L357**（getEffectDescription）：同样使用 `G.effectiveMinCombo`
-- ✅ 其他处（combo 匹配逻辑、penalty 阈值等）全部统一使用 `G.effectiveMinCombo`
-
-无旧 `n - 2` 硬编码残留。
+所有调用点均正确使用 `effectiveMinCombo`（直接或通过委托）。
 
 ---
 
-## Conclusion
+## 总结
 
-**State:** ✅ FIXED & VERIFIED  
-**Risk:** None. Formula is mathematically correct, backwards-compatible with default `MIN_COMBO=3`, and all consumers (`getStunDuration`, `getEffectDescription`) properly delegate.  
-**Recommendation:** 无需进一步修改。
+**两个验证点均确认通过：**
+1. ✅ `getComboDuration` 已从硬编码 `n - 2` 改为读取 `G.effectiveMinCombo`，公式 `max(1, n - minCombo + 1)` 正确实现
+2. ✅ `getStunDuration` 仍调用 `getComboDuration`，间接继承 minCombo-aware 行为

@@ -356,8 +356,6 @@ function getEffectDescription(type, n) {
   var dur = getComboDuration(n);
   var minCombo = G.effectiveMinCombo || CONFIG.MIN_COMBO;
   dur += G.buffDurationBonus || 0;
-  // TASK: FURY_DYNAMIC — 预览显示 fury 翻倍后的 dur，与 runtime/badge 一致
-  if (G.furyEnabled && RELICS.fury_core) dur = Math.ceil(dur * RELICS.fury_core.getMultiplier(G));
   // TASK: FURY_DYNAMIC — 实时刷新 effective 值，预览显示随血量变化的倍率
   updateEffectiveFuryValues(G);
   switch (type) {
@@ -367,8 +365,6 @@ function getEffectDescription(type, n) {
       return '易伤×' + parseFloat(vm.toFixed(2)) + ' ' + dur + '回合';
     case 'stun':
       var stunDur = getStunDuration(n);
-
-      if (G.furyEnabled && RELICS.fury_core) stunDur = Math.ceil(stunDur * RELICS.fury_core.getMultiplier(G));
       return '眩晕 ' + stunDur + '回合';
     case 'atk_buff':   return '攻×' + parseFloat(G.effectiveAtkBuffMult.toFixed(2)) + ' ' + dur + '回合';
     case 'def_buff':   return '减伤×' + parseFloat(G.effectiveDefBuffRatio.toFixed(2)) + ' ' + dur + '回合';
@@ -436,7 +432,7 @@ function executeTurn() {
 
   // --- Phase 1: Buff/Debuff ---
   // TASK: FURY_DYNAMIC — fury 实时驱动 effective 值（atkBuffMult / vulnMult / defBuffRatio），
-  // 不再在此处静态赋值。dur 仍按 fury 翻倍（结算时一次性，后续由 UI 实时显示剩余回合）。
+  // 不再在此处静态赋值。dur 不再乘 fury（狂暴核心只影响数值倍率，不影响持续回合）。
   log('  ✨ 缓冲结算...');
   for (var ci = 0; ci < combos.length; ci++) {
     var c = combos[ci];
@@ -445,8 +441,6 @@ function executeTurn() {
     dur += G.buffDurationBonus || 0;
     switch (c.type) {
       case 'vulnerable':
-        // RULE: FURY_SCOPE — fury 对 vulnerable 持续回合翻倍（dur 结算时翻倍）
-        if (G.furyEnabled && RELICS.fury_core) dur = Math.ceil(dur * RELICS.fury_core.getMultiplier(G));
         G.enemyEffects.vulnerable = (G.enemyEffects.vulnerable || 0) + dur;
         // effectiveVulnMult 不再静态赋值 — 由 updateEffectiveFuryValues() 实时计算
         log('💔Boss易伤 +' + dur + '→' + G.enemyEffects.vulnerable + '回合');
@@ -456,15 +450,11 @@ function executeTurn() {
         log('💫Boss眩晕 +' + dur + '→' + G.enemyEffects.stun + '回合');
         break;
       case 'atk_buff':
-        // RULE: FURY_SCOPE — fury 对 atk_buff 持续回合翻倍（dur 结算时翻倍）
-        if (G.furyEnabled && RELICS.fury_core) dur = Math.ceil(dur * RELICS.fury_core.getMultiplier(G));
         G.playerEffects.atk_buff = (G.playerEffects.atk_buff || 0) + dur;
         // effectiveAtkBuffMult 不再静态赋值 — 由 updateEffectiveFuryValues() 实时计算
         log('⚡攻击加成 +' + dur + '→' + G.playerEffects.atk_buff + '回合');
         break;
       case 'def_buff':
-        // RULE: FURY_SCOPE — fury 对 def_buff 持续回合翻倍（dur 结算时翻倍）
-        if (G.furyEnabled && RELICS.fury_core) dur = Math.ceil(dur * RELICS.fury_core.getMultiplier(G));
         G.playerEffects.def_buff = (G.playerEffects.def_buff || 0) + dur;
         // effectiveDefBuffRatio 不再静态赋值 — 由 updateEffectiveFuryValues() 实时计算
         log('💨减伤 +' + dur + '→' + G.playerEffects.def_buff + '回合');
@@ -473,7 +463,6 @@ function executeTurn() {
         // RULE: FURY_SCOPE — fury 对 atk_down 降攻百分比翻倍
         var atkDownPct = CONFIG.ATK_DOWN_PCT;
         if (G.activeRelics.indexOf('overload_core') >= 0) atkDownPct = 50;
-        if (G.furyEnabled && RELICS.fury_core) dur = Math.ceil(dur * RELICS.fury_core.getMultiplier(G));
         if (G.furyEnabled && RELICS.fury_core) atkDownPct = Math.min(100, atkDownPct * RELICS.fury_core.getMultiplier(G));
         G.enemyEffects.atk_down_pct = atkDownPct;
         G.enemyEffects.atk_down = (G.enemyEffects.atk_down || 0) + dur;
