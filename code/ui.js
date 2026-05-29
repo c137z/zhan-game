@@ -92,10 +92,14 @@ function renderBoard() {
 
         if (!top) { div.classList.add('card-empty'); board.appendChild(div); return; }
 
-        // 涂抹检查：显示但模糊
-        if (G.smearedPiles && G.smearedPiles[flatIdx]) div.classList.add('smeared');
-
-        var ct = CARD_TYPES[top.type] || { emoji: '⬜', label: '废牌', cssClass: 'card-junk' };
+        // 涂抹检查：显示❓遮盖
+        var ct;
+        var isSmeared = G.smearedPiles && G.smearedPiles[flatIdx];
+        if (isSmeared) {
+          ct = { emoji: '❓', label: '??', cssClass: 'card-junk' };
+        } else {
+          ct = CARD_TYPES[top.type] || { emoji: '⬜', label: '废牌', cssClass: 'card-junk' };
+        }
         // 救命毫毛特殊卡：白色卡面，覆盖样式（保持 CARD_TYPES 定义的 cssClass）
         var isSpecial = top.special && top.special.color === 'white';
         if (isSpecial) {
@@ -108,6 +112,12 @@ function renderBoard() {
           inner.style.background = '#fff';
           inner.style.color = '#333';
           inner.style.border = '1px solid #ddd';
+        }
+        // 涂抹卡牌：灰色卡面
+        if (isSmeared) {
+          inner.style.background = '#555';
+          inner.style.color = '#ccc';
+          inner.style.border = '1px solid #666';
         }
         var icon = document.createElement('span');
         icon.className = 'card-icon';

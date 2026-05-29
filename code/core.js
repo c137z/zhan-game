@@ -365,6 +365,7 @@ function getEffectDescription(type, n) {
       return '易伤×' + parseFloat(vm.toFixed(2)) + ' ' + dur + '回合';
     case 'stun':
       var stunDur = getStunDuration(n);
+      stunDur += G.buffDurationBonus || 0;
       return '眩晕 ' + stunDur + '回合';
     case 'atk_buff':   return '攻×' + parseFloat(G.effectiveAtkBuffMult.toFixed(2)) + ' ' + dur + '回合';
     case 'def_buff':   return '减伤×' + parseFloat(G.effectiveDefBuffRatio.toFixed(2)) + ' ' + dur + '回合';

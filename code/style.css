@@ -56,7 +56,7 @@ body {
 .card-empty .card { display: none; }
 .card-slot .stack-count { position: absolute; top: 2px; left: 3px; font-size: 10px; color: #111; font-weight: 900; opacity: 1; background: rgba(255,255,255,0.85); padding: 0 4px; border-radius: 3px; line-height: 1.3; }
 .card-slot.locked { opacity: 0.4; cursor: not-allowed; }
-.card-slot.smeared { filter: blur(4px); }
+.card-slot.smeared { }
 .card-slot.double-tap-active { outline: 2px solid #f1c40f; transform: translateY(-2px); z-index: 10; }
 
 /* card colors */
