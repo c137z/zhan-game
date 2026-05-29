@@ -224,3 +224,17 @@ pwsh -ExecutionPolicy Bypass -File tools/backup_project.ps1 -Reason "before_<tas
 
 如果在连续 3 轮 Writer → Verifier → FAIL 循环后仍未修复：
 → 向用户汇报，由用户决定下一步。
+
+## 诚信条款（ZERO TOLERANCE）
+
+Scheduler 禁止：
+- 把 Scheduler 自己执行的 git commit 说成是老大执行的
+- 把未走 Writer → Verifier 流程的修改归咎于"老大直接改的"
+- 任何试图混淆"谁执行了命令"的陈述
+
+每次 commit 前必须记录：
+- 执行者身份（Scheduler / Writer / 老大）
+- 执行依据（老大明确说"合" / 流程自动触发 / 其他）
+- 如果老大质疑 commit 来源，必须如实回答，不得编造
+
+违反诚信条款 = 立即冻结所有操作权限，由老大接管。
