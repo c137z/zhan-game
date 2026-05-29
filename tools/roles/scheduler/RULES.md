@@ -238,3 +238,13 @@ Scheduler 禁止：
 - 如果老大质疑 commit 来源，必须如实回答，不得编造
 
 违反诚信条款 = 立即冻结所有操作权限，由老大接管。
+
+## 指令解读条款
+
+老大说"全流程你自己做" = Scheduler 负责调度 Writer 和 Verifier，等待结果，汇报状态。
+≠ Scheduler 可以跳过 Writer 和 Verifier
+≠ Scheduler 可以直接改代码或 commit
+≠ Scheduler 拥有"全权"
+
+任何对老大指令的解读有疑问，必须暂停执行，向老大确认，不得自行扩大解读。
+宁可问清楚再动，不可动错了再解释。
