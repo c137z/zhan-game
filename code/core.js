@@ -305,8 +305,28 @@ function pullCard(r, c) {
 function resolveWildType(slot, idx) {
   if (!slot[idx] || slot[idx].isJunk) return 'junk';
   if (slot[idx].type !== 'wild') return slot[idx].type;
-  for (var k = idx-1; k >= 0; k--) { if (slot[k] && slot[k].type !== 'wild' && !slot[k].isJunk) return slot[k].type; }
-  for (var k = idx+1; k < slot.length; k++) { if (slot[k] && slot[k].type !== 'wild' && !slot[k].isJunk) return slot[k].type; }
+  // 向两边搜索最近的非万能、非废牌，取距离更近的；距离相等取左边
+  var leftDist = Infinity, rightDist = Infinity;
+  var leftType = null, rightType = null;
+  for (var k = idx-1; k >= 0; k--) {
+    if (slot[k] && slot[k].type !== 'wild' && !slot[k].isJunk) {
+      leftDist = idx - k;
+      leftType = slot[k].type;
+      break;
+    }
+  }
+  for (var k = idx+1; k < slot.length; k++) {
+    if (slot[k] && slot[k].type !== 'wild' && !slot[k].isJunk) {
+      rightDist = k - idx;
+      rightType = slot[k].type;
+      break;
+    }
+  }
+  if (leftType && rightType) {
+    return leftDist <= rightDist ? leftType : rightType;
+  }
+  if (leftType) return leftType;
+  if (rightType) return rightType;
   return 'wild';
 }
 
@@ -315,21 +335,36 @@ function computeCombos(slot) {
   var minCombo = G.effectiveMinCombo || CONFIG.MIN_COMBO;
   // 过滤 null（锁定槽占位），只处理非 null 卡牌
   var resolved = slot.map(function(c, i) {
-    if (!c) return { type: 'null_placeholder', card: null, index: i };
-    return { type: resolveWildType(slot, i), card: c, index: i };
+    if (!c) return { type: 'null_placeholder', card: null, index: i, claimed: false };
+    return { type: resolveWildType(slot, i), card: c, index: i, claimed: false };
   });
   var combos = [];
   var i = 0;
   while (i < resolved.length) {
     var typ = resolved[i].type;
     if (typ === 'null_placeholder' || typ === 'wild' || typ === 'junk') { i++; continue; }
+    // 万能牌已归属其他连击组，跳过
+    if (resolved[i].card && resolved[i].card.type === 'wild' && resolved[i].claimed) { i++; continue; }
     var j = i+1;
-    while (j < resolved.length && resolved[j].type === typ) j++;
+    while (j < resolved.length) {
+      // 跳过 null 占位
+      if (resolved[j].type === 'null_placeholder') { j++; continue; }
+      // 万能牌已归属，停止扩展连击组
+      if (resolved[j].card && resolved[j].card.type === 'wild' && resolved[j].claimed) break;
+      if (resolved[j].type !== typ) break;
+      j++;
+    }
     var comboLen = j - i;
-    // 万能核心：后方卡牌（i>=1）连击数+1
+    // 万能核心：所有卡牌（含万能核心卡本身）连击数+1
     // 万能核心卡（slot[0]）会通过 resolveWildType 合并类型，此处额外+1奖励
-    if (G.wildCoreSlot && i >= 1) {
-      comboLen += 1; // 万能核心后方卡连击数+1
+    if (G.wildCoreSlot) {
+      comboLen += 1; // 万能核心全组连击数+1
+    }
+    // 标记连击组内的万能牌为已归属
+    for (var ci = i; ci < j; ci++) {
+      if (resolved[ci].card && resolved[ci].card.type === 'wild') {
+        resolved[ci].claimed = true;
+      }
     }
     if (comboLen >= minCombo) {
       combos.push({ n: comboLen, cards: slot.slice(i,j), type: typ, start: i, end: j });
@@ -574,6 +609,8 @@ function executeTurn() {
       if (!G.slot[si2]) continue; // 跳过 null 占位（锁定槽）
       // 特殊卡不算入未消除惩罚
       if (G.slot[si2].special) continue;
+      // 万能牌不计入未消除惩罚（万能牌已通过连击组结算，不应再加重惩罚）
+      if (G.slot[si2].type === 'wild') continue;
       var mt = resolveWildType(G.slot, si2);
       if (!unmatchedByType[mt]) unmatchedByType[mt] = 0;
       unmatchedByType[mt]++;
