@@ -251,10 +251,20 @@ function updateComboPreview() {
     previewParts.push('<span class="combo-preview ' + c2.type + '">' + CARD_TYPES[c2.type].emoji + c2.n + '连→' + desc + '</span>');
   }
 
-  // 未消除扣血预览（跳过特殊卡）
+  // 未消除扣血预览（与 core.js 改动4对齐：被消费的万能牌不扣血，未消费的照扣）
+  var claimedSet2 = {};
+  for (var cwi2 = 0; cwi2 < combos._claimedWildIndices.length; cwi2++) {
+    claimedSet2[combos._claimedWildIndices[cwi2]] = true;
+  }
   var unmatchedByType = {};
   for (var si2 = 0; si2 < G.slot.length; si2++) {
     if (!G.slot[si2] || G.slot[si2].special) continue;
+    // 万能牌：被连击组消费的跳过，未消费的扣1血
+    if (G.slot[si2].type === 'wild') {
+      if (claimedSet2[si2]) continue;
+      unmatchedByType['wild'] = (unmatchedByType['wild'] || 0) + 1;
+      continue;
+    }
     var mt = resolveWildType(G.slot, si2);
     if (!unmatchedByType[mt]) unmatchedByType[mt] = 0;
     unmatchedByType[mt]++;
