@@ -2370,21 +2370,452 @@ Zhan.Test = {
   assert: function(cond, msg) {
     if (!cond) { console.error('FAIL: ' + msg); throw new Error(msg); }
   },
+  assertDeepEqual: function(a, b, msg) {
+    var sa = JSON.stringify(a);
+    var sb = JSON.stringify(b);
+    if (sa !== sb) { console.error('FAIL: ' + msg + ' | expected ' + sb + ' got ' + sa); throw new Error(msg); }
+  },
+
+  // 辅助：创建纯净 G mock（不依赖 DOM / newGame）
+  mockState: function(overrides) {
+    var base = {
+      playerHP: 100, playerMaxHP: 100, enemyHP: 300, enemyMaxHP: 300,
+      effectiveMinCombo: CONFIG.MIN_COMBO, effectiveSlotSize: CONFIG.SLOT_SIZE,
+      effectiveAtkBuffMult: 0, effectiveVulnMult: 0, buffDurationBonus: 0,
+      playerEffects: {}, enemyEffects: {}, tenacityUsed: false, furyEnabled: false,
+      noUnmatchedPenalty: false, deckConfig: JSON.parse(JSON.stringify(DECK_SIZES)),
+      activeRelics: [], wildCoreSlot: false,
+      boss: { id: 'tabby', name: '狸花猫', emoji: '🐱', hpTriggers: ['groom', 'hiss'],
+        maxHP: 300, baseAtk: 24, traits: [], cycle: BOSS_CYCLE_TEMPLATE },
+      lockedSlots: {}
+    };
+    for (var k in overrides) base[k] = overrides[k];
+    return base;
+  },
+
   run: function() {
     console.log('=== Zhan Regression Test ===');
-    // Rules 测试
-    this.assert(Zhan.Rules.calcBaseValue(5, 3) === 8, 'calcBaseValue');
-    this.assert(Zhan.Rules.resolveWildType([{ type: 'attack' }, { type: 'wild' }], 1) === 'attack', 'resolveWildType');
-    // Engine 集成测试
+
+    // ============================================================
+    // 1. Zhan.Rules 纯函数测试
+    // ============================================================
+    console.log('--- Zhan.Rules ---');
+    var T = this;
+    T.assert(Zhan.Rules.calcBaseValue(5, 3) === 8, 'calcBaseValue');
+    T.assert(Zhan.Rules.resolveWildType([{ type: 'attack' }, { type: 'wild' }], 1) === 'attack', 'resolveWildType left');
+
+    // ============================================================
+    // 2. Engine 集成测试
+    // ============================================================
+    console.log('--- Engine ---');
     Zhan.Engine.init();
-    this.assert(Zhan.Engine.state.playerHP === 100, 'init HP');
-    this.assert(Zhan.Engine.state.bossId === 'skeleton', 'init boss');
-    // UI 单向化测试：dispatch 正常
+    T.assert(Zhan.Engine.state.playerHP === 100, 'init HP');
+    T.assert(Zhan.Engine.state.bossId === 'skeleton', 'init boss');
     Zhan.Engine.dispatch({ type: 'END_TURN' });
-    this.assert(Zhan.Engine.state.turn >= 1, 'END_TURN dispatch works');
-    // 重置
+    T.assert(Zhan.Engine.state.turn >= 1, 'END_TURN dispatch works');
     Zhan.Engine.dispatch({ type: 'RESET' });
-    this.assert(Zhan.Engine.state.turn === 0, 'RESET dispatch works');
+    T.assert(Zhan.Engine.state.turn === 0, 'RESET dispatch works');
+
+    // ============================================================
+    // 3. slot_plus2 + wild_core 叠加 (bug 016)
+    // ============================================================
+    console.log('--- slot_plus2 + wild_core ---');
+    (function() {
+      // 只有 slot_plus2 → effectiveSlotSize=12
+      var g1 = T.mockState();
+      Zhan.Systems.Relic._handlers.increaseSlotSize(g1, { amount: 2 });
+      T.assert(g1.effectiveSlotSize === 12, 'slot_plus2 alone → 12');
+
+      // 只有 wild_core → effectiveSlotSize=11
+      var g2 = T.mockState();
+      Zhan.Systems.Relic._handlers.enableWildCoreSlot(g2);
+      T.assert(g2.effectiveSlotSize === 11, 'wild_core alone → 11');
+      T.assert(g2.wildCoreSlot === true, 'wild_core flag set');
+
+      // wild_core 先 + slot_plus2 后 → 13
+      var g3 = T.mockState();
+      Zhan.Systems.Relic._handlers.enableWildCoreSlot(g3);
+      Zhan.Systems.Relic._handlers.increaseSlotSize(g3, { amount: 2 });
+      T.assert(g3.effectiveSlotSize === 13, 'wild_core+slot_plus2 → 13');
+
+      // slot_plus2 先 + wild_core 后 → 13
+      var g4 = T.mockState();
+      Zhan.Systems.Relic._handlers.increaseSlotSize(g4, { amount: 2 });
+      Zhan.Systems.Relic._handlers.enableWildCoreSlot(g4);
+      T.assert(g4.effectiveSlotSize === 13, 'slot_plus2+wild_core → 13');
+    })();
+
+    // ============================================================
+    // 4. computeCombos 万能牌 (bug 017)
+    // ============================================================
+    console.log('--- computeCombos wild ---');
+    (function() {
+      var mk = function(types) {
+        return types.map(function(t, i) { return { type: t, id: i }; });
+      };
+
+      // [attack, attack, wild], minCombo=3 → combo n=3, wild claimed
+      var r1 = Zhan.Rules.computeCombos(mk(['attack','attack','wild']), 3);
+      T.assert(r1.length === 1 && r1[0].n === 3, '[a,a,w] min3 → combo n=3');
+      T.assert(r1._claimedWildIndices.length === 1, '[a,a,w] 1 wild claimed');
+
+      // [attack, wild], minCombo=3 → 无 combo
+      var r2 = Zhan.Rules.computeCombos(mk(['attack','wild']), 3);
+      T.assert(r2.length === 0, '[a,w] min3 → no combo');
+
+      // [wild, attack, wild], minCombo=3 → combo n=3, 两个 wild claimed
+      var r3 = Zhan.Rules.computeCombos(mk(['wild','attack','wild']), 3);
+      T.assert(r3.length === 1 && r3[0].n === 3, '[w,a,w] min3 → combo n=3');
+      T.assert(r3._claimedWildIndices.length === 2, '[w,a,w] 2 wilds claimed');
+
+      // [attack, attack, attack], minCombo=3 → combo n=3, 无 wild
+      var r4 = Zhan.Rules.computeCombos(mk(['attack','attack','attack']), 3);
+      T.assert(r4.length === 1 && r4[0].n === 3, '[a,a,a] min3 → combo n=3');
+      T.assert(r4._claimedWildIndices.length === 0, '[a,a,a] 0 wilds claimed');
+    })();
+
+    // ============================================================
+    // 5. getEffectDescription 纯函数化 (bug 018)
+    // ============================================================
+    console.log('--- getEffectDescription ---');
+    (function() {
+      // mock state: effectiveVulnMult=2.0, buffDurationBonus=1
+      var s1 = T.mockState({ effectiveVulnMult: 2.0, buffDurationBonus: 1 });
+      var before = JSON.stringify(s1);
+      var desc1 = getEffectDescription(s1, 'vulnerable', 4);
+      T.assert(desc1.indexOf('易伤') === 0, 'vulnerable desc starts with 易伤');
+      T.assert(desc1.indexOf('2') >= 0, 'vulnerable desc contains mult');
+      T.assert(JSON.stringify(s1) === before, 'getEffectDescription does not mutate state (vuln)');
+
+      // mock state: effectiveAtkBuffMult=1.5
+      var s2 = T.mockState({ effectiveAtkBuffMult: 1.5 });
+      var before2 = JSON.stringify(s2);
+      var desc2 = getEffectDescription(s2, 'atk_buff', 3);
+      T.assert(desc2.indexOf('攻×') === 0, 'atk_buff desc starts with 攻×');
+      T.assert(desc2.indexOf('1.5') >= 0, 'atk_buff desc contains 1.5');
+      T.assert(JSON.stringify(s2) === before2, 'getEffectDescription does not mutate state (atk_buff)');
+
+      // stun description
+      var s3 = T.mockState();
+      var desc3 = getEffectDescription(s3, 'stun', 5);
+      T.assert(desc3.indexOf('眩晕') === 0, 'stun desc starts with 眩晕');
+
+      // def_buff description
+      var s4 = T.mockState({ effectiveDefBuffRatio: 0.7 });
+      var desc4 = getEffectDescription(s4, 'def_buff', 3);
+      T.assert(desc4.indexOf('减伤') === 0, 'def_buff desc starts with 减伤');
+
+      // atk_down description
+      var s5 = T.mockState();
+      s5.enemyEffects.atk_down_pct = 30;
+      var desc5 = getEffectDescription(s5, 'atk_down', 3);
+      T.assert(desc5.indexOf('降攻') === 0, 'atk_down desc starts with 降攻');
+
+      // unknown type returns ''
+      var desc6 = getEffectDescription(s5, 'nonexistent', 3);
+      T.assert(desc6 === '', 'unknown type returns empty');
+    })();
+
+    // ============================================================
+    // 6. window.G fallback 清理 (bug 018)
+    // ============================================================
+    console.log('--- window.G fallback ---');
+    (function() {
+      // 保存原始状态并设为 null
+      var saved = Zhan.Engine.state;
+      Zhan.Engine.state = null;
+
+      // showRelicSelect 不应抛错
+      var threw = false;
+      try { showRelicSelect(); } catch(e) { threw = true; }
+      T.assert(!threw, 'showRelicSelect with null state does not throw');
+
+      // log 不应抛错（因为 log 内部检查 !G 就 return）
+      var threw2 = false;
+      try { log('test-null-log'); } catch(e) { threw2 = true; }
+      T.assert(!threw2, 'log with null state does not throw');
+
+      Zhan.Engine.state = saved;
+    })();
+
+    // ============================================================
+    // 7. hiss/groom 统一 (bug 019)
+    // ============================================================
+    console.log('--- hiss/groom ---');
+    (function() {
+      // 验证 filterId='hiss' 只匹配 hiss
+      var g1 = T.mockState();
+      g1.turn = 0;
+      g1.boss.hpTriggers = ['groom', 'hiss'];
+      // hiss 需要跨阈值触发，设 prevHP 刚好过阈值
+      g1.hissPrevHP = 250; g1.enemyHP = 199; g1.enemyMaxHP = 300;
+      // groom 每4回合触发(turn>0 且 (turn+1)%4==0)
+      g1.turn = 3;
+      // 添加 effect 用于验证是否被清
+      g1.playerEffects = { atk_buff: 3 };
+      g1.enemyEffects = { vulnerable: 2, atk_down: 2, atk_down_pct: 30, stun: 1 };
+      g1.effectiveVulnMult = 1.5;
+      Zhan.Systems.Boss.runHpTriggers(g1, 'hiss');
+      // hiss 应该清全场
+      T.assert(JSON.stringify(g1.playerEffects) === '{}', 'hiss clears playerEffects');
+      T.assert(JSON.stringify(g1.enemyEffects) === '{}', 'hiss clears enemyEffects');
+
+      // 验证 filterId='groom' 只匹配 groom
+      var g2 = T.mockState();
+      g2.turn = 3;
+      g2.boss.hpTriggers = ['groom', 'hiss'];
+      g2.enemyEffects = { vulnerable: 2, atk_down: 2, atk_down_pct: 30, stun: 1 };
+      g2.effectiveVulnMult = 1.5;
+      Zhan.Systems.Boss.runHpTriggers(g2, 'groom');
+      // groom 清除 enemy debuff
+      T.assert(g2.enemyEffects.vulnerable === 0, 'groom clears vulnerable');
+      T.assert(g2.enemyEffects.atk_down === 0, 'groom clears atk_down');
+      T.assert(g2.enemyEffects.stun === 0, 'groom clears stun');
+
+      // 验证 filterId 不匹配时静默返回
+      var g3 = T.mockState();
+      g3.turn = 3;
+      g3.boss.hpTriggers = ['groom', 'hiss'];
+      g3.enemyEffects = { vulnerable: 5 };
+      g3.effectiveVulnMult = 1.5;
+      var before3 = JSON.stringify(g3.enemyEffects);
+      Zhan.Systems.Boss.runHpTriggers(g3, 'nonexistent');
+      T.assert(JSON.stringify(g3.enemyEffects) === before3, 'unknown filterId does nothing');
+
+      // boss 无 hpTriggers 时静默返回
+      var g4 = T.mockState();
+      g4.boss.hpTriggers = [];
+      Zhan.Systems.Boss.runHpTriggers(g4, 'hiss');
+      T.assert(true, 'no hpTriggers no error');
+    })();
+
+    // ============================================================
+    // 8. 圣物引擎 — 每个 handler 单独测试
+    // ============================================================
+    console.log('--- Relic handlers ---');
+    (function() {
+      // multiplyDeckCard
+      var g1 = T.mockState();
+      var beforeWild = g1.deckConfig.wild;
+      Zhan.Systems.Relic._handlers.multiplyDeckCard(g1, { cardType: 'wild', factor: 2 });
+      T.assert(g1.deckConfig.wild === beforeWild * 2, 'multiplyDeckCard doubles wild');
+
+      // multiplyDeckCard attack
+      var g1b = T.mockState();
+      var beforeAtk = g1b.deckConfig.attack;
+      Zhan.Systems.Relic._handlers.multiplyDeckCard(g1b, { cardType: 'attack', factor: 2 });
+      T.assert(g1b.deckConfig.attack === beforeAtk * 2, 'multiplyDeckCard doubles attack');
+
+      // setEffectiveMinCombo
+      var g2 = T.mockState();
+      Zhan.Systems.Relic._handlers.setEffectiveMinCombo(g2, { value: 2 });
+      T.assert(g2.effectiveMinCombo === 2, 'setEffectiveMinCombo → 2');
+
+      // increaseSlotSize (already tested above, quick re-verify)
+      var g3 = T.mockState();
+      Zhan.Systems.Relic._handlers.increaseSlotSize(g3, { amount: 3 });
+      T.assert(g3.effectiveSlotSize === 13, 'increaseSlotSize +3 → 13');
+
+      // enableWildCoreSlot (already tested above)
+      // setBuffDurationBonus
+      var g5 = T.mockState();
+      Zhan.Systems.Relic._handlers.setBuffDurationBonus(g5, { amount: 1 });
+      T.assert(g5.buffDurationBonus === 1, 'setBuffDurationBonus → 1');
+
+      // setOverloadBuffs
+      var g6 = T.mockState();
+      Zhan.Systems.Relic._handlers.setOverloadBuffs(g6, { atkBuffMult: 2.0, vulnMult: 2.0, defBuffRatio: 0.5 });
+      T.assert(g6.atkBuffMult === 2.0, 'setOverloadBuffs atkBuffMult');
+      T.assert(g6.vulnMult === 2.0, 'setOverloadBuffs vulnMult');
+      T.assert(g6.defBuffRatio === 0.5, 'setOverloadBuffs defBuffRatio');
+
+      // setNoUnmatchedPenalty
+      var g7 = T.mockState();
+      Zhan.Systems.Relic._handlers.setNoUnmatchedPenalty(g7, { value: true });
+      T.assert(g7.noUnmatchedPenalty === true, 'setNoUnmatchedPenalty');
+
+      // addSpecialCards
+      var g8 = T.mockState();
+      var cards = [{ type: 'special_atk', label: '特攻', emoji: '🙈', dmg: 40 }];
+      Zhan.Systems.Relic._handlers.addSpecialCards(g8, { cards: cards });
+      T.assert(g8.specialCards && g8.specialCards.length === 1 && g8.specialCards[0].dmg === 40, 'addSpecialCards');
+
+      // enableTenacity
+      var g9 = T.mockState();
+      T.assert(g9.tenacityUsed === false, 'tenacity starts false');
+      Zhan.Systems.Relic._handlers.enableTenacity(g9);
+      T.assert(g9.tenacityUsed === false, 'enableTenacity resets to false');
+
+      // enableFury
+      var g10 = T.mockState();
+      Zhan.Systems.Relic._handlers.enableFury(g10);
+      T.assert(g10.furyEnabled === true, 'enableFury sets flag');
+
+      // increaseMaxHP
+      var g11 = T.mockState();
+      Zhan.Systems.Relic._handlers.increaseMaxHP(g11, { amount: 50 });
+      T.assert(g11.playerMaxHP === CONFIG.PLAYER_MAX_HP + 50, 'increaseMaxHP +50');
+    })();
+
+    // ============================================================
+    // 9. applyInit 多圣物顺序处理
+    // ============================================================
+    console.log('--- applyInit multi-relic ---');
+    (function() {
+      var g = T.mockState();
+      g.activeRelics = ['slot_plus2', 'wild_core', 'life_core', 'endurance_core'];
+      Zhan.Systems.Relic.applyInit(g);
+      T.assert(g.effectiveSlotSize === 13, 'applyInit slot+wild → 13');
+      T.assert(g.wildCoreSlot === true, 'applyInit wildCore flag');
+      T.assert(g.playerMaxHP === CONFIG.PLAYER_MAX_HP + 50, 'applyInit life_core +50');
+      T.assert(g.buffDurationBonus === 1, 'applyInit endurance_core');
+
+      // 单独 combo_core
+      var g2 = T.mockState();
+      g2.activeRelics = ['combo_core'];
+      Zhan.Systems.Relic.applyInit(g2);
+      T.assert(g2.effectiveMinCombo === 2, 'applyInit combo_core → minCombo=2');
+
+      // 空 relics
+      var g3 = T.mockState();
+      g3.activeRelics = [];
+      var before3 = JSON.stringify(g3);
+      Zhan.Systems.Relic.applyInit(g3);
+      T.assert(JSON.stringify(g3) === before3, 'applyInit empty relics does nothing');
+    })();
+
+    // ============================================================
+    // 10. computeCombos 边界条件
+    // ============================================================
+    console.log('--- computeCombos edge ---');
+    (function() {
+      // 空数组
+      var r1 = Zhan.Rules.computeCombos([], 3);
+      T.assert(Array.isArray(r1) && r1.length === 0, 'computeCombos([]) → []');
+      T.assert(Array.isArray(r1._claimedWildIndices) && r1._claimedWildIndices.length === 0, 'computeCombos([]) no wilds');
+
+      // 单个 wild
+      var r2 = Zhan.Rules.computeCombos([{type:'wild', id:1}], 3);
+      T.assert(Array.isArray(r2) && r2.length === 0, 'computeCombos([w]) → []');
+      T.assert(Array.isArray(r2._claimedWildIndices) && r2._claimedWildIndices.length === 0, 'computeCombos([w]) no wilds claimed');
+
+      // wild + attack (2 cards, min=3) → no combo
+      var r3 = Zhan.Rules.computeCombos([{type:'wild',id:1},{type:'attack',id:2}], 3);
+      T.assert(r3.length === 0, 'computeCombos([w,a]) min3 → []');
+
+      // attack + wild + attack (min=3) → combo n=3
+      var r4 = Zhan.Rules.computeCombos([{type:'attack',id:1},{type:'wild',id:2},{type:'attack',id:3}], 3);
+      T.assert(r4.length === 1 && r4[0].n === 3, 'computeCombos([a,w,a]) min3 → n=3');
+
+      // 不同卡牌类型分开 combo
+      var r5 = Zhan.Rules.computeCombos([{type:'attack',id:1},{type:'attack',id:2},{type:'attack',id:3},{type:'defend',id:4},{type:'defend',id:5},{type:'defend',id:6}], 3);
+      T.assert(r5.length === 2, 'computeCombos mixed → 2 combos');
+      T.assert(r5[0].type === 'attack' && r5[1].type === 'defend', 'computeCombos mixed types');
+
+      // junk card 不影响相邻 combo
+      var r6 = Zhan.Rules.computeCombos([{type:'attack',id:1},{type:'attack',id:2},{type:'junk',id:3,isJunk:true},{type:'attack',id:4},{type:'attack',id:5},{type:'attack',id:6}], 3);
+      T.assert(r6.length === 1, 'junk breaks combo');
+
+      // 3 张 wild + 1 attack, min=3
+      var r7 = Zhan.Rules.computeCombos([{type:'wild',id:1},{type:'wild',id:2},{type:'attack',id:3},{type:'wild',id:4}], 3);
+      T.assert(r7.length === 1 && r7[0].n === 4, 'computeCombos([w,w,a,w]) → n=4');
+    })();
+
+    // ============================================================
+    // 11. resolveWildType 边界条件
+    // ============================================================
+    console.log('--- resolveWildType edge ---');
+    (function() {
+      // 向右找
+      var t1 = Zhan.Rules.resolveWildType([{type:'wild'},{type:'defend'}], 0);
+      T.assert(t1 === 'defend', 'resolveWildType right → defend');
+
+      // 向左找
+      var t2 = Zhan.Rules.resolveWildType([{type:'attack'},{type:'wild'}], 1);
+      T.assert(t2 === 'attack', 'resolveWildType left → attack');
+
+      // 两边都无 → wild 自身
+      var t3 = Zhan.Rules.resolveWildType([{type:'wild'},{type:'wild'}], 0);
+      T.assert(t3 === 'wild', 'resolveWildType all wild → wild');
+
+      // 非 wild 直接返回
+      var t4 = Zhan.Rules.resolveWildType([{type:'attack'}], 0);
+      T.assert(t4 === 'attack', 'resolveWildType non-wild passes through');
+
+      // junk → junk
+      var t5 = Zhan.Rules.resolveWildType([{type:'junk',isJunk:true}], 0);
+      T.assert(t5 === 'junk', 'resolveWildType junk → junk');
+
+      // 左优先于右
+      var t6 = Zhan.Rules.resolveWildType([{type:'attack'},{type:'wild'},{type:'defend'}], 1);
+      T.assert(t6 === 'attack', 'resolveWildType left priority');
+    })();
+
+    // ============================================================
+    // 12. calcPursuitMultiplier 纯函数
+    // ============================================================
+    console.log('--- calcPursuitMultiplier ---');
+    (function() {
+      T.assert(Zhan.Rules.calcPursuitMultiplier(3, 3) === 1, 'pursuit 3wmin3 → 1');
+      T.assert(Zhan.Rules.calcPursuitMultiplier(4, 3) > 1, 'pursuit 4wmin3 > 1');
+      T.assert(Zhan.Rules.calcPursuitMultiplier(2, 3) === 1, 'pursuit below min → 1');
+    })();
+
+    // ============================================================
+    // 13. computeEffectiveFury 纯函数
+    // ============================================================
+    console.log('--- computeEffectiveFury ---');
+    (function() {
+      // 未启用 fury → 返回 base values
+      var f1 = Zhan.Rules.computeEffectiveFury(100, 100, { furyEnabled: false });
+      T.assert(f1.atkBuffMult === CONFIG.ATK_BUFF_MULT, 'fury off → default atkBuffMult');
+      T.assert(f1.vulnMult === CONFIG.VULN_MULT, 'fury off → default vulnMult');
+
+      // 满血 fury → mult = 1 + 0 = 1
+      var f2 = Zhan.Rules.computeEffectiveFury(100, 100, { furyEnabled: true, atkBuffMult: CONFIG.ATK_BUFF_MULT });
+      T.assert(f2.atkBuffMult === CONFIG.ATK_BUFF_MULT, 'fury full HP → no change');
+
+      // 半血 fury
+      var f3 = Zhan.Rules.computeEffectiveFury(50, 100, { furyEnabled: true, atkBuffMult: CONFIG.ATK_BUFF_MULT, vulnMult: CONFIG.VULN_MULT, defBuffRatio: CONFIG.DEF_BUFF_RATIO });
+      T.assert(f3.atkBuffMult > CONFIG.ATK_BUFF_MULT, 'fury half HP → increased atkBuffMult');
+    })();
+
+    // ============================================================
+    // 14. Boss runHpTriggers 条件触发
+    // ============================================================
+    console.log('--- Boss runHpTriggers conditions ---');
+    (function() {
+      // groom: turn=0 不触发
+      var g1 = T.mockState();
+      g1.turn = 0;
+      g1.boss.hpTriggers = ['groom'];
+      g1.enemyEffects = { vulnerable: 2, atk_down: 2, stun: 1 };
+      g1.effectiveVulnMult = 1.5;
+      Zhan.Systems.Boss.runHpTriggers(g1, 'groom');
+      T.assert(g1.enemyEffects.vulnerable === 2, 'groom turn=0 not triggered');
+
+      // groom: turn=1 不触发 (turn+1=2, 2%4≠0)
+      var g2 = T.mockState();
+      g2.turn = 1;
+      g2.boss.hpTriggers = ['groom'];
+      g2.enemyEffects = { vulnerable: 2, atk_down: 2, stun: 1 };
+      g2.effectiveVulnMult = 1.5;
+      Zhan.Systems.Boss.runHpTriggers(g2, 'groom');
+      T.assert(g2.enemyEffects.vulnerable === 2, 'groom turn=1 not triggered');
+
+      // hiss: 跨阈值触发（200边界）
+      var g3 = T.mockState();
+      g3.turn = 3;
+      g3.boss.hpTriggers = ['hiss'];
+      g3.enemyMaxHP = 300;
+      g3.enemyHP = 150; // 跨过了200和100两个阈值
+      g3.hissPrevHP = 250;
+      g3.playerEffects = { atk_buff: 2 };
+      g3.enemyEffects = { vulnerable: 1 };
+      Zhan.Systems.Boss.runHpTriggers(g3, 'hiss');
+      T.assert(JSON.stringify(g3.playerEffects) === '{}', 'hiss cross-threshold clears effects');
+    })();
+
     console.log('=== All Tests Passed ===');
   }
 };
