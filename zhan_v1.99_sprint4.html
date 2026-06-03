@@ -500,9 +500,9 @@ var BOSSES = {
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
       id: 'boss_first',
-      events: ['TURN_START'],
+      // 此 trait 在 executeTurn 开头硬编码处理（Boss先手），不走 processEvent
+      events: [],
       params: {}
-      // 每回合Boss先手：在 executeTurn 中特殊处理（跳过玩家阶段直接enemyTurn）
     }],
     hpTriggers: ['groom', 'hiss'],
   },
@@ -981,6 +981,34 @@ Zhan.Rules = {
     return val;
   },
 
+  computeUnmatchedPenalty: function(state) {
+    var claimedSet = {};
+    for (var cwi = 0; cwi < state._claimedWildIndices.length; cwi++) {
+      claimedSet[state._claimedWildIndices[cwi]] = true;
+    }
+    var unmatchedByType = {};
+    for (var si = 0; si < state.slot.length; si++) {
+      if (!state.slot[si]) continue; // 跳过 null 占位（锁定槽）
+      if (state.slot[si].special) continue; // 特殊卡不算入未消除惩罚
+      if (state.slot[si].type === 'wild') {
+        if (claimedSet[si]) continue; // 被消费的万能牌不扣血
+        unmatchedByType['wild'] = (unmatchedByType['wild'] || 0) + 1;
+        continue;
+      }
+      var mt = Zhan.Rules.resolveWildType(state.slot, si);
+      if (!unmatchedByType[mt]) unmatchedByType[mt] = 0;
+      unmatchedByType[mt]++;
+    }
+    var totalUnmatched = 0;
+    var minCombo = state.effectiveMinCombo || CONFIG.MIN_COMBO;
+    for (var ut in unmatchedByType) {
+      if (unmatchedByType[ut] < minCombo) {
+        totalUnmatched += unmatchedByType[ut];
+      }
+    }
+    return { unmatchedByType: unmatchedByType, totalUnmatched: totalUnmatched };
+  },
+
   computeEffectiveFury: function(playerHP, playerMaxHP, baseValues) {
     if (!baseValues.furyEnabled) {
       return {
@@ -1069,7 +1097,7 @@ Zhan.Engine = {
         startEndlessNextCat();
         break;
     }
-    if (this.state && Zhan.UI && Zhan.UI.render) {
+    if (this.state && action.type !== 'END_TURN' && Zhan.UI && Zhan.UI.render) {
       Zhan.UI.render(this.state);
     }
   }
@@ -1479,35 +1507,14 @@ function executeTurn() {
 
   // --- 未消除惩罚 ---
   if (!G.noUnmatchedPenalty) {
-    var claimedSet = {};
-    for (var cwi = 0; cwi < combos._claimedWildIndices.length; cwi++) {
-      claimedSet[combos._claimedWildIndices[cwi]] = true;
-    }
-    var unmatchedByType = {};
-    for (var si2 = 0; si2 < G.slot.length; si2++) {
-      if (!G.slot[si2]) continue; // 跳过 null 占位（锁定槽）
-      // 特殊卡不算入未消除惩罚
-      if (G.slot[si2].special) continue;
-      // 万能牌被连击组消费（claimed=true）不扣血，未参与连击（claimed=false）照扣
-      if (G.slot[si2].type === 'wild') {
-        if (claimedSet[si2]) continue; // 被消费的万能牌不扣血
-        // 未被消费的万能牌照扣1血（当作1张散牌）
-        unmatchedByType['wild'] = (unmatchedByType['wild'] || 0) + 1;
-        continue;
-      }
-      var mt = Zhan.Rules.resolveWildType(G.slot, si2);
-      if (!unmatchedByType[mt]) unmatchedByType[mt] = 0;
-      unmatchedByType[mt]++;
-    }
-    var unmatchedPenalty = 0;
-    for (var ut in unmatchedByType) {
-      if (unmatchedByType[ut] < (G.effectiveMinCombo || CONFIG.MIN_COMBO)) {
-        unmatchedPenalty += unmatchedByType[ut];
-      }
-    }
-    if (unmatchedPenalty > 0) {
-      G.playerHP = Math.max(0, G.playerHP - unmatchedPenalty * CONFIG.UNMATCHED_PENALTY);
-      log('♀未消除×' + unmatchedPenalty + '→❤-' + unmatchedPenalty);
+    var penaltyResult = Zhan.Rules.computeUnmatchedPenalty({
+      slot: G.slot,
+      _claimedWildIndices: combos._claimedWildIndices,
+      effectiveMinCombo: G.effectiveMinCombo
+    });
+    if (penaltyResult.totalUnmatched > 0) {
+      G.playerHP = Math.max(0, G.playerHP - penaltyResult.totalUnmatched * CONFIG.UNMATCHED_PENALTY);
+      log('♀未消除×' + penaltyResult.totalUnmatched + '→❤-' + penaltyResult.totalUnmatched);
     }
   }
 
@@ -2190,27 +2197,15 @@ Zhan.UI.updateComboPreview = function(state) {
   }
 
   // 未消除扣血预览（与 core.js 改动4对齐：被消费的万能牌不扣血，未消费的照扣）
-  var claimedSet2 = {};
-  for (var cwi2 = 0; cwi2 < combos._claimedWildIndices.length; cwi2++) {
-    claimedSet2[combos._claimedWildIndices[cwi2]] = true;
-  }
-  var unmatchedByType = {};
-  for (var si2 = 0; si2 < G.slot.length; si2++) {
-    if (!G.slot[si2] || G.slot[si2].special) continue;
-    // 万能牌：被连击组消费的跳过，未消费的扣1血
-    if (G.slot[si2].type === 'wild') {
-      if (claimedSet2[si2]) continue;
-      unmatchedByType['wild'] = (unmatchedByType['wild'] || 0) + 1;
-      continue;
-    }
-    var mt = Zhan.Rules.resolveWildType(G.slot, si2);
-    if (!unmatchedByType[mt]) unmatchedByType[mt] = 0;
-    unmatchedByType[mt]++;
-  }
-  for (var ut in unmatchedByType) {
-    if (unmatchedByType[ut] >= (G.effectiveMinCombo || CONFIG.MIN_COMBO)) continue;
+  var penaltyResult = Zhan.Rules.computeUnmatchedPenalty({
+    slot: G.slot,
+    _claimedWildIndices: combos._claimedWildIndices,
+    effectiveMinCombo: G.effectiveMinCombo
+  });
+  for (var ut in penaltyResult.unmatchedByType) {
+    if (penaltyResult.unmatchedByType[ut] >= (G.effectiveMinCombo || CONFIG.MIN_COMBO)) continue;
     var uct = CARD_TYPES[ut] || { emoji: '⬜' };
-    previewParts.push('<span class="combo-none">' + uct.emoji + '×' + unmatchedByType[ut] + '→❤-' + unmatchedByType[ut] + '</span>');
+    previewParts.push('<span class="combo-none">' + uct.emoji + '×' + penaltyResult.unmatchedByType[ut] + '→❤-' + penaltyResult.unmatchedByType[ut] + '</span>');
   }
 
   el.innerHTML = previewParts.length ? previewParts.join(' ') : '<span class="combo-none">⚪ 未形成连击</span>';
