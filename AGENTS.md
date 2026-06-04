@@ -141,6 +141,11 @@ node projects/zhan/msp/bridge.js
 - `git add` + `git commit -m "fix: xxx"`
 - 写入 `memory/YYYY-MM-DD.md` 日志
 
+**COMMIT 触发条件（硬性）：**
+- 每次 VERIFY PASS 后**立即 commit**，不等、不攒、不跳过
+- 每次会话结束前 `git status` 确认无未提交改动
+- Scheduler 自己的文档修改（如 AGENTS.md、context/ 文档）同样适用——改完就 commit
+
 ---
 
 ## MSP 自检轮询 + Verifier 规范
