@@ -1,13 +1,18 @@
-// ============================================================
+﻿// ============================================================
 //  斩 v14 — ui.js
 //  渲染函数 + DOM 事件 + log 系统
 //  依赖 data.js / core.js（先加载）
 // ============================================================
 
+if (!window.Zhan) window.Zhan = {};
+
 // ========== 渲染主函数 ==========
-function render() {
-  // TASK: FURY_DYNAMIC — 每次渲染前刷新 effective 值，确保 badge/preview 实时随血量
-  updateEffectiveFuryValues(G);
+Zhan.UI = {};
+
+Zhan.UI.render = function(state) {
+  // TASK: FURY_DYNAMIC — effective 值已由 Engine._updateEffectiveFury 在 phase 结束时计算好，render 只读不写
+  var G = state || Zhan.Engine.state;
+  if (!G) return;
   document.getElementById('player-hp').textContent = G.playerHP;
   document.getElementById('player-shield').textContent = G.playerShield;
   document.getElementById('enemy-hp').textContent = G.enemyHP;
@@ -17,7 +22,8 @@ function render() {
   document.getElementById('enemy-name').textContent = G.boss.name || '毛线团';
 
   // 元气弹进度
-  var totalCards = CONFIG.TOTAL_CARDS;
+  var totalCards = 0;
+  for (var k in G.deckConfig) totalCards += G.deckConfig[k];
   var remaining = 0;
   var fp = flatten(G.piles);
   for (var i = 0; i < fp.length; i++) remaining += fp[i].length;
@@ -48,7 +54,7 @@ function render() {
   if ((ee.stun || 0) > 0) ebHtml += '<span class="badge badge-stun">💫眩晕 ' + ee.stun + 'T</span>';
   if ((ee.vulnerable || 0) > 0) ebHtml += '<span class="badge badge-vuln">💔易伤 ' + ee.vulnerable + 'T</span>';
   // T3: 降攻百分比动态取值
-  if ((ee.atk_down || 0) > 0) ebHtml += '<span class="badge badge-atk-down">⬇降攻-' + (ee.atk_down_pct || CONFIG.ATK_DOWN_PCT) + '% ' + ee.atk_down + 'T</span>';
+  if ((ee.atk_down || 0) > 0) ebHtml += '<span class="badge badge-atk-down">⬇降攻-' + Math.round(ee.atk_down_pct || CONFIG.ATK_DOWN_PCT) + '% ' + ee.atk_down + 'T</span>';
   document.getElementById('enemy-badges').innerHTML = ebHtml;
 
   // 牌堆统计
@@ -65,16 +71,20 @@ function render() {
   document.getElementById('hidden-cards').textContent = hiddenCount;
   document.getElementById('visible-cards').textContent = visibleCount;
 
-  renderBoard();
-  renderSlot();
+  Zhan.UI.renderBoard(G);
+  Zhan.UI.renderSlot(G);
 
   var btn = document.getElementById('btn-end-turn');
   if (G.phase === 'player' && !G.over && G.slot.length > 0) btn.disabled = false;
   else btn.disabled = true;
-}
+};
+
+// Legacy render for backward compat
+function render() { Zhan.UI.render(Zhan.Engine.state); }
 
 // ========== 牌堆渲染 ==========
-function renderBoard() {
+Zhan.UI.renderBoard = function(state) {
+  var G = state;
   var board = document.getElementById('board');
   board.innerHTML = '';
   var flatPiles = flatten(G.piles);
@@ -82,7 +92,7 @@ function renderBoard() {
     for (var c = 0; c < CONFIG.BOARD_COLS; c++) {
       (function(r, c) {
         var pile = G.piles[r][c];
-        var top = getTop(pile);
+        var top = Zhan.Engine._getTop(r * CONFIG.BOARD_COLS + c);
         var div = document.createElement('div');
         div.className = 'card-slot';
         var flatIdx = r * CONFIG.BOARD_COLS + c;
@@ -139,11 +149,12 @@ function renderBoard() {
         // 双击进槽
         var lastTap = 0;
         div.addEventListener('click', function(e) {
-          if (G.phase !== 'player' || G.over) return;
+          var st = Zhan.Engine.state;
+          if (!st || st.phase !== 'player' || st.over) return;
           var now = Date.now();
-          if (now - lastTap < CONFIG.DOUBLE_TAP_DELAY) { e.preventDefault(); if (pullCard(r, c)) { log('⚡ 双击进槽'); } lastTap = 0; return; }
+          if (now - lastTap < CONFIG.DOUBLE_TAP_DELAY) { e.preventDefault(); Zhan.Engine.dispatch({ type: 'PLAY_CARD', r: r, c: c }); lastTap = 0; return; }
           lastTap = now;
-          if (getTop(G.piles[r][c])) { div.classList.add('double-tap-active'); setTimeout(function() { div.classList.remove('double-tap-active'); }, 200); }
+          if (st.piles[r][c] && st.piles[r][c].length) { div.classList.add('double-tap-active'); setTimeout(function() { div.classList.remove('double-tap-active'); }, 200); }
         });
 
         // 拖拽进槽
@@ -152,27 +163,34 @@ function renderBoard() {
           touchStartY = e.touches[0].clientY; touchStartX = e.touches[0].clientX; swiping = false;
         }, {passive: true});
         div.addEventListener('touchmove', function(e) {
-          if (G.phase !== 'player' || G.over) return;
+          var st = Zhan.Engine.state;
+          if (!st || st.phase !== 'player' || st.over) return;
           var dy = e.touches[0].clientY - touchStartY;
           var dx = Math.abs(e.touches[0].clientX - touchStartX);
-          if (dy > CONFIG.SWIPE_THRESHOLD && dy > dx * 1.5) { e.preventDefault(); if (!swiping && getTop(G.piles[r][c])) { swiping = true; if (pullCard(r, c)) { log('👇 拖拽进槽'); } } }
+          if (dy > CONFIG.SWIPE_THRESHOLD && dy > dx * 1.5) { e.preventDefault(); if (!swiping && st.piles[r][c] && st.piles[r][c].length) { swiping = true; Zhan.Engine.dispatch({ type: 'PLAY_CARD', r: r, c: c }); } }
         }, {passive: false});
 
         board.appendChild(div);
       })(r, c);
     }
   }
-}
+};
 
-function renderSlot() {
+Zhan.UI.renderSlot = function(state) {
+  var G = state;
   var bar = document.getElementById('slot-bar');
   bar.innerHTML = '';
   var effectiveSize = G.effectiveSlotSize || CONFIG.SLOT_SIZE;
+  var wildCoreIdx = -1;
+  if (G.wildCoreSlot) {
+    wildCoreIdx = 0;
+    while (wildCoreIdx < effectiveSize && G.lockedSlots && G.lockedSlots[wildCoreIdx]) wildCoreIdx++;
+  }
   for (var i = 0; i < effectiveSize; i++) {
     var div = document.createElement('div');
     div.className = 'eslot';
-    // 万能核心槽位：显示💎和"万能"标签
-    if (G.wildCoreSlot && i === 0) {
+    // 万能核心槽位：动态查找第一个非锁定槽位
+    if (G.wildCoreSlot && i === wildCoreIdx) {
       div.classList.add('filled', 'wild-core');
       div.textContent = '💎';
       var wcLabel = document.createElement('span');
@@ -198,17 +216,19 @@ function renderSlot() {
     }
     bar.appendChild(div);
   }
-}
+};
 
 // ========== 连击预览 ==========
-function updateComboPreview() {
-  var combos = computeCombos(G.slot);
+Zhan.UI.updateComboPreview = function(state) {
+  var G = state || Zhan.Engine.state;
+  if (!G) return;
+  var combos = Zhan.Rules.computeCombos(G.slot, G.effectiveMinCombo || CONFIG.MIN_COMBO);
   var el = document.getElementById('combo-bar');
   if (!combos.length && !G.slot.length) { el.innerHTML = ''; return; }
 
   var slotTypeCount = {};
   for (var si = 0; si < G.slot.length; si++) {
-    var st = resolveWildType(G.slot, si);
+    var st = Zhan.Rules.resolveWildType(G.slot, si);
     if (!BUFF_TYPES[st] && st !== 'junk') {
       if (!slotTypeCount[st]) slotTypeCount[st] = 0;
       slotTypeCount[st]++;
@@ -231,55 +251,50 @@ function updateComboPreview() {
     if (!slotTypeCount[at] || slotTypeCount[at] < (G.effectiveMinCombo || CONFIG.MIN_COMBO)) continue;
     var total = slotTypeCount[at];
     var maxLen = actionMaxLen[at] || 0;
-    var baseVal = calcBaseValue(total);
-    var val = at === 'attack' ? calcAttackValue(total, maxLen, G) : (at === 'defend' ? calcDefendValue(total, maxLen, G) : calcHealValue(total, maxLen, G));
+    var mc = G.effectiveMinCombo || CONFIG.MIN_COMBO;
+    var baseVal = Zhan.Rules.calcBaseValue(total, mc);
+    var val = at === 'attack' ? Zhan.Rules.calcAttackValue(total, maxLen, mc) : (at === 'defend' ? Zhan.Rules.calcDefendValue(total, maxLen, mc) : Zhan.Rules.calcHealValue(total, maxLen, mc));
     var emoji = CARD_TYPES[at].emoji;
     var html = '<span class="combo-preview ' + at + '">' + emoji + '×' + total + '→' + baseVal;
-    if (maxLen >= 4) {
+    if (maxLen >= mc + 1) {
       // T3: 去尾零 — 1.0→1, 1.5→1.5
-      var mult = calcPursuitMultiplier(maxLen);
+      var mult = Zhan.Rules.calcPursuitMultiplier(maxLen, mc);
       html += ' ' + maxLen + '连×' + parseFloat(mult.toFixed(1));
     }
     html += '→总' + val + '</span>';
     previewParts.push(html);
   }
 
+  // BUG-1 FIX: 在循环前计算新鲜 fury effective 值，避免 preview 读旧 effective
+  Zhan.Engine._updateEffectiveFury(G);
   for (var ci2 = 0; ci2 < combos.length; ci2++) {
     var c2 = combos[ci2];
     if (!BUFF_TYPES[c2.type]) continue;
-    var desc = getEffectDescription(c2.type, c2.n);
+    var desc = Zhan.Rules.getEffectDescription(G, c2.type, c2.n);
     previewParts.push('<span class="combo-preview ' + c2.type + '">' + CARD_TYPES[c2.type].emoji + c2.n + '连→' + desc + '</span>');
   }
 
   // 未消除扣血预览（与 core.js 改动4对齐：被消费的万能牌不扣血，未消费的照扣）
-  var claimedSet2 = {};
-  for (var cwi2 = 0; cwi2 < combos._claimedWildIndices.length; cwi2++) {
-    claimedSet2[combos._claimedWildIndices[cwi2]] = true;
-  }
-  var unmatchedByType = {};
-  for (var si2 = 0; si2 < G.slot.length; si2++) {
-    if (!G.slot[si2] || G.slot[si2].special) continue;
-    // 万能牌：被连击组消费的跳过，未消费的扣1血
-    if (G.slot[si2].type === 'wild') {
-      if (claimedSet2[si2]) continue;
-      unmatchedByType['wild'] = (unmatchedByType['wild'] || 0) + 1;
-      continue;
-    }
-    var mt = resolveWildType(G.slot, si2);
-    if (!unmatchedByType[mt]) unmatchedByType[mt] = 0;
-    unmatchedByType[mt]++;
-  }
-  for (var ut in unmatchedByType) {
-    if (unmatchedByType[ut] >= (G.effectiveMinCombo || CONFIG.MIN_COMBO)) continue;
+  var penaltyResult = Zhan.Rules.computeUnmatchedPenalty({
+    slot: G.slot,
+    _claimedWildIndices: combos._claimedWildIndices,
+    effectiveMinCombo: G.effectiveMinCombo
+  });
+  for (var ut in penaltyResult.unmatchedByType) {
+    if (penaltyResult.unmatchedByType[ut] >= (G.effectiveMinCombo || CONFIG.MIN_COMBO)) continue;
     var uct = CARD_TYPES[ut] || { emoji: '⬜' };
-    previewParts.push('<span class="combo-none">' + uct.emoji + '×' + unmatchedByType[ut] + '→❤-' + unmatchedByType[ut] + '</span>');
+    previewParts.push('<span class="combo-none">' + uct.emoji + '×' + penaltyResult.unmatchedByType[ut] + '→❤-' + penaltyResult.unmatchedByType[ut] + '</span>');
   }
 
   el.innerHTML = previewParts.length ? previewParts.join(' ') : '<span class="combo-none">⚪ 未形成连击</span>';
-}
+};
+
+// Legacy compat
+function updateComboPreview() { Zhan.UI.updateComboPreview(Zhan.Engine.state); }
 
 // ========== 结算面板 ==========
-function renderStatsPanel(G) {
+Zhan.UI.renderStatsPanel = function(state) {
+  var G = state;
   var panel = document.getElementById('stats-panel');
   if (!panel) return;
 
@@ -306,48 +321,112 @@ function renderStatsPanel(G) {
       '<div class="stat-row-item"><span class="stat-label">🃏 消耗卡牌数</span><span class="stat-value">' + consumed + ' / ' + totalDeck + '</span></div>' +
       relicsHtml +
     '</div>';
-}
+};
+
+// Legacy compat
+function renderStatsPanel(G) { Zhan.UI.renderStatsPanel(G); }
+
+// ========== 结算面板显示 ==========
+Zhan.UI.showResult = function(state) {
+  var G = state;
+  var overlay = document.getElementById('result-overlay');
+  var btnEndless = document.getElementById('btn-endless');
+
+  Zhan.UI.renderStatsPanel(G);
+  document.getElementById('result-title').textContent = G._resultTitle || '';
+  document.getElementById('result-desc').textContent = G._resultDesc || '';
+
+  if (G._showEndlessBtn) {
+    btnEndless.style.display = 'block';
+  } else {
+    btnEndless.style.display = 'none';
+  }
+  document.getElementById('btn-restart').textContent = G._restartText || '🔄 再来一局';
+  overlay.classList.add('show');
+};
+
+// ========== 敌人意图渲染 ==========
+Zhan.UI.renderEnemyIntent = function(state) {
+  var G = state;
+  if (!G) return;
+  var el = document.getElementById('enemy-intent');
+  if (!el) return;
+  el.innerHTML = (G._intentHTML || '') + (G._intentExtraHTML || '');
+};
+
+// ========== 圣物选择渲染 ==========
+Zhan.UI.renderRelicSelect = function(state) {
+  var G = state;
+  if (!G) return;
+
+  // 渲染选项
+  var optionsEl = document.getElementById('relic-select-options');
+  optionsEl.innerHTML = '';
+  var opts = G.relicOptions || [];
+  for (var oi = 0; oi < opts.length; oi++) {
+    var relic = RELICS[opts[oi]];
+    var card = document.createElement('div');
+    card.className = 'relic-card';
+    card.id = 'relic-opt-' + oi;
+    card.innerHTML = '<div class="relic-name">' + relic.name + '</div>' +
+      '<div class="relic-type">' + relic.type + '</div>' +
+      '<div class="relic-desc">' + relic.desc + '</div>';
+    optionsEl.appendChild(card);
+  }
+
+  // 描述文字
+  var rerolls = G.relicRerolls || 0;
+  document.getElementById('relic-select-desc').textContent =
+    '第二关通过！获得圣物' + (rerolls < 1 ? '（可刷新1次）' : '');
+
+  // 刷新按钮状态
+  var btnReroll = document.getElementById('btn-relic-reroll');
+  if (rerolls >= 1) {
+    btnReroll.disabled = true;
+    btnReroll.style.opacity = '0.4';
+    btnReroll.textContent = '🔄 刷新（已用完）';
+  } else {
+    btnReroll.disabled = false;
+    btnReroll.style.opacity = '1';
+    btnReroll.textContent = '🔄 刷新';
+  }
+
+  // 显示 overlay
+  document.getElementById('relic-select-overlay').classList.add('show');
+};
 
 // ========== 事件绑定 ==========
 document.getElementById('btn-end-turn').addEventListener('click', function() {
-  if (G.phase !== 'player' || G.over || G.slot.length === 0) return;
-  executeTurn();
+  Zhan.Engine.dispatch({ type: 'END_TURN' });
 });
 
 document.getElementById('btn-reset').addEventListener('click', function() {
   document.getElementById('result-overlay').classList.remove('show');
-  newGame();
+  Zhan.Engine.dispatch({ type: 'RESET' });
 });
 
 document.getElementById('btn-restart').addEventListener('click', function() {
   document.getElementById('result-overlay').classList.remove('show');
-  // 重置全局状态：回到毛线团第一关
-  ENDLESS_DEFEATED = {};
-  G.isEndless = false;
-  G.activeRelics = [];
-  G.currentStage = 1;
-  G.bossId = 'skeleton';
-  newGame();
+  Zhan.Engine.dispatch({ type: 'RESTART' });
 });
 
 document.getElementById('btn-endless').addEventListener('click', function() {
   document.getElementById('result-overlay').classList.remove('show');
-  // 无尽模式：保留圣物，随机一只没打过的猫猫
-  ENDLESS_DEFEATED = ENDLESS_DEFEATED || {};
-  G.isEndless = true;
-  startEndlessNextCat();
+  Zhan.Engine.dispatch({ type: 'START_ENDLESS' });
 });
 
 // ========== LOG ==========
 function log(msg) {
-  G.logLines.push(msg);
-  if (G.logLines.length > CONFIG.LOG_MAX_LINES) G.logLines.shift();
+  var st = Zhan.Engine.state;
+  if (!st) return;
+  st.logLines.push(msg);
+  if (st.logLines.length > CONFIG.LOG_MAX_LINES) st.logLines.shift();
   var el = document.getElementById('log');
   // 逐行用 textContent 防止 XSS
   el.innerHTML = '';
-  for (var i = 0; i < G.logLines.length; i++) {
+  for (var i = 0; i < st.logLines.length; i++) {
     var line = document.createElement('div');
-    line.textContent = G.logLines[i];
+    line.textContent = st.logLines[i];
     el.appendChild(line);
   }
   el.scrollTop = el.scrollHeight;
@@ -367,12 +446,13 @@ function log(msg) {
 })();
 
 function showBossInfo() {
-  if (!G.boss || !G.boss.desc) return;
-  document.getElementById('boss-info-emoji').textContent = G.boss.emoji || '?';
-  document.getElementById('boss-info-name').textContent = G.boss.name;
-  document.getElementById('boss-info-mechanic').textContent = G.boss.desc;
+  var st = Zhan.Engine.state;
+  if (!st || !st.boss || !st.boss.desc) return;
+  document.getElementById('boss-info-emoji').textContent = st.boss.emoji || '?';
+  document.getElementById('boss-info-name').textContent = st.boss.name;
+  document.getElementById('boss-info-mechanic').textContent = st.boss.desc;
   document.getElementById('boss-info-stats').textContent =
-    'HP ' + G.boss.maxHP + ' | 攻击 ' + G.boss.baseAtk + ' | 护盾 ' + (G.boss.startShield || 0);
+    'HP ' + st.boss.maxHP + ' | 攻击 ' + st.boss.baseAtk + ' | 护盾 ' + (st.boss.startShield || 0);
   document.getElementById('boss-info-overlay').style.display = 'flex';
 }
 
@@ -397,15 +477,17 @@ document.getElementById('boss-info-overlay').addEventListener('click', function(
 })();
 
 function showPlayerRelicInfo() {
-  var relics = G.activeRelics || [];
+  var st = Zhan.Engine.state;
+  if (!st) return;
+  var relics = st.activeRelics || [];
   var desc = relics.length ? '' : '（未装配圣物）';
   for (var i = 0; i < relics.length; i++) {
     var relic = RELICS[relics[i]];
-    if (relic) desc += (i ? '\\n' : '') + relic.name + ': ' + relic.desc;
+    if (relic) desc += (i ? '\n' : '') + relic.name + ': ' + relic.desc;
   }
   document.getElementById('player-info-mechanic').textContent = desc;
   document.getElementById('player-info-stats').textContent =
-    'HP ' + G.playerHP + '/' + G.playerMaxHP + ' | ⚡ ' + (G.effectiveMinCombo || CONFIG.MIN_COMBO) + '连起效';
+    'HP ' + st.playerHP + '/' + st.playerMaxHP + ' | ⚡ ' + (st.effectiveMinCombo || CONFIG.MIN_COMBO) + '连起效';
   document.getElementById('player-info-overlay').style.display = 'flex';
 }
 
@@ -416,3 +498,26 @@ document.getElementById('btn-player-info-close').addEventListener('click', funct
 document.getElementById('player-info-overlay').addEventListener('click', function(e) {
   if (e.target === this) this.style.display = 'none';
 });
+
+// ========== 圣物选择 — 事件绑定 ==========
+
+// 刷新按钮 — 换一组圣物
+(function() {
+  var btn = document.getElementById('btn-relic-reroll');
+  btn.addEventListener('click', function() {
+    var st = Zhan.Engine.state;
+    if (!st) return;
+    Zhan.Engine._rerollRelics();
+    Zhan.UI.renderRelicSelect(st);
+  });
+})();
+
+// 确认按钮 — 两个圣物全拿
+(function() {
+  var btn = document.getElementById('btn-relic-confirm');
+  btn.addEventListener('click', function() {
+    document.getElementById('relic-select-overlay').classList.remove('show');
+    Zhan.Engine._confirmRelicSelect();
+  });
+})();
+

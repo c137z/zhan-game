@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 //  斩 v14 — core.js
 //  战斗引擎：洗牌/发牌/结算/状态管理/敌人回合
 //  依赖 data.js（先加载）
@@ -33,80 +33,831 @@ function flatten(arr) {
   return result;
 }
 
-// ========== 伤害公式 ==========
-function calcBaseValue(totalCount) {
-  var minCombo = G.effectiveMinCombo || CONFIG.MIN_COMBO; return 4 + (totalCount - minCombo) * 2;
-}
+// ========== Zhan.Systems — 声明式效果执行引擎 ==========
+if (!window.Zhan) window.Zhan = {};
+Zhan.Systems = {};
 
-function calcPursuitMultiplier(maxComboLen) {
-  var minCombo = G.effectiveMinCombo || CONFIG.MIN_COMBO;
-  if (maxComboLen < minCombo + 1) return 1;
-  return 1 + (maxComboLen - minCombo) * 0.1;
-}
+// --- Relic Effects ---
+Zhan.Systems.Relic = {
+  _handlers: {
+    multiplyDeckCard: function(G, params) { G.deckConfig[params.cardType] *= params.factor; },
+    setEffectiveMinCombo: function(G, params) { G.effectiveMinCombo = params.value; },
+    increaseSlotSize: function(G, params) { G.effectiveSlotSize = (G.effectiveSlotSize || CONFIG.SLOT_SIZE) + params.amount; },
+    setBuffDurationBonus: function(G, params) { G.buffDurationBonus = params.amount; },
+    enableWildCoreSlot: function(G) {
+      G.wildCoreSlot = true;
+      G.effectiveSlotSize = (G.effectiveSlotSize || CONFIG.SLOT_SIZE) + 1;
+    },
+    setOverloadBuffs: function(G, params) {
+      G.atkBuffMult = params.atkBuffMult;
+      G.vulnMult = params.vulnMult;
+      G.defBuffRatio = params.defBuffRatio;
+    },
+    setNoUnmatchedPenalty: function(G, params) { G.noUnmatchedPenalty = params.value; },
+    addSpecialCards: function(G, params) { G.specialCards = params.cards; },
+    enableTenacity: function(G) { G.tenacityUsed = false; },
+    enableFury: function(G) { G.furyEnabled = true; },
+    increaseMaxHP: function(G, params) { G.playerMaxHP = CONFIG.PLAYER_MAX_HP + params.amount; }
+  },
 
-function calcAttackValue(totalCount, maxComboLen, G) {
-  var minCombo = G.effectiveMinCombo || CONFIG.MIN_COMBO;
-  if (totalCount < minCombo) return 0;
-  return Math.ceil(calcBaseValue(totalCount) * calcPursuitMultiplier(maxComboLen));
-}
+  applyInit: function(G) {
+    var relics = G.activeRelics || [];
+    for (var i = 0; i < relics.length; i++) {
+      var relicDef = RELICS[relics[i]];
+      if (!relicDef || !relicDef.effects) continue;
+      for (var j = 0; j < relicDef.effects.length; j++) {
+        var eff = relicDef.effects[j];
+        if (eff.phase !== 'INIT') continue;
+        var handler = this._handlers[eff.action];
+        if (handler) handler(G, eff.params || {});
+      }
+    }
+  },
 
-function calcDefendValue(totalCount, maxComboLen, G) {
-  var minCombo = G.effectiveMinCombo || CONFIG.MIN_COMBO;
-  if (totalCount < minCombo) return 0;
-  return Math.floor(calcBaseValue(totalCount) * calcPursuitMultiplier(maxComboLen));
-}
-
-function calcHealValue(totalCount, maxComboLen, G) {
-  var minCombo = G.effectiveMinCombo || CONFIG.MIN_COMBO;
-  if (totalCount < minCombo) return 0;
-  return Math.floor(calcBaseValue(totalCount) * calcPursuitMultiplier(maxComboLen));
-}
-
-// ========== 圣物修正器 ==========
-function applyRelicModifiers(type, val, G) {
-  // 过载核心：buff/debuff效果翻倍（在 applyStatusEffects 中处理）
-  // TASK: FURY_DYNAMIC — fury 已实时融入 effectiveAtkBuffMult/effectiveVulnMult，
-  // applyRelicModifiers 不再单独叠加 fury 倍率
-  return val;
-}
-
-// TASK: FURY_DYNAMIC — 狂暴核心实时驱动 effective 值，随血量变化
-function updateEffectiveFuryValues(G) {
-  if (G.furyEnabled && RELICS.fury_core) {
-    var furyMult = RELICS.fury_core.getMultiplier(G);
-    // effectiveAtkBuffMult: base atk_buff 倍率 × fury（实时随动）
-    G.effectiveAtkBuffMult = (G.atkBuffMult || CONFIG.ATK_BUFF_MULT) * furyMult;
-    // effectiveVulnMult: base vuln 倍率 × fury（实时随动）
-    G.effectiveVulnMult = (G.vulnMult || CONFIG.VULN_MULT) * furyMult;
-    // effectiveDefBuffRatio: 减伤比率按 fury 增强，公式 1 - (1-baseRatio) * furyMult
-    // 下限 0（最多减伤 100%，即伤害×0）
-    var baseRatio = G.defBuffRatio || CONFIG.DEF_BUFF_RATIO;
-    G.effectiveDefBuffRatio = Math.max(0, 1 - (1 - baseRatio) * furyMult);
-  } else {
-    G.effectiveAtkBuffMult = G.atkBuffMult || CONFIG.ATK_BUFF_MULT;
-    G.effectiveVulnMult = G.vulnMult || CONFIG.VULN_MULT;
-    G.effectiveDefBuffRatio = G.defBuffRatio || CONFIG.DEF_BUFF_RATIO;
+  // fury_core getMultiplier — still needed at runtime with G context
+  getFuryMultiplier: function(G) {
+    var hpLoss = 1 - G.playerHP / G.playerMaxHP;
+    return 1 + hpLoss;
   }
-}
+};
 
-function applyStatusEffects(type, val, G) {
-  // TASK: FURY_DYNAMIC — 每次调用前刷新 effective 值，确保实时随血量
-  updateEffectiveFuryValues(G);
-  switch (type) {
-    case 'attack':
-      if (G.effectiveAtkBuffMult > 0) val = Math.ceil(val * G.effectiveAtkBuffMult);
-      if (G.effectiveVulnMult > 0) val = Math.ceil(val * G.effectiveVulnMult);
-      break;
-    case 'defend':
-    case 'heal':
-      // 防御/回血不受 atk_buff/vulnerable 影响
-      break;
+// --- Boss Trait Handlers ---
+Zhan.Systems.Boss = {
+  _traitHandlers: {
+    lock_pile: {
+      onTurnStart: function(G, params) {
+        if (G.turn % params.interval !== 0) return;
+        var flat = flatten(G.piles);
+        var candidates = [];
+        for (var i = 0; i < flat.length; i++) {
+          if (flat[i].length > 0 && !G.lockedPiles[i]) candidates.push(i);
+        }
+        if (candidates.length < params.count) return;
+        shuffleArray(candidates);
+        G.lockedPiles = G.lockedPiles || {};
+        for (var ci = 0; ci < params.count; ci++) {
+          G.lockedPiles[candidates[ci]] = params.duration;
+        }
+        log('🐱 狸花锁牌：锁定了' + params.count + '摞牌，持续' + params.duration + '回合');
+      },
+      onTurnEnd: function(G, params) {
+        if (!G.lockedPiles) return;
+        for (var k in G.lockedPiles) {
+          G.lockedPiles[k]--;
+          if (G.lockedPiles[k] <= 0) delete G.lockedPiles[k];
+        }
+      }
+    },
+    lick_player: {
+      onTurnStart: function(G, params) {
+        if (G.turn < params.minTurn || G.turn % params.interval !== 0) return;
+        if (G.playerEffects.atk_buff) delete G.playerEffects.atk_buff;
+        if (G.playerEffects.def_buff) delete G.playerEffects.def_buff;
+        log('🐱 斯芬克斯舔你！玩家 Buff 被舔掉');
+      }
+    },
+    lock_slot: {
+      onTurnStart: function(G, params) {
+        if (G.turn % params.interval !== 0) return;
+        var free = [];
+        for (var i = 0; i < CONFIG.SLOT_SIZE; i++) {
+          if (!G.lockedSlots || !G.lockedSlots[i]) free.push(i);
+        }
+        if (free.length < params.count) return;
+        shuffleArray(free);
+        G.lockedSlots = G.lockedSlots || {};
+        for (var ci = 0; ci < params.count; ci++) {
+          G.lockedSlots[free[ci]] = params.duration;
+        }
+        log('🐱 英短锁槽：锁定了' + params.count + '个槽位，持续' + params.duration + '回合');
+      },
+      onTurnEnd: function(G, params) {
+        if (!G.lockedSlots) return;
+        for (var k in G.lockedSlots) {
+          G.lockedSlots[k]--;
+          if (G.lockedSlots[k] <= 0) delete G.lockedSlots[k];
+        }
+      }
+    },
+    hide_intent: {
+      onTurnStart: function(G) { G.hideIntent = true; }
+    },
+    random_discard: {
+      onResolve: function(G, combos) {
+        if (!G.slot.length) return;
+        var idx = Math.floor(Math.random() * G.slot.length);
+        var card = G.slot.splice(idx, 1)[0];
+        log('🐱 阿比拍飞了一张 ' + CARD_TYPES[card.type].emoji + '！');
+      }
+    },
+    smear_piles: {
+      onTurnStart: function(G, params) {
+        G.smearedPiles = {};
+        var flat = flatten(G.piles);
+        var candidates = [];
+        for (var i = 0; i < flat.length; i++) {
+          if (flat[i].length > 0) candidates.push(i);
+        }
+        if (candidates.length < params.count) return;
+        shuffleArray(candidates);
+        for (var ci = 0; ci < params.count; ci++) {
+          G.smearedPiles[candidates[ci]] = true;
+        }
+        log('🐱 布偶趴牌：涂抹了' + params.count + '摞牌');
+      }
+    },
+    time_limit: {
+      onTurnStart: function(G, params) {
+        G.maxTurns = G.maxTurns || params.maxTurns;
+        if (G.turn >= G.maxTurns) {
+          Zhan.Engine._endGame(false, '⏰ ' + params.maxTurns + '回合已到！豹猫赢了...');
+        }
+      }
+    },
+    insert_junk: {
+      onTurnStart: function(G, params) {
+        var halfHP = G.enemyMaxHP / 2;
+        var junkCount = (G.enemyHP > halfHP) ? (G.turn % 2 === 0 ? 0 : 1) : 1;
+        if (junkCount === 0) return;
+        for (var j = 0; j < junkCount; j++) {
+          var flat = flatten(G.piles);
+          var candidates = [];
+          for (var i = 0; i < flat.length; i++) {
+            if (flat[i].length > 0) candidates.push(i);
+          }
+          if (!candidates.length) return;
+          var idx = candidates[Math.floor(Math.random() * candidates.length)];
+          flat[idx].push({ type: 'junk', id: G.pickedId++, isJunk: true });
+        }
+        log('🐱 暹罗捣乱：塞了' + junkCount + '张废牌！');
+      }
+    },
+    stun_player: {
+      onTurnStart: function(G, params) {
+        if (G.turn >= params.minTurn && G.turn % params.interval === 0) {
+          G.playerSkipped = true;
+          log('🐱 折耳发作！玩家本回合无法行动');
+        }
+      }
+    }
+  },
+
+  _hpTriggerHandlers: {
+    groom: {
+      condition: function(G) { return G.turn > 0 && (G.turn + 1) % 4 === 0; },
+      execute: function(G) {
+        G.enemyEffects.vulnerable = 0;
+        G.enemyEffects.atk_down = 0;
+        G.enemyEffects.atk_down_pct = 0;
+        G.enemyEffects.stun = 0;
+        G.effectiveVulnMult = 0;
+        log('🐱 舔毛！Boss 清除自身全部 Debuff（易伤/降攻/眩晕）');
+      }
+    },
+    hiss: {
+      condition: function(G) {
+        if (G.hissPrevHP === undefined) G.hissPrevHP = G.enemyMaxHP;
+        var thresholds = [200, 100];
+        for (var i = 0; i < thresholds.length; i++) {
+          if (G.enemyHP < thresholds[i] && G.hissPrevHP >= thresholds[i]) {
+            G.hissPrevHP = G.enemyHP;
+            return true;
+          }
+        }
+        G.hissPrevHP = G.enemyHP;
+        return false;
+      },
+      execute: function(G) {
+        G.playerEffects = {};
+        G.enemyEffects = {};
+        log('🐱 哈气！！全场 Buff/Debuff 清空！');
+      }
+    }
+  },
+
+  // Dispatch traits based on event name
+  processEvent: function(G, eventName) {
+    var boss = G.boss;
+    if (!boss || !boss.traits) return;
+    for (var i = 0; i < boss.traits.length; i++) {
+      var trait = boss.traits[i];
+      if (!trait.events || trait.events.indexOf(eventName) === -1) continue;
+      var handler = this._traitHandlers[trait.id];
+      if (!handler) continue;
+      var fn = handler[{
+        'TURN_START': 'onTurnStart',
+        'TURN_END': 'onTurnEnd',
+        'RESOLVE': 'onResolve'
+      }[eventName]];
+      if (fn) fn(G, trait.params || {});
+    }
+  },
+
+  // Dispatch hpTriggers
+  runHpTriggers: function(G, filterId) {
+    var boss = G.boss;
+    if (!boss || !boss.hpTriggers) return;
+    for (var i = 0; i < boss.hpTriggers.length; i++) {
+      var triggerId = boss.hpTriggers[i];
+      if (typeof triggerId !== 'string') continue;
+      if (filterId && triggerId !== filterId) continue;
+      var handler = this._hpTriggerHandlers[triggerId];
+      if (!handler) continue;
+      if (handler.condition && handler.condition(G)) {
+        handler.execute(G);
+      }
+    }
   }
-  return val;
-}
+};
+
+// ========== Zhan.Rules — 纯数值计算函数 ==========
+// 所有规则函数不读全局 G，依赖以参数显式传入
+Zhan.Rules = {
+  calcBaseValue: function(totalCount, minCombo) {
+    return 4 + (totalCount - minCombo) * 2;
+  },
+
+  calcPursuitMultiplier: function(maxComboLen, minCombo) {
+    if (maxComboLen < minCombo + 1) return 1;
+    return 1 + (maxComboLen - minCombo) * 0.1;
+  },
+
+  calcAttackValue: function(totalCount, maxComboLen, minCombo) {
+    if (totalCount < minCombo) return 0;
+    return Math.ceil(Zhan.Rules.calcBaseValue(totalCount, minCombo) * Zhan.Rules.calcPursuitMultiplier(maxComboLen, minCombo) - Number.EPSILON);
+  },
+
+  calcDefendValue: function(totalCount, maxComboLen, minCombo) {
+    if (totalCount < minCombo) return 0;
+    return Math.floor(Zhan.Rules.calcBaseValue(totalCount, minCombo) * Zhan.Rules.calcPursuitMultiplier(maxComboLen, minCombo));
+  },
+
+  calcHealValue: function(totalCount, maxComboLen, minCombo) {
+    if (totalCount < minCombo) return 0;
+    return Math.floor(Zhan.Rules.calcBaseValue(totalCount, minCombo) * Zhan.Rules.calcPursuitMultiplier(maxComboLen, minCombo));
+  },
+
+  resolveWildType: function(slot, idx) {
+    if (!slot[idx] || slot[idx].isJunk) return 'junk';
+    if (slot[idx].type !== 'wild') return slot[idx].type;
+    for (var k = idx-1; k >= 0; k--) {
+      if (slot[k] && slot[k].type !== 'wild' && !slot[k].isJunk) {
+        return slot[k].type;
+      }
+    }
+    for (var k = idx+1; k < slot.length; k++) {
+      if (slot[k] && slot[k].type !== 'wild' && !slot[k].isJunk) {
+        return slot[k].type;
+      }
+    }
+    return 'wild';
+  },
+
+  computeCombos: function(slot, minCombo) {
+    if (!slot.length) { var empty = []; empty._claimedWildIndices = []; return empty; }
+    var resolved = slot.map(function(c, i) {
+      if (!c) return { type: 'null_placeholder', card: null, index: i, claimed: false };
+      return { type: Zhan.Rules.resolveWildType(slot, i), card: c, index: i, claimed: false };
+    });
+    var combos = [];
+    var _claimedWildIndices = [];
+    var i = 0;
+    while (i < resolved.length) {
+      var typ = resolved[i].type;
+      if (typ === 'null_placeholder' || typ === 'wild' || typ === 'junk') { i++; continue; }
+      if (resolved[i].card && resolved[i].card.type === 'wild' && resolved[i].claimed) { i++; continue; }
+      var j = i+1;
+      while (j < resolved.length) {
+        if (resolved[j].type === 'null_placeholder') { j++; continue; }
+        if (resolved[j].card && resolved[j].card.type === 'wild' && resolved[j].claimed) break;
+        if (resolved[j].type !== typ) break;
+        j++;
+      }
+      var comboLen = j - i;
+      if (comboLen >= minCombo) {
+        for (var ci = i; ci < j; ci++) {
+          if (resolved[ci].card && resolved[ci].card.type === 'wild') {
+            resolved[ci].claimed = true;
+            _claimedWildIndices.push(resolved[ci].index);
+          }
+        }
+        combos.push({ n: comboLen, cards: slot.slice(i,j), type: typ, start: i, end: j });
+      }
+      i = j;
+    }
+    combos._claimedWildIndices = _claimedWildIndices;
+    return combos;
+  },
+
+  getComboDuration: function(n, minCombo) {
+    return Math.max(1, n - minCombo + 1);
+  },
+
+  getStunDuration: function(n, minCombo) {
+    return Zhan.Rules.getComboDuration(n, minCombo);
+  },
+
+  applyStatusEffects: function(type, val, effects) {
+    switch (type) {
+      case 'attack':
+        if (effects.atkBuffMult > 0) val = Math.ceil(val * effects.atkBuffMult);
+        if (effects.vulnMult > 0) val = Math.ceil(val * effects.vulnMult);
+        break;
+      case 'defend':
+      case 'heal':
+        break;
+    }
+    return val;
+  },
+
+  computeUnmatchedPenalty: function(state) {
+    var claimedSet = {};
+    for (var cwi = 0; cwi < state._claimedWildIndices.length; cwi++) {
+      claimedSet[state._claimedWildIndices[cwi]] = true;
+    }
+    var unmatchedByType = {};
+    for (var si = 0; si < state.slot.length; si++) {
+      if (!state.slot[si]) continue; // 跳过 null 占位（锁定槽）
+      if (state.slot[si].special) continue; // 特殊卡不算入未消除惩罚
+      if (state.slot[si].type === 'wild') {
+        if (claimedSet[si]) continue; // 被消费的万能牌不扣血
+        unmatchedByType['wild'] = (unmatchedByType['wild'] || 0) + 1;
+        continue;
+      }
+      var mt = Zhan.Rules.resolveWildType(state.slot, si);
+      if (!unmatchedByType[mt]) unmatchedByType[mt] = 0;
+      unmatchedByType[mt]++;
+    }
+    var totalUnmatched = 0;
+    var minCombo = state.effectiveMinCombo || CONFIG.MIN_COMBO;
+    for (var ut in unmatchedByType) {
+      if (unmatchedByType[ut] < minCombo) {
+        totalUnmatched += unmatchedByType[ut];
+      }
+    }
+    return { unmatchedByType: unmatchedByType, totalUnmatched: totalUnmatched };
+  },
+
+  computeEffectiveFury: function(playerHP, playerMaxHP, baseValues) {
+    if (!baseValues.furyEnabled) {
+      return {
+        atkBuffMult: baseValues.atkBuffMult || 1.0,
+        vulnMult: baseValues.vulnMult || 1.0,
+        defBuffRatio: baseValues.defBuffRatio || 1.0
+      };
+    }
+    var hpLoss = 1 - playerHP / playerMaxHP;
+    var furyMult = 1 + hpLoss;
+    var baseAtk = baseValues.atkBuffMult || 1.0;
+    var baseVuln = baseValues.vulnMult || 1.0;
+    var baseRatio = baseValues.defBuffRatio || 1.0;
+    return {
+      atkBuffMult: 1 + (baseAtk - 1) * furyMult,
+      vulnMult: 1 + (baseVuln - 1) * furyMult,
+      defBuffRatio: Math.max(0, 1 - (1 - baseRatio) * furyMult)
+    };
+  },
+
+
+  getEffectDescription: function(state, type, n) {
+    var minCombo = state.effectiveMinCombo || CONFIG.MIN_COMBO;
+    var dur = Zhan.Rules.getComboDuration(n, minCombo);
+    dur += state.buffDurationBonus || 0;
+    switch (type) {
+      case 'vulnerable':
+        var vm = state.effectiveVulnMult || CONFIG.VULN_MULT;
+        dur += state.enemyEffects.vulnerable || 0;
+        return '易伤×' + parseFloat(vm.toFixed(1)) + ' ' + dur + '回合';
+      case 'stun':
+        var stunDur = Zhan.Rules.getStunDuration(n, minCombo);
+        stunDur += state.buffDurationBonus || 0;
+        stunDur += state.enemyEffects.stun || 0;
+        return '眩晕 ' + stunDur + '回合';
+      case 'atk_buff':
+        dur += state.playerEffects.atk_buff || 0;
+        return '攻×' + parseFloat(state.effectiveAtkBuffMult.toFixed(1)) + ' ' + dur + '回合';
+      case 'def_buff':
+        dur += state.playerEffects.def_buff || 0;
+        return '减伤×' + parseFloat(state.effectiveDefBuffRatio.toFixed(1)) + ' ' + dur + '回合';
+      case 'atk_down':
+        dur += state.enemyEffects.atk_down || 0;
+        return '降攻-' + Math.round(state.enemyEffects.atk_down_pct || CONFIG.ATK_DOWN_PCT) + '% ' + dur + '回合';
+      default: return '';
+    }
+  }
+};
 
 // 跳过槽位计数（pullCard 中跨作用域用）
 var _skippedSlots = 0;
+
+// ========== Zhan.Engine — 集中状态管理 ==========
+Zhan.Engine = {
+  state: null,
+  init: function() { newGame(); return G; },
+  _pullCard: function(r, c) {
+    if (Zhan.Engine.state.phase !== 'player' || Zhan.Engine.state.over) return false;
+    // 检查锁定牌堆
+    var flatIdx = r * CONFIG.BOARD_COLS + c;
+    if (Zhan.Engine.state.lockedPiles && Zhan.Engine.state.lockedPiles[flatIdx]) {
+      log('🔒 这摞牌被锁定了！');
+      return false;
+    }
+    var pile = Zhan.Engine.state.piles[r][c];
+    var top = Zhan.Engine._getTop(flatIdx);
+    if (!top || Zhan.Engine.state.slot.length >= Zhan.Engine.state.effectiveSlotSize) return false;
+    var card = Zhan.Engine._popTop(flatIdx);
+    if (!card) return false;
+    // BUG4 FIX: wild_core null placeholder at first unlocked slot
+    if (Zhan.Engine.state.wildCoreSlot && Zhan.Engine.state.slot.length === 0) {
+      Zhan.Engine.state.slot.push(null);
+    }
+    // 锁定槽位：跳过被锁槽，在后面第一个可用位置插入
+    // 被锁槽在 slot 数组中保持 null 占位
+    _skippedSlots = 0;
+    var maxSize = Zhan.Engine.state.effectiveSlotSize || CONFIG.SLOT_SIZE;
+    if (Zhan.Engine.state.lockedSlots) {
+      var insIdx = Zhan.Engine.state.slot.length;
+      while (insIdx < maxSize && Zhan.Engine.state.lockedSlots[insIdx]) {
+        Zhan.Engine.state.slot.push(null); // 占位锁定槽
+        insIdx++;
+        _skippedSlots++;
+      }
+      if (insIdx >= maxSize) {
+        log('🔒 所有剩余槽位都被锁定了！');
+        // BUG2 FIX: push card back to pile
+        while (_skippedSlots > 0) { Zhan.Engine.state.slot.pop(); _skippedSlots--; }
+        pile.push(card);
+        return false;
+      }
+    }
+    Zhan.Engine.state.slot.push(card);
+    updateComboPreview();
+    var ct = CARD_TYPES[card.type] || { emoji: '⬜', label: '废牌' };
+    log(ct.emoji + ct.label + '→槽(' + Zhan.Engine.state.slot.length + '/' + Zhan.Engine.state.effectiveSlotSize + ')' + (_skippedSlots > 0 ? ' 🔒跳过' + _skippedSlots + '格' : ''));
+    return true;
+  },
+
+  _updateEffectiveFury: function(st) {
+    var furyEff = Zhan.Rules.computeEffectiveFury(st.playerHP, st.playerMaxHP, {
+      furyEnabled: st.furyEnabled,
+      atkBuffMult: st.atkBuffMult,
+      vulnMult: st.vulnMult,
+      defBuffRatio: st.defBuffRatio
+    });
+    st.effectiveAtkBuffMult = furyEff.atkBuffMult;
+    st.effectiveVulnMult = furyEff.vulnMult;
+    st.effectiveDefBuffRatio = furyEff.defBuffRatio;
+  },
+  _buildDeck: function() {
+    var st = this.state;
+    st.deck = [];
+    for (var type in st.deckConfig) {
+      for (var i = 0; i < st.deckConfig[type]; i++) {
+        st.deck.push({ type: type, id: st.pickedId++ });
+      }
+    }
+  },
+
+  _buildPiles: function() {
+    var st = this.state;
+    st.piles = [];
+    for (var r = 0; r < CONFIG.BOARD_ROWS; r++) {
+      st.piles[r] = [];
+      for (var c = 0; c < CONFIG.BOARD_COLS; c++) st.piles[r][c] = [];
+    }
+    var idx = 0;
+    var totalCards = st.deck.length;
+    var nPiles = CONFIG.BOARD_ROWS * CONFIG.BOARD_COLS;
+    var basePileSize = Math.floor(totalCards / nPiles);
+    var remaining = totalCards - basePileSize * nPiles;
+    var flatPiles = [];
+    for (var r = 0; r < CONFIG.BOARD_ROWS; r++) {
+      for (var c = 0; c < CONFIG.BOARD_COLS; c++) {
+        flatPiles.push(st.piles[r][c]);
+      }
+    }
+    for (var i = 0; i < flatPiles.length; i++) {
+      var size = basePileSize + (i < remaining ? 1 : 0);
+      for (var j = 0; j < size; j++) flatPiles[i].push(st.deck[idx++]);
+    }
+    for (var pi = 0; pi < flatPiles.length; pi++) {
+      var pile = flatPiles[pi];
+      if (pile.length > 1) {
+        var topN = Math.min(4, pile.length);
+        var top = pile.slice(0, topN);
+        for (var ti = top.length - 1; ti > 0; ti--) {
+          var tj = Math.floor(Math.random() * (ti + 1));
+          var tt = top[ti]; top[ti] = top[tj]; top[tj] = tt;
+        }
+        for (var ti = 0; ti < top.length; ti++) pile[ti] = top[ti];
+      }
+    }
+  },
+
+  _getTop: function(pileIdx) {
+    var st = this.state;
+    var r = Math.floor(pileIdx / CONFIG.BOARD_COLS);
+    var c = pileIdx % CONFIG.BOARD_COLS;
+    var pile = st.piles[r][c];
+    return pile && pile.length ? pile[pile.length-1] : null;
+  },
+
+  _popTop: function(pileIdx) {
+    var st = this.state;
+    var r = Math.floor(pileIdx / CONFIG.BOARD_COLS);
+    var c = pileIdx % CONFIG.BOARD_COLS;
+    var pile = st.piles[r][c];
+    return pile && pile.length ? pile.pop() : null;
+  },
+
+  _applyDamageToPlayer: function(dmg, rawAtk, label) {
+    var st = this.state;
+    // 免伤（救命毫毛/divine）：本回合免疫伤害
+    if ((st.playerEffects.divine || 0) > 0) {
+      log('🙊 免伤抵挡了 ' + rawAtk + ' 伤害！');
+      return;
+    }
+    // TASK: FURY_DYNAMIC — 减伤比率实时随血量，effectiveDefBuffRatio 已包含 fury
+    if ((st.playerEffects.def_buff || 0) > 0) {
+      Zhan.Engine._updateEffectiveFury(st);
+      var ratio = st.effectiveDefBuffRatio || CONFIG.DEF_BUFF_RATIO;
+      dmg = Math.floor(dmg * ratio);
+    }
+    // 破盾
+    if (st.playerShield > 0) {
+      var absorb = Math.min(st.playerShield, dmg);
+      st.playerShield -= absorb;
+      dmg -= absorb;
+    }
+    st.playerHP = Math.max(0, st.playerHP - dmg);
+    log(label + rawAtk + ' → ❤-' + dmg + '🛡' + st.playerShield);
+
+    // 坚韧核心免死：扣血后触发
+    Zhan.Engine._checkTenacity(st);
+  },
+
+  _checkTenacity: function(state) {
+    if (state.tenacityUsed === false && state.playerHP <= 0) {
+      state.playerHP = 1;
+      state.tenacityUsed = true;
+      log('🛡 坚韧核心触发！HP锁定为1');
+    }
+  },
+
+  dispatch: function(action) {
+    if (!this.state) return;
+    switch (action.type) {
+      case 'PLAY_CARD':
+        this._pullCard(action.r, action.c);
+        break;
+      case 'END_TURN':
+        this._executeTurn();
+        break;
+      case 'RESET':
+        ENDLESS_DEFEATED = {};
+        this.state = null;
+        G = {};
+        G.currentStage = 1;
+        G.bossId = 'skeleton';
+        newGame();
+        if (Zhan.UI && Zhan.UI.render) Zhan.UI.render(G);
+        break;
+      case 'RESTART':
+        ENDLESS_DEFEATED = {};
+        this.state = null;
+        G = {};
+        G.isEndless = false;
+        G.activeRelics = [];
+        G.currentStage = 1;
+        G.bossId = 'skeleton';
+        newGame();
+        if (Zhan.UI && Zhan.UI.render) Zhan.UI.render(G);
+        break;
+      case 'START_ENDLESS':
+        ENDLESS_DEFEATED = {};
+        var es = this.init();
+        es.isEndless = true;
+        Zhan.Engine._startEndlessNextCat();
+        break;
+    }
+    if (this.state && action.type !== 'END_TURN' && Zhan.UI && Zhan.UI.render) {
+      Zhan.UI.render(this.state);
+    }
+  },
+
+  _enemyTurn: function() {
+    var st = this.state;
+    log(st.boss.emoji + ' ' + st.boss.name + '行动');
+    st.enemyShield = 0;
+    if (st.boss.hpTriggers) { Zhan.Systems.Boss.runHpTriggers(st, 'hiss'); if (st.over) return; }
+    if (st.boss.hpTriggers) { Zhan.Systems.Boss.runHpTriggers(st, 'groom'); if (st.over) return; }
+    if ((st.enemyEffects.stun || 0) > 0) {
+      log('💫 ' + st.boss.name + '眩晕，跳过回合！');
+      st.enemyEffects.stun--;
+      if (st.enemyEffects.stun <= 0) st.enemyEffects.stun = 0;
+      st.turn++; st.phase = 'player';
+      log('⏭ 回合' + (st.turn+1) + '开始');
+      if (Zhan.UI && Zhan.UI.render) Zhan.UI.render(st);
+      Zhan.Engine._updateEnemyIntent(); return;
+    }
+    Zhan.Systems.Boss.processEvent(st, 'TURN_START');
+    if (st.over) return;
+    var t = st.turn;
+    var fastCycle = [{ type: 'attack' },{ type: 'defend' },{ type: 'charge' },{ type: 'rage' }];
+    var useCycle = t >= 7 ? fastCycle : st.boss.cycle;
+    var cycle = useCycle[t >= 7 ? (t - 7) % fastCycle.length : t % st.boss.cycle.length];
+    var rawAtk = st.boss.baseAtk + st.enemyPower;
+    if ((st.enemyEffects.atk_down || 0) > 0) {
+      var reduction = st.enemyEffects.atk_down_pct || CONFIG.ATK_DOWN_PCT;
+      rawAtk = Math.floor(rawAtk * (1 - reduction/100));
+    }
+    var shieldVal = 40 + Math.floor(st.enemyPower / 2) * 2;
+    switch (cycle.type) {
+      case 'attack': Zhan.Engine._applyDamageToPlayer(rawAtk, rawAtk, st.boss.emoji + '攻击'); break;
+      case 'defend': st.enemyShield += (cycle.shield || shieldVal); log(st.boss.emoji + '防御+' + (cycle.shield || shieldVal) + ' 🛡' + st.enemyShield); break;
+      case 'buff_power': st.enemyPower += 2; log(st.boss.emoji + '蓄力+2 ⚡' + st.enemyPower); break;
+      case 'charge': log(st.boss.emoji + ' 蓄力中……'); break;
+      case 'rage':
+        if (cycle.powerBoost) st.enemyPower += cycle.powerBoost;
+        var rageMult = cycle.multiplier || 2;
+        Zhan.Engine._applyDamageToPlayer(rawAtk * rageMult, rawAtk * rageMult, st.boss.emoji + '怒击×' + rageMult + (cycle.powerBoost ? ' +⚡' + cycle.powerBoost : '') + '='); break;
+      case 'double_attack': Zhan.Engine._applyDamageToPlayer(rawAtk * 2, rawAtk * 2, st.boss.emoji + '双重攻击'); break;
+      default: log(st.boss.emoji + ' ' + st.boss.name + ' 未定义行动');
+    }
+    if (st.playerHP <= 0) { Zhan.Engine._endGame(false, '勇者倒下了...'); return; }
+    Zhan.Systems.Boss.processEvent(st, 'TURN_END');
+    for (var k in st.enemyEffects) { if (st.enemyEffects[k] > 0) st.enemyEffects[k]--; }
+    if ((st.enemyEffects.atk_down || 0) <= 0) { st.enemyEffects.atk_down = 0; st.enemyEffects.atk_down_pct = 0; }
+    if ((st.playerEffects.def_buff || 0) > 0) st.playerEffects.def_buff--;
+    if ((st.playerEffects.divine || 0) > 0) st.playerEffects.divine--;
+    if (st.lockedSlots) {
+      var cleaned = [];
+      for (var ci = 0; ci < st.slot.length; ci++) {
+        if (st.slot[ci] !== null || (st.lockedSlots && st.lockedSlots[ci])) cleaned.push(st.slot[ci]);
+      }
+      st.slot = cleaned;
+    }
+    st.turn++; st.phase = 'player';
+    Zhan.Engine._updateEffectiveFury(st);
+    log('⏭ 回合' + (st.turn+1) + '开始');
+    log(st.boss.emoji + 'HP:' + st.enemyHP + '🛡' + st.enemyShield + '⚡' + st.enemyPower);
+    if (Zhan.UI && Zhan.UI.render) Zhan.UI.render(st);
+    Zhan.Engine._updateEnemyIntent();
+  },
+
+  _executeTurn: function() {
+    var st = this.state;
+    if (st.phase !== 'player' || st.over) return;
+    if (st.playerSkipped) {
+      st.playerSkipped = false; st.phase = 'resolving';
+      log('🐱 被晕眩，跳过回合！'); st.slot = [];
+      Zhan.Engine._updateEnemyIntent();
+      setTimeout(function() { Zhan.Engine._enemyTurn(); }, 300); return;
+    }
+    if (st.boss && st.boss.id === 'maine_coon') {
+      st._maineCoonFirst = true; Zhan.Engine._enemyTurn();
+      if (st.over) return;
+    }
+    st.phase = 'resolving';
+    log('▶ 回合' + (st.turn+1)); log('⚔️ 勇者行动');
+    st.playerShield = 0;
+    if (st.wildCoreSlot) {
+      var wildIdx = 0;
+      while (st.lockedSlots && st.lockedSlots[wildIdx]) wildIdx++;
+      if (wildIdx < st.slot.length) {
+        if (st.slot[wildIdx] === null) st.slot[wildIdx] = { type: 'wild', id: st.pickedId++, wildCore: true };
+        else st.slot.splice(wildIdx, 0, { type: 'wild', id: st.pickedId++, wildCore: true });
+      } else {
+        while (st.slot.length < wildIdx) st.slot.push(null);
+        st.slot.push({ type: 'wild', id: st.pickedId++, wildCore: true });
+      }
+    }
+    Zhan.Systems.Boss.processEvent(st, 'RESOLVE');
+    var combos = Zhan.Rules.computeCombos(st.slot, st.effectiveMinCombo || CONFIG.MIN_COMBO);
+    for (var _ci = 0; _ci < combos.length; _ci++) { if (combos[_ci].n > st.maxCombo) st.maxCombo = combos[_ci].n; }
+    log('  ✨ 缓冲结算...');
+    for (var ci = 0; ci < combos.length; ci++) {
+      var c = combos[ci];
+      if (!BUFF_TYPES[c.type]) continue;
+      var mc = st.effectiveMinCombo || CONFIG.MIN_COMBO;
+      var dur = c.type === 'stun' ? Zhan.Rules.getStunDuration(c.n, mc) : Zhan.Rules.getComboDuration(c.n, mc);
+      dur += st.buffDurationBonus || 0;
+      switch (c.type) {
+        case 'vulnerable': st.enemyEffects.vulnerable = (st.enemyEffects.vulnerable || 0) + dur; log('💔Boss易伤 +' + dur + '→' + st.enemyEffects.vulnerable + '回合'); break;
+        case 'stun': st.enemyEffects.stun = (st.enemyEffects.stun || 0) + dur; log('💫Boss眩晕 +' + dur + '→' + st.enemyEffects.stun + '回合'); break;
+        case 'atk_buff': st.playerEffects.atk_buff = (st.playerEffects.atk_buff || 0) + dur; log('⚡攻击加成 +' + dur + '→' + st.playerEffects.atk_buff + '回合'); break;
+        case 'def_buff': st.playerEffects.def_buff = (st.playerEffects.def_buff || 0) + dur; log('💨减伤 +' + dur + '→' + st.playerEffects.def_buff + '回合'); break;
+        case 'atk_down':
+          var atkDownPct = st.enemyEffects.atk_down_pct || CONFIG.ATK_DOWN_PCT;
+          if (st.activeRelics.indexOf('overload_core') >= 0) atkDownPct = 50;
+          if (st.furyEnabled && RELICS.fury_core) atkDownPct = Math.min(100, atkDownPct * Zhan.Systems.Relic.getFuryMultiplier(st));
+          st.enemyEffects.atk_down_pct = atkDownPct;
+          st.enemyEffects.atk_down = (st.enemyEffects.atk_down || 0) + dur;
+          log('⬇降攻 +' + dur + '→' + st.enemyEffects.atk_down + '回合'); break;
+      }
+    }
+    log('  ⚡ 行动结算...');
+    var slotTypeCount = {};
+    for (var si = 0; si < st.slot.length; si++) {
+      var stype = Zhan.Rules.resolveWildType(st.slot, si);
+      if (!BUFF_TYPES[stype] && stype !== 'junk') { if (!slotTypeCount[stype]) slotTypeCount[stype] = 0; slotTypeCount[stype]++; }
+    }
+    var actionMaxLen = {};
+    for (var ci2 = 0; ci2 < combos.length; ci2++) {
+      var c2 = combos[ci2];
+      if (BUFF_TYPES[c2.type]) continue;
+      if (!actionMaxLen[c2.type] || c2.n > actionMaxLen[c2.type]) actionMaxLen[c2.type] = c2.n;
+    }
+    if (slotTypeCount.attack && slotTypeCount.attack >= (st.effectiveMinCombo || CONFIG.MIN_COMBO)) {
+      var atkTotal = slotTypeCount.attack;
+      var atkMaxLen = actionMaxLen.attack || 0;
+      var mc = st.effectiveMinCombo || CONFIG.MIN_COMBO;
+      var baseAtk = Zhan.Rules.calcBaseValue(atkTotal, mc);
+      var d = Zhan.Rules.calcAttackValue(atkTotal, atkMaxLen, mc);
+      if (d > 0) {
+        Zhan.Engine._updateEffectiveFury(st);
+        d = Zhan.Rules.applyStatusEffects('attack', d, { atkBuffMult: st.effectiveAtkBuffMult, vulnMult: st.effectiveVulnMult, defBuffRatio: st.defBuffRatio });
+        if (d > st.maxDamage) st.maxDamage = d;
+        st.totalDamage += d;
+        var pursuitLog = '';
+        if (atkMaxLen >= mc + 1) pursuitLog = ' ' + atkMaxLen + '连×' + Zhan.Rules.calcPursuitMultiplier(atkMaxLen, mc).toFixed(1);
+        if (st.enemyShield > 0) { var ab = Math.min(st.enemyShield, d); st.enemyShield -= ab; d -= ab; }
+        st.enemyHP = Math.max(0, st.enemyHP - d);
+        log('🗡×' + atkTotal + '→' + baseAtk + pursuitLog + '→总' + d + ' → ' + st.boss.emoji + st.enemyHP + '🛡' + st.enemyShield);
+      }
+    }
+    if (slotTypeCount.defend && slotTypeCount.defend >= (st.effectiveMinCombo || CONFIG.MIN_COMBO)) {
+      var defTotal = slotTypeCount.defend;
+      var defMaxLen = actionMaxLen.defend || 0;
+      var mc = st.effectiveMinCombo || CONFIG.MIN_COMBO;
+      var baseDef = Zhan.Rules.calcBaseValue(defTotal, mc);
+      var shieldVal = Zhan.Rules.calcDefendValue(defTotal, defMaxLen, mc);
+      if (shieldVal > 0) {
+        var pursuitLog = '';
+        if (defMaxLen >= mc + 1) pursuitLog = ' ' + defMaxLen + '连×' + Zhan.Rules.calcPursuitMultiplier(defMaxLen, mc).toFixed(1);
+        st.playerShield += shieldVal;
+        log('🛡×' + defTotal + '→' + baseDef + pursuitLog + '→总' + shieldVal + ' 🛡' + st.playerShield);
+      }
+    }
+    if (slotTypeCount.heal && slotTypeCount.heal >= (st.effectiveMinCombo || CONFIG.MIN_COMBO)) {
+      var healTotal = slotTypeCount.heal;
+      var healMaxLen = actionMaxLen.heal || 0;
+      var mc = st.effectiveMinCombo || CONFIG.MIN_COMBO;
+      var baseHeal = Zhan.Rules.calcBaseValue(healTotal, mc);
+      var healVal = Zhan.Rules.calcHealValue(healTotal, healMaxLen, mc);
+      if (healVal > 0) {
+        var pursuitLog = '';
+        if (healMaxLen >= mc + 1) pursuitLog = ' ' + healMaxLen + '连×' + Zhan.Rules.calcPursuitMultiplier(healMaxLen, mc).toFixed(1);
+        st.playerHP = Math.min(st.playerMaxHP, st.playerHP + healVal);
+        log('❤×' + healTotal + '→' + baseHeal + pursuitLog + '→总' + healVal + ' ❤' + st.playerHP);
+      }
+    }
+    for (var sp = 0; sp < st.slot.length; sp++) {
+      var sc = st.slot[sp];
+      if (!sc || !sc.special) continue;
+      if (sc.type === 'special_atk') {
+        var spDmg = sc.special.dmg || 0;
+        if (st.enemyShield > 0) { var spAbsorb = Math.min(st.enemyShield, spDmg); st.enemyShield -= spAbsorb; spDmg -= spAbsorb; }
+        st.enemyHP = Math.max(0, st.enemyHP - spDmg);
+        if (spDmg > st.maxDamage) st.maxDamage = spDmg;
+        st.totalDamage += spDmg;
+        log('🙈 特攻！→' + (sc.special.dmg || 0) + ' → ' + st.boss.emoji + st.enemyHP + '🛡' + st.enemyShield);
+      } else if (sc.type === 'special_def') {
+        st.playerShield += (sc.special.shield || 0);
+        log('🙉 特防！+🛡' + (sc.special.shield || 0) + ' 🛡' + st.playerShield);
+      } else if (sc.type === 'divine') {
+        st.playerEffects.divine = 1;
+        log('🙊 免伤！本回合免疫伤害');
+      }
+    }
+    if (!st.noUnmatchedPenalty) {
+      var penaltyResult = Zhan.Rules.computeUnmatchedPenalty({ slot: st.slot, _claimedWildIndices: combos._claimedWildIndices, effectiveMinCombo: st.effectiveMinCombo });
+      if (penaltyResult.totalUnmatched > 0) { st.playerHP = Math.max(0, st.playerHP - penaltyResult.totalUnmatched * CONFIG.UNMATCHED_PENALTY); log('♀未消除×' + penaltyResult.totalUnmatched + '→❤-' + penaltyResult.totalUnmatched); }
+    }
+    st.slot = [];
+    if ((st.playerEffects.atk_buff || 0) > 0) st.playerEffects.atk_buff--;
+    Zhan.Engine._checkTenacity(st);
+    if (st.enemyHP <= 0) { Zhan.Engine._endGame(true, st.boss.emoji + ' 击败！'); return; }
+    if (st.playerHP <= 0) { Zhan.Engine._endGame(false, '勇者倒下了...'); return; }
+    var totalRemaining = 0;
+    var fp = flatten(st.piles);
+    for (var fi = 0; fi < fp.length; fi++) totalRemaining += fp[fi].length;
+    if (totalRemaining === 0) { Zhan.Engine._endGame(true, '✨ 牌库全消！元气弹斩杀！'); return; }
+    Zhan.Engine._updateEffectiveFury(st);
+    Zhan.Engine._updateEnemyIntent();
+    if (st._maineCoonFirst) {
+      st._maineCoonFirst = false; st.phase = 'player';
+      log('⏭ 回合' + (st.turn+1) + '开始');
+      log(st.boss.emoji + 'HP:' + st.enemyHP + '🛡' + st.enemyShield + '⚡' + st.enemyPower);
+      if (Zhan.UI && Zhan.UI.render) Zhan.UI.render(st);
+      Zhan.Engine._updateEnemyIntent();
+    } else {
+      if (Zhan.UI && Zhan.UI.render) Zhan.UI.render(st);
+      setTimeout(function() { Zhan.Engine._enemyTurn(); }, 400);
+    }
+  }
+
+};
 
 // ========== 游戏状态 ==========
 var G = {};
@@ -152,27 +903,24 @@ function newGame() {
     maxDamage: 0,
     totalDamage: 0,
     activeRelicNames: relics.map(function(r) { return (RELICS[r] && RELICS[r].name) || r; }),
+    isEndless: G.isEndless,
   };
 
-  // 初始化圣物
-  for (var i = 0; i < relics.length; i++) {
-    var relic = RELICS[relics[i]];
-    if (relic && relic.onInit) relic.onInit(G);
-  }
+  Zhan.Engine.state = G;
+
+  // 初始化圣物（声明式效果执行）
+  Zhan.Systems.Relic.applyInit(G);
 
   // 开局满血：先用 maxHP 初始化 playerHP，确保生命核心等圣物修改 maxHP 后开局满血
   G.playerHP = G.playerMaxHP;
 
   // 初始化哈气 prevHP（挂在 G 上，不共享全局单例）
-  if (boss.hpTriggers) {
-    for (var j = 0; j < boss.hpTriggers.length; j++) {
-      if (boss.hpTriggers[j].id === 'hiss') {
-        G.hissPrevHP = boss.maxHP;
-      }
-    }
+  // 现在 hpTriggers 是字符串数组，检查是否包含 'hiss'
+  if (boss.hpTriggers && boss.hpTriggers.indexOf('hiss') >= 0) {
+    G.hissPrevHP = boss.maxHP;
   }
 
-  buildDeck();
+  Zhan.Engine._buildDeck();
   // 美短虎斑 hide_intent：必须在首次 render() 前设置，避免第一回合意图泄漏
   if (boss.traits) {
     for (var _bi = 0; _bi < boss.traits.length; _bi++) {
@@ -190,19 +938,11 @@ function newGame() {
     log('🪶 救命毫毛！获得' + G.specialCards.length + '张特殊卡');
   }
   shuffle(G.deck);
-  buildPiles();
-  render();
-  updateEnemyIntent();
+  Zhan.Engine._buildPiles();
+  Zhan.Engine._updateEffectiveFury(G);
+  Zhan.Engine._updateEnemyIntent();
+  if (Zhan.UI && Zhan.UI.render) Zhan.UI.render(G);
   log('🐱 新局开始！双击或向下拖拽卡牌进槽');
-}
-
-function buildDeck() {
-  G.deck = [];
-  for (var type in G.deckConfig) {
-    for (var i = 0; i < G.deckConfig[type]; i++) {
-      G.deck.push({ type: type, id: G.pickedId++ });
-    }
-  }
 }
 
 function shuffle(a) {
@@ -219,747 +959,122 @@ function shuffleArray(a) {
   }
 }
 
-function buildPiles() {
-  G.piles = [];
-  for (var r = 0; r < CONFIG.BOARD_ROWS; r++) {
-    G.piles[r] = [];
-    for (var c = 0; c < CONFIG.BOARD_COLS; c++) G.piles[r][c] = [];
-  }
-  var idx = 0;
-  var totalCards = G.deck.length;
-  var nPiles = CONFIG.BOARD_ROWS * CONFIG.BOARD_COLS;
-  var basePileSize = Math.floor(totalCards / nPiles);
-  var remaining = totalCards - basePileSize * nPiles;
-  var flatPiles = [];
-  for (var r = 0; r < CONFIG.BOARD_ROWS; r++) {
-    for (var c = 0; c < CONFIG.BOARD_COLS; c++) {
-      flatPiles.push(G.piles[r][c]);
-    }
-  }
-  for (var i = 0; i < flatPiles.length; i++) {
-    var size = basePileSize + (i < remaining ? 1 : 0);
-    for (var j = 0; j < size; j++) flatPiles[i].push(G.deck[idx++]);
-  }
-  for (var pi = 0; pi < flatPiles.length; pi++) {
-    var pile = flatPiles[pi];
-    if (pile.length > 1) {
-      var topN = Math.min(4, pile.length);
-      var top = pile.slice(0, topN);
-      for (var ti = top.length - 1; ti > 0; ti--) {
-        var tj = Math.floor(Math.random() * (ti + 1));
-        var tt = top[ti]; top[ti] = top[tj]; top[tj] = tt;
-      }
-      for (var ti = 0; ti < top.length; ti++) pile[ti] = top[ti];
-    }
-  }
-}
-
-function getTop(pile) { return pile && pile.length ? pile[pile.length-1] : null; }
-function popTop(pile) { return pile && pile.length ? pile.pop() : null; }
-
-function pullCard(r, c) {
-  if (G.phase !== 'player' || G.over) return false;
-  // 检查锁定牌堆
-  var flatIdx = r * CONFIG.BOARD_COLS + c;
-  if (G.lockedPiles && G.lockedPiles[flatIdx]) {
-    log('🔒 这摞牌被锁定了！');
-    return false;
-  }
-  var pile = G.piles[r][c];
-  var top = getTop(pile);
-  if (!top || G.slot.length >= G.effectiveSlotSize) return false;
-  var card = popTop(pile);
-  if (!card) return false;
-  // 万能核心：slot[0] 预留给万能核心卡，用户卡牌从 slot[1] 开始
-  if (G.wildCoreSlot && G.slot.length === 0) {
-    G.slot.push(null); // 占位 slot[0]，executeTurn 时填充万能卡
-  }
-  // 锁定槽位：跳过被锁槽，在后面第一个可用位置插入
-  // 被锁槽在 slot 数组中保持 null 占位
-  _skippedSlots = 0;
-  var maxSize = G.effectiveSlotSize || CONFIG.SLOT_SIZE;
-  if (G.lockedSlots) {
-    var insIdx = G.slot.length;
-    while (insIdx < maxSize && G.lockedSlots[insIdx]) {
-      G.slot.push(null); // 占位锁定槽
-      insIdx++;
-      _skippedSlots++;
-    }
-    if (insIdx >= maxSize) {
-      log('🔒 所有剩余槽位都被锁定了！');
-      // 回滚占位 null
-      while (_skippedSlots > 0) { G.slot.pop(); _skippedSlots--; }
-      return false;
-    }
-  }
-  G.slot.push(card);
-  updateComboPreview();
-  var ct = CARD_TYPES[card.type] || { emoji: '⬜', label: '废牌' };
-  log(ct.emoji + ct.label + '→槽(' + G.slot.length + '/' + G.effectiveSlotSize + ')' + (_skippedSlots > 0 ? ' 🔒跳过' + _skippedSlots + '格' : ''));
-  render();
-  document.getElementById('btn-end-turn').disabled = false;
-  return true;
-}
-
-// ========== 万能牌解析 ==========
-function resolveWildType(slot, idx) {
-  if (!slot[idx] || slot[idx].isJunk) return 'junk';
-  if (slot[idx].type !== 'wild') return slot[idx].type;
-  // 左优先策略：优先向左搜索非万能、非废牌
-  for (var k = idx-1; k >= 0; k--) {
-    if (slot[k] && slot[k].type !== 'wild' && !slot[k].isJunk) {
-      return slot[k].type;
-    }
-  }
-  // 左边没找到，再向右搜索
-  for (var k = idx+1; k < slot.length; k++) {
-    if (slot[k] && slot[k].type !== 'wild' && !slot[k].isJunk) {
-      return slot[k].type;
-    }
-  }
-  return 'wild';
-}
-
-function computeCombos(slot) {
-  if (!slot.length) { var empty = []; empty._claimedWildIndices = []; return empty; }
-  var minCombo = G.effectiveMinCombo || CONFIG.MIN_COMBO;
-  // 过滤 null（锁定槽占位），只处理非 null 卡牌
-  var resolved = slot.map(function(c, i) {
-    if (!c) return { type: 'null_placeholder', card: null, index: i, claimed: false };
-    return { type: resolveWildType(slot, i), card: c, index: i, claimed: false };
-  });
-  var combos = [];
-  var _claimedWildIndices = [];
-  var i = 0;
-  while (i < resolved.length) {
-    var typ = resolved[i].type;
-    if (typ === 'null_placeholder' || typ === 'wild' || typ === 'junk') { i++; continue; }
-    // 万能牌已归属其他连击组，跳过
-    if (resolved[i].card && resolved[i].card.type === 'wild' && resolved[i].claimed) { i++; continue; }
-    var j = i+1;
-    while (j < resolved.length) {
-      // 跳过 null 占位
-      if (resolved[j].type === 'null_placeholder') { j++; continue; }
-      // 万能牌已归属，停止扩展连击组
-      if (resolved[j].card && resolved[j].card.type === 'wild' && resolved[j].claimed) break;
-      if (resolved[j].type !== typ) break;
-      j++;
-    }
-    var comboLen = j - i;
-
-    // 标记连击组内的万能牌为已归属（minCombo判定前即标记）
-    for (var ci = i; ci < j; ci++) {
-      if (resolved[ci].card && resolved[ci].card.type === 'wild') {
-        resolved[ci].claimed = true;
-        _claimedWildIndices.push(resolved[ci].index);
-      }
-    }
-    if (comboLen >= minCombo) {
-      combos.push({ n: comboLen, cards: slot.slice(i,j), type: typ, start: i, end: j });
-    }
-    i = j;
-  }
-  combos._claimedWildIndices = _claimedWildIndices;
-  return combos;
-}
-
-// T1: COMBO_DURATION_UNCAP — 每多1连+1T, 无上限
-// 3连=1T, 4连=2T, 10连=8T
-// minCombo-aware: duration = max(1, n - minCombo + 1)
-function getComboDuration(n) {
-  var minCombo = G.effectiveMinCombo || CONFIG.MIN_COMBO;
-  return Math.max(1, n - minCombo + 1);
-}
-
-// T1: getStunDuration 统一使用 getComboDuration
-function getStunDuration(n) {
-  return getComboDuration(n);
-}
-
-function getEffectDescription(type, n) {
-  var dur = getComboDuration(n);
-  var minCombo = G.effectiveMinCombo || CONFIG.MIN_COMBO;
-  dur += G.buffDurationBonus || 0;
-  // TASK: FURY_DYNAMIC — 实时刷新 effective 值，预览显示随血量变化的倍率
-  updateEffectiveFuryValues(G);
-  switch (type) {
-    case 'vulnerable':
-      var vm = G.effectiveVulnMult || CONFIG.VULN_MULT;
-      // T3: 去尾零 — 1.50→1.5
-      return '易伤×' + parseFloat(vm.toFixed(2)) + ' ' + dur + '回合';
-    case 'stun':
-      var stunDur = getStunDuration(n);
-      stunDur += G.buffDurationBonus || 0;
-      return '眩晕 ' + stunDur + '回合';
-    case 'atk_buff':   return '攻×' + parseFloat(G.effectiveAtkBuffMult.toFixed(2)) + ' ' + dur + '回合';
-    case 'def_buff':   return '减伤×' + parseFloat(G.effectiveDefBuffRatio.toFixed(2)) + ' ' + dur + '回合';
-    // T3: atk_down 百分比动态取值
-    case 'atk_down':   return '降攻-' + (G.enemyEffects.atk_down_pct || CONFIG.ATK_DOWN_PCT) + '% ' + dur + '回合';
-    default: return '';
-  }
-}
-
-// ========== 执行回合 ==========
-function executeTurn() {
-  if (G.phase !== 'player' || G.over) return;
-
-  // 折耳猫：晕玩家
-  if (G.playerSkipped) {
-    G.playerSkipped = false;
-    G.phase = 'resolving';
-    log('🐱 被晕眩，跳过回合！');
-    G.slot = [];
-    render();
-    updateEnemyIntent();
-    document.getElementById('btn-end-turn').disabled = true;
-    setTimeout(function() { enemyTurn(); }, 300);
-    return;
-  }
-
-  // 缅因猫先手：Boss先行动
-  if (G.boss && G.boss.id === 'maine_coon') {
-    G._maineCoonFirst = true;
-    enemyTurn();
-    if (G.over) return;
-  }
-
-  G.phase = 'resolving';
-  log('▶ 回合' + (G.turn+1));
-  log('⚔️ 勇者行动');
-
-  G.playerShield = 0;
-
-  // 万能核心圣物：首槽固定万能卡，后方卡连击数+1
-  // slot[0] 由 pullCard 预占位，此处填充万能卡代替 null 占位
-  if (G.wildCoreSlot) {
-    if (G.slot[0] === null) {
-      G.slot[0] = { type: 'wild', id: G.pickedId++, wildCore: true };
-    } else {
-      // 无占位时（边缘情况），插入万能卡到最前方
-      G.slot.unshift({ type: 'wild', id: G.pickedId++, wildCore: true });
-    }
-  }
-
-  // Boss专属 onResolve（阿比弃牌等）
-  if (G.boss.traits) {
-    for (var ti = 0; ti < G.boss.traits.length; ti++) {
-      var trait = G.boss.traits[ti];
-      if (trait.onResolve) trait.onResolve(G, computeCombos(G.slot));
-    }
-  }
-
-  var combos = computeCombos(G.slot);
-
-  // 追踪最大连击数
-  for (var _ci = 0; _ci < combos.length; _ci++) {
-    if (combos[_ci].n > G.maxCombo) G.maxCombo = combos[_ci].n;
-  }
-
-  // --- Phase 1: Buff/Debuff ---
-  // TASK: FURY_DYNAMIC — fury 实时驱动 effective 值（atkBuffMult / vulnMult / defBuffRatio），
-  // 不再在此处静态赋值。dur 不再乘 fury（狂暴核心只影响数值倍率，不影响持续回合）。
-  log('  ✨ 缓冲结算...');
-  for (var ci = 0; ci < combos.length; ci++) {
-    var c = combos[ci];
-    if (!BUFF_TYPES[c.type]) continue;
-    var dur = c.type === 'stun' ? getStunDuration(c.n) : getComboDuration(c.n);
-    dur += G.buffDurationBonus || 0;
-    switch (c.type) {
-      case 'vulnerable':
-        G.enemyEffects.vulnerable = (G.enemyEffects.vulnerable || 0) + dur;
-        // effectiveVulnMult 不再静态赋值 — 由 updateEffectiveFuryValues() 实时计算
-        log('💔Boss易伤 +' + dur + '→' + G.enemyEffects.vulnerable + '回合');
-        break;
-      case 'stun':
-        G.enemyEffects.stun = (G.enemyEffects.stun || 0) + dur;
-        log('💫Boss眩晕 +' + dur + '→' + G.enemyEffects.stun + '回合');
-        break;
-      case 'atk_buff':
-        G.playerEffects.atk_buff = (G.playerEffects.atk_buff || 0) + dur;
-        // effectiveAtkBuffMult 不再静态赋值 — 由 updateEffectiveFuryValues() 实时计算
-        log('⚡攻击加成 +' + dur + '→' + G.playerEffects.atk_buff + '回合');
-        break;
-      case 'def_buff':
-        G.playerEffects.def_buff = (G.playerEffects.def_buff || 0) + dur;
-        // effectiveDefBuffRatio 不再静态赋值 — 由 updateEffectiveFuryValues() 实时计算
-        log('💨减伤 +' + dur + '→' + G.playerEffects.def_buff + '回合');
-        break;
-      case 'atk_down':
-        // RULE: FURY_SCOPE — fury 对 atk_down 降攻百分比翻倍
-        var atkDownPct = CONFIG.ATK_DOWN_PCT;
-        if (G.activeRelics.indexOf('overload_core') >= 0) atkDownPct = 50;
-        if (G.furyEnabled && RELICS.fury_core) atkDownPct = Math.min(100, atkDownPct * RELICS.fury_core.getMultiplier(G));
-        G.enemyEffects.atk_down_pct = atkDownPct;
-        G.enemyEffects.atk_down = (G.enemyEffects.atk_down || 0) + dur;
-        log('⬇降攻 +' + dur + '→' + G.enemyEffects.atk_down + '回合');
-        break;
-    }
-  }
-
-  // --- Phase 2: 攻击/防御/回血 ---
-  log('  ⚡ 行动结算...');
-  var slotTypeCount = {};
-  for (var si = 0; si < G.slot.length; si++) {
-    var st = resolveWildType(G.slot, si);
-    if (!BUFF_TYPES[st] && st !== 'junk') {
-      if (!slotTypeCount[st]) slotTypeCount[st] = 0;
-      slotTypeCount[st]++;
-    }
-  }
-
-  var actionMaxLen = {};
-  for (var ci2 = 0; ci2 < combos.length; ci2++) {
-    var c2 = combos[ci2];
-    if (BUFF_TYPES[c2.type]) continue;
-    if (!actionMaxLen[c2.type] || c2.n > actionMaxLen[c2.type]) {
-      actionMaxLen[c2.type] = c2.n;
-    }
-  }
-
-  // 结算攻击
-  if (slotTypeCount.attack && slotTypeCount.attack >= (G.effectiveMinCombo || CONFIG.MIN_COMBO)) {
-    var atkTotal = slotTypeCount.attack;
-    var atkMaxLen = actionMaxLen.attack || 0;
-    var baseAtk = calcBaseValue(atkTotal);
-    var d = calcAttackValue(atkTotal, atkMaxLen, G);
-    if (d > 0) {
-      // TASK: FURY_DYNAMIC — 刷新 effective 值后使用（已包含 fury 倍率）
-      updateEffectiveFuryValues(G);
-      d = applyRelicModifiers('attack', d, G);
-      // 使用 effective value（已含 fury 实时倍率）
-      if ((G.playerEffects.atk_buff || 0) > 0) d = Math.ceil(d * G.effectiveAtkBuffMult);
-      if ((G.enemyEffects.vulnerable || 0) > 0) d = Math.ceil(d * G.effectiveVulnMult);
-      // 追踪伤害统计
-      if (d > G.maxDamage) G.maxDamage = d;
-      G.totalDamage += d;
-      var pursuitLog = '';
-      var _pml = G.effectiveMinCombo || CONFIG.MIN_COMBO;
-      if (atkMaxLen >= _pml + 1) pursuitLog = ' ' + atkMaxLen + '连×' + calcPursuitMultiplier(atkMaxLen).toFixed(1);
-      if (G.enemyShield > 0) { var ab = Math.min(G.enemyShield, d); G.enemyShield -= ab; d -= ab; }
-      G.enemyHP = Math.max(0, G.enemyHP - d);
-      log('🗡×' + atkTotal + '→' + baseAtk + pursuitLog + '→总' + d + ' → ' + G.boss.emoji + G.enemyHP + '🛡' + G.enemyShield);
-    }
-  }
-
-  // 结算防御
-  if (slotTypeCount.defend && slotTypeCount.defend >= (G.effectiveMinCombo || CONFIG.MIN_COMBO)) {
-    var defTotal = slotTypeCount.defend;
-    var defMaxLen = actionMaxLen.defend || 0;
-    var baseDef = calcBaseValue(defTotal);
-    var shieldVal = calcDefendValue(defTotal, defMaxLen, G);
-    if (shieldVal > 0) {
-      var pursuitLog = '';
-      var _pml = G.effectiveMinCombo || CONFIG.MIN_COMBO;
-      if (defMaxLen >= _pml + 1) pursuitLog = ' ' + defMaxLen + '连×' + calcPursuitMultiplier(defMaxLen).toFixed(1);
-      G.playerShield += shieldVal;
-      log('🛡×' + defTotal + '→' + baseDef + pursuitLog + '→总' + shieldVal + ' 🛡' + G.playerShield);
-    }
-  }
-
-  // 结算回血
-  if (slotTypeCount.heal && slotTypeCount.heal >= (G.effectiveMinCombo || CONFIG.MIN_COMBO)) {
-    var healTotal = slotTypeCount.heal;
-    var healMaxLen = actionMaxLen.heal || 0;
-    var baseHeal = calcBaseValue(healTotal);
-    var healVal = calcHealValue(healTotal, healMaxLen, G);
-    if (healVal > 0) {
-      var pursuitLog = '';
-      var _pml = G.effectiveMinCombo || CONFIG.MIN_COMBO;
-      if (healMaxLen >= _pml + 1) pursuitLog = ' ' + healMaxLen + '连×' + calcPursuitMultiplier(healMaxLen).toFixed(1);
-      G.playerHP = Math.min(G.playerMaxHP, G.playerHP + healVal);
-      log('❤×' + healTotal + '→' + baseHeal + pursuitLog + '→总' + healVal + ' ❤' + G.playerHP);
-    }
-  }
-
-  // --- 救命毫毛特殊卡结算（不受连击规则约束，独立结算） ---
-  for (var sp = 0; sp < G.slot.length; sp++) {
-    var sc = G.slot[sp];
-    if (!sc || !sc.special) continue;
-    if (sc.type === 'special_atk') {
-      var spDmg = sc.special.dmg || 0;
-      if (G.enemyShield > 0) { var spAbsorb = Math.min(G.enemyShield, spDmg); G.enemyShield -= spAbsorb; spDmg -= spAbsorb; }
-      G.enemyHP = Math.max(0, G.enemyHP - spDmg);
-      if (spDmg > G.maxDamage) G.maxDamage = spDmg;
-      G.totalDamage += spDmg;
-      log('🙈 特攻！→' + (sc.special.dmg || 0) + ' → ' + G.boss.emoji + G.enemyHP + '🛡' + G.enemyShield);
-    } else if (sc.type === 'special_def') {
-      G.playerShield += (sc.special.shield || 0);
-      log('🙉 特防！+🛡' + (sc.special.shield || 0) + ' 🛡' + G.playerShield);
-    } else if (sc.type === 'divine') {
-      G.playerEffects.divine = 1; // 1回合免伤
-      log('🙊 免伤！本回合免疫伤害');
-    }
-  }
-
-  // --- 未消除惩罚 ---
-  if (!G.noUnmatchedPenalty) {
-    var claimedSet = {};
-    for (var cwi = 0; cwi < combos._claimedWildIndices.length; cwi++) {
-      claimedSet[combos._claimedWildIndices[cwi]] = true;
-    }
-    var unmatchedByType = {};
-    for (var si2 = 0; si2 < G.slot.length; si2++) {
-      if (!G.slot[si2]) continue; // 跳过 null 占位（锁定槽）
-      // 特殊卡不算入未消除惩罚
-      if (G.slot[si2].special) continue;
-      // 万能牌被连击组消费（claimed=true）不扣血，未参与连击（claimed=false）照扣
-      if (G.slot[si2].type === 'wild') {
-        if (claimedSet[si2]) continue; // 被消费的万能牌不扣血
-        // 未被消费的万能牌照扣1血（当作1张散牌）
-        unmatchedByType['wild'] = (unmatchedByType['wild'] || 0) + 1;
-        continue;
-      }
-      var mt = resolveWildType(G.slot, si2);
-      if (!unmatchedByType[mt]) unmatchedByType[mt] = 0;
-      unmatchedByType[mt]++;
-    }
-    var unmatchedPenalty = 0;
-    for (var ut in unmatchedByType) {
-      if (unmatchedByType[ut] < (G.effectiveMinCombo || CONFIG.MIN_COMBO)) {
-        unmatchedPenalty += unmatchedByType[ut];
-      }
-    }
-    if (unmatchedPenalty > 0) {
-      G.playerHP = Math.max(0, G.playerHP - unmatchedPenalty * CONFIG.UNMATCHED_PENALTY);
-      log('♀未消除×' + unmatchedPenalty + '→❤-' + unmatchedPenalty);
-    }
-  }
-
-  G.slot = [];
-
-  // --- Phase 3: Buff层数衰减 ---
-  if ((G.playerEffects.atk_buff || 0) > 0) G.playerEffects.atk_buff--;
-  // atk_down 衰减已移至 enemyTurn 末尾（保证先衰减再叠加：
-  //   敌回合结束衰减 → 下回合 Phase 1 叠新的 atk_down）
-
-  // 检查胜负/元气弹
-  if (G.enemyHP <= 0) { endGame(true, G.boss.emoji + ' 击败！'); return; }
-  if (G.playerHP <= 0) { endGame(false, '勇者倒下了...'); return; }
-  var totalRemaining = 0;
-  var fp = flatten(G.piles);
-  for (var fi = 0; fi < fp.length; fi++) totalRemaining += fp[fi].length;
-  if (totalRemaining === 0) { endGame(true, '✨ 牌库全消！元气弹斩杀！'); return; }
-
-  render();
-  updateEnemyIntent();
-  document.getElementById('btn-end-turn').disabled = true;
-
-  // 坚韧核心免死检查
-  if (G.tenacityUsed === false && G.playerHP <= 0) {
-    G.playerHP = 1;
-    G.tenacityUsed = true;
-    log('🛡 坚韧核心触发！HP锁定为1');
-  }
-
-  if (G._maineCoonFirst) {
-    G._maineCoonFirst = false;
-    G.phase = 'player';
-    log('⏭ 回合' + (G.turn+1) + '开始');
-    log(G.boss.emoji + 'HP:' + G.enemyHP + '🛡' + G.enemyShield + '⚡' + G.enemyPower);
-    render();
-    updateEnemyIntent();
-    document.getElementById('btn-end-turn').disabled = false;
-  } else {
-    setTimeout(function() { enemyTurn(); }, 400);
-  }
-}
-
-// ========== 辅助：破盾后扣玩家血量 ==========
-function applyDamageToPlayer(dmg, rawAtk, label) {
-  // 免伤（救命毫毛/divine）：本回合免疫伤害
-  if ((G.playerEffects.divine || 0) > 0) {
-    log('🙊 免伤抵挡了 ' + rawAtk + ' 伤害！');
-    return;
-  }
-  // TASK: FURY_DYNAMIC — 减伤比率实时随血量，effectiveDefBuffRatio 已包含 fury
-  if ((G.playerEffects.def_buff || 0) > 0) {
-    updateEffectiveFuryValues(G); // 每次计算前刷新，确保实时随动
-    var ratio = G.effectiveDefBuffRatio || CONFIG.DEF_BUFF_RATIO;
-    dmg = Math.floor(dmg * ratio);
-  }
-  // 破盾
-  if (G.playerShield > 0) {
-    var absorb = Math.min(G.playerShield, dmg);
-    G.playerShield -= absorb;
-    dmg -= absorb;
-  }
-  G.playerHP = Math.max(0, G.playerHP - dmg);
-  log(label + rawAtk + ' → ❤-' + dmg + '🛡' + G.playerShield);
-
-  // 坚韧核心免死：扣血后触发
-  if (G.tenacityUsed === false && G.playerHP <= 0) {
-    G.playerHP = 1;
-    G.tenacityUsed = true;
-    log('🛡 坚韧核心触发！HP锁定为1');
-  }
-}
-
-// ========== 敌人回合 ==========
-function enemyTurn() {
-  log(G.boss.emoji + ' ' + G.boss.name + '行动');
-  G.enemyShield = 0;
-
-  // T2: BOSS_TURN_REORDER — 哈气→舔毛→眩晕检查→行动
-
-  // 1. 哈气检查（HP跨阈值）
-  if (G.boss.hpTriggers) {
-    for (var hi = 0; hi < G.boss.hpTriggers.length; hi++) {
-      var trigger = G.boss.hpTriggers[hi];
-      if (trigger.id !== 'groom' && trigger.condition && trigger.condition(G)) {
-        trigger.execute(G);
-      }
-    }
-  }
-
-  // 2. 舔毛检查（每4回合，可清除眩晕）
-  if (G.boss.hpTriggers) {
-    for (var hi2 = 0; hi2 < G.boss.hpTriggers.length; hi2++) {
-      var trigger2 = G.boss.hpTriggers[hi2];
-      if (trigger2.id === 'groom' && trigger2.condition && trigger2.condition(G)) {
-        trigger2.execute(G);
-        if (G.over) return;
-      }
-    }
-  }
-
-  // 3. 眩晕检查（舔毛可能已清除眩晕，此时不跳过）
-  if ((G.enemyEffects.stun || 0) > 0) {
-    log('💫 ' + G.boss.name + '眩晕，跳过回合！');
-    G.enemyEffects.stun--;
-    if (G.enemyEffects.stun <= 0) G.enemyEffects.stun = 0;
-    G.turn++;
-    G.phase = 'player';
-    log('⏭ 回合' + (G.turn+1) + '开始');
-    render(); updateEnemyIntent();
-    document.getElementById('btn-end-turn').disabled = false;
-    return;
-  }
-
-  // Boss 专属 onTurnStart（眩晕跳过之后，正常行动之前）
-  if (G.boss.traits) {
-    for (var ti = 0; ti < G.boss.traits.length; ti++) {
-      var trait = G.boss.traits[ti];
-      if (trait.onTurnStart) trait.onTurnStart(G);
-      if (G.over) return;
-    }
-  }
-
-  // 执行 Boss 行动循环
-  var t = G.turn;
-  // 8+回合 → 4回快速循环（攻/防/蓄/怒）
-  var fastCycle = [
-    { type: 'attack' },
-    { type: 'defend' },
-    { type: 'charge' },
-    { type: 'rage' },
-  ];
-  var useCycle = t >= 7 ? fastCycle : G.boss.cycle;
-  var cycle = useCycle[t >= 7 ? (t - 7) % fastCycle.length : t % G.boss.cycle.length];
-  var rawAtk = G.boss.baseAtk + G.enemyPower;
-
-  // 降攻效果
-  if ((G.enemyEffects.atk_down || 0) > 0) {
-    var reduction = G.enemyEffects.atk_down_pct || CONFIG.ATK_DOWN_PCT;
-    rawAtk = Math.floor(rawAtk * (1 - reduction/100));
-  }
-
-  var shieldVal = 40 + Math.floor(G.enemyPower / 2) * 2; // 初始40，随力量递增
-
-  switch (cycle.type) {
-    case 'attack':
-      var d = rawAtk;
-      applyDamageToPlayer(d, rawAtk, G.boss.emoji + '攻击');
-      break;
-
-    case 'defend':
-      G.enemyShield += (cycle.shield || shieldVal);
-      log(G.boss.emoji + '防御+' + (cycle.shield || shieldVal) + ' 🛡' + G.enemyShield);
-      break;
-
-    case 'buff_power':
-      G.enemyPower += 2;
-      log(G.boss.emoji + '蓄力+2 ⚡' + G.enemyPower);
-      break;
-
-    case 'charge':
-      log(G.boss.emoji + ' 蓄力中……');
-      break;
-
-    case 'rage':
-      if (cycle.powerBoost) G.enemyPower += cycle.powerBoost;
-      var rageMult = cycle.multiplier || 2;
-      var rageDmg = rawAtk * rageMult;
-      applyDamageToPlayer(rageDmg, rawAtk * rageMult, G.boss.emoji + '怒击×' + rageMult + (cycle.powerBoost ? ' +⚡' + cycle.powerBoost : '') + '=');
-      break;
-
-    case 'double_attack':
-      var d2 = rawAtk * 2;
-      applyDamageToPlayer(d2, rawAtk * 2, G.boss.emoji + '双重攻击');
-      break;
-
-    default:
-      log(G.boss.emoji + ' ' + G.boss.name + ' 未定义行动');
-  }
-
-  if (G.playerHP <= 0) { endGame(false, '勇者倒下了...'); return; }
-
-  // Boss 专属 onTurnEnd
-  if (G.boss.traits) {
-    for (var tj = 0; tj < G.boss.traits.length; tj++) {
-      var trait2 = G.boss.traits[tj];
-      if (trait2.onTurnEnd) trait2.onTurnEnd(G);
-    }
-  }
-
-  // 衰减敌方效果 + 玩家def_buff
-  for (var k in G.enemyEffects) {
-    if (G.enemyEffects[k] > 0) G.enemyEffects[k]--;
-  }
-  // atk_down 衰减后清理 pct（atk_down=0 时清除降攻百分比）
-  if ((G.enemyEffects.atk_down || 0) <= 0) {
-    G.enemyEffects.atk_down = 0;
-    G.enemyEffects.atk_down_pct = 0;
-  }
-  if ((G.playerEffects.def_buff || 0) > 0) G.playerEffects.def_buff--;
-  if ((G.playerEffects.divine || 0) > 0) G.playerEffects.divine--; // 免伤衰减
-
-  // 清理 slot 中 null 占位（锁定过期后）
-  if (G.lockedSlots) {
-    var cleaned = [];
-    for (var ci = 0; ci < G.slot.length; ci++) {
-      if (G.slot[ci] !== null || (G.lockedSlots && G.lockedSlots[ci])) {
-        cleaned.push(G.slot[ci]);
-      }
-    }
-    G.slot = cleaned;
-  }
-
-  G.turn++;
-  G.phase = 'player';
-  // 缅因猫：下一回合Boss也先手（在executeTurn开头处理）
-  log('⏭ 回合' + (G.turn+1) + '开始');
-  log(G.boss.emoji + 'HP:' + G.enemyHP + '🛡' + G.enemyShield + '⚡' + G.enemyPower);
-  render();
-  updateEnemyIntent();
-  document.getElementById('btn-end-turn').disabled = false;
-}
 
 // ========== 无尽模式状态（全局持久） ==========
 var ENDLESS_DEFEATED = {}; // { bossId: true }
 
-function endGame(win, msg) {
-  G.over = true;
-  G.phase = 'over';
-  render();
-  document.getElementById('btn-end-turn').disabled = true;
+// ========== Zhan.Engine — 流程控制 ==========
 
-  var overlay = document.getElementById('result-overlay');
-  var btnEndless = document.getElementById('btn-endless');
+Zhan.Engine._endGame = function(win, msg) {
+  var st = this.state;
+  if (!st) return;
+  st.over = true;
+  st.phase = 'over';
+  st.win = win;
+  if (Zhan.UI && Zhan.UI.render) Zhan.UI.render(st);
 
   if (win) {
     // 记录无尽模式已击败Boss
-    if (G.isEndless && G.bossId) {
-      ENDLESS_DEFEATED[G.bossId] = true;
+    if (st.isEndless && st.bossId) {
+      ENDLESS_DEFEATED[st.bossId] = true;
     }
 
-    G.currentStage = (G.currentStage || 1) + 1;
+    st.currentStage = (st.currentStage || 1) + 1;
 
-    if (G.currentStage === 2) {
+    if (st.currentStage === 2) {
       // 第一关（毛线团）通过 → 选圣物
-      showRelicSelect();
+      Zhan.Engine._showRelicSelect();
       return;
     }
-    if (G.currentStage === 3) {
+    if (st.currentStage === 3) {
       // 第二关（猫猫Boss）通过 → 通关！
-      overlay.classList.add('show');
-      renderStatsPanel(G);
-      document.getElementById('result-title').textContent = '🎉 通关！';
-      document.getElementById('result-desc').textContent = msg + '（存活' + G.turn + '回合）';
-      // 显示两个按钮
-      btnEndless.style.display = 'block';
-      document.getElementById('btn-restart').textContent = '🔄 再来一局';
+      st._resultTitle = '🎉 通关！';
+      st._resultDesc = msg + '（存活' + st.turn + '回合）';
+      st._showEndlessBtn = true;
+      st._restartText = '🔄 再来一局';
       log('🎉通关！' + msg);
+      if (Zhan.UI && Zhan.UI.showResult) Zhan.UI.showResult(st);
       return;
     }
-    // currentStage >= 4 → 无尽模式继续（showRelicSelect会经过startNextStage随机猫猫）
-    if (G.currentStage >= 4 && G.isEndless) {
+    // currentStage >= 4 → 无尽模式继续
+    if (st.currentStage >= 4 && st.isEndless) {
       // 检查是否所有猫猫都被击败
       var allCatIds = Object.keys(BOSSES).filter(function(k) { return k !== 'skeleton' && k !== 'catToy'; });
       var allDefeated = allCatIds.every(function(id) { return ENDLESS_DEFEATED[id]; });
       if (allDefeated) {
-        overlay.classList.add('show');
-        renderStatsPanel(G);
-        document.getElementById('result-title').textContent = '🏆 全猫征服！';
-        document.getElementById('result-desc').textContent = '所有猫猫Boss已被击败！（存活' + G.turn + '回合）';
+        st._resultTitle = '🏆 全猫征服！';
+        st._resultDesc = '所有猫猫Boss已被击败！（存活' + st.turn + '回合）';
+        st._showEndlessBtn = false;
+        st._restartText = '🔄 再来一局';
         log('🏆 全猫征服！所有猫猫Boss已被击败！');
-        btnEndless.style.display = 'none';
-        document.getElementById('btn-restart').textContent = '🔄 再来一局';
+        if (Zhan.UI && Zhan.UI.showResult) Zhan.UI.showResult(st);
       } else {
         // 继续无尽：随机下一只没打过的猫
-        startEndlessNextCat();
-        return;
+        Zhan.Engine._startEndlessNextCat();
       }
+      return;
     }
   } else {
-    overlay.classList.add('show');
-    renderStatsPanel(G);
-    document.getElementById('result-title').textContent = G.boss.emoji + ' 败北';
-    document.getElementById('result-desc').textContent = msg + '（存活' + G.turn + '回合）';
-    btnEndless.style.display = 'none';
-    document.getElementById('btn-restart').textContent = '🔄 再来一局';
-    log(G.boss.emoji + '败北 ' + msg);
+    st._resultTitle = st.boss.emoji + ' 败北';
+    st._resultDesc = msg + '（存活' + st.turn + '回合）';
+    st._showEndlessBtn = false;
+    st._restartText = '🔄 再来一局';
+    log(st.boss.emoji + '败北 ' + msg);
+    if (Zhan.UI && Zhan.UI.showResult) Zhan.UI.showResult(st);
   }
-}
+};
 
-function startEndlessNextCat() {
+Zhan.Engine._startEndlessNextCat = function() {
+  var st = this.state;
   var allCatIds = Object.keys(BOSSES).filter(function(k) { return k !== 'skeleton' && k !== 'catToy'; });
   var remaining = allCatIds.filter(function(id) { return !ENDLESS_DEFEATED[id]; });
   if (!remaining.length) {
-    endGame(true, '全猫征服！');
+    Zhan.Engine._endGame(true, '全猫征服！');
     return;
   }
   var bossId = remaining[Math.floor(Math.random() * remaining.length)];
-  G.isEndless = true;
-  G.activeRelics = G.activeRelics || [];
-  G.bossId = bossId;
-  G.currentStage = (G.currentStage || 3) + 1;
-  log('♾️ 无尽模式·第' + (G.currentStage - 2) + '只猫 — 对手：' + BOSSES[bossId].name + ' ' + BOSSES[bossId].emoji);
+  st.isEndless = true;
+  st.activeRelics = st.activeRelics || [];
+  st.bossId = bossId;
+  st.currentStage = (st.currentStage || 3) + 1;
+  log('♾️ 无尽模式·第' + (st.currentStage - 2) + '只猫 — 对手：' + BOSSES[bossId].name + ' ' + BOSSES[bossId].emoji);
   newGame();
-}
+};
 
-function updateEnemyIntent() {
-  if (G.phase === 'enemy') {
-    document.getElementById('enemy-intent').innerHTML = '⏳ 行动中...';
-    return;
-  }
-  if (G.hideIntent) {
-    document.getElementById('enemy-intent').innerHTML = '❓ 意图隐藏';
-    return;
-  }
-  var t = G.turn;
-  var fastCycle = [{ type: 'attack' },{ type: 'defend' },{ type: 'charge' },{ type: 'rage' }];
-  var useCycle = t >= 7 ? fastCycle : G.boss.cycle;
-  var cycle = useCycle[t >= 7 ? (t - 7) % fastCycle.length : t % G.boss.cycle.length];
-  var atk = G.boss.baseAtk + G.enemyPower;
-  var shieldVal = 40 + Math.floor(G.enemyPower / 2) * 2;
-  switch (cycle.type) {
-    case 'attack':       document.getElementById('enemy-intent').innerHTML = '⚔️ 攻击 ' + atk; break;
-    case 'defend':       document.getElementById('enemy-intent').innerHTML = '🛡️ 防御 +' + (cycle.shield || shieldVal); break;
-    case 'buff_power':   document.getElementById('enemy-intent').innerHTML = '⚡ 蓄力 +2'; break;
-    case 'charge':       document.getElementById('enemy-intent').innerHTML = '⏳ 蓄力'; break;
-    case 'rage':         document.getElementById('enemy-intent').innerHTML = '💥 怒击 ' + (atk*2); break;
-    case 'double_attack':document.getElementById('enemy-intent').innerHTML = '💥 双重攻击 ' + (atk*2); break;
-    default:             document.getElementById('enemy-intent').innerHTML = '❓'; break;
-  }
+Zhan.Engine._updateEnemyIntent = function() {
+  var st = this.state;
+  if (!st) return;
+  if (st.phase === 'enemy') {
+    st._intentHTML = '⏳ 行动中...';
+    st._intentExtraHTML = '';
+  } else if (st.hideIntent) {
+    st._intentHTML = '❓ 意图隐藏';
+    st._intentExtraHTML = '';
+  } else {
+    var t = st.turn;
+    var fastCycle = [{ type: 'attack' },{ type: 'defend' },{ type: 'charge' },{ type: 'rage' }];
+    var useCycle = t >= 7 ? fastCycle : st.boss.cycle;
+    var cycle = useCycle[t >= 7 ? (t - 7) % fastCycle.length : t % st.boss.cycle.length];
+    var atk = st.boss.baseAtk + st.enemyPower;
+    var shieldVal = 40 + Math.floor(st.enemyPower / 2) * 2;
+    switch (cycle.type) {
+      case 'attack':       st._intentHTML = '⚔️ 攻击 ' + atk; break;
+      case 'defend':       st._intentHTML = '🛡️ 防御 +' + (cycle.shield || shieldVal); break;
+      case 'buff_power':   st._intentHTML = '⚡ 蓄力 +2'; break;
+      case 'charge':       st._intentHTML = '⏳ 蓄力'; break;
+      case 'rage':         st._intentHTML = '💥 怒击 ' + (atk*2); break;
+      case 'double_attack':st._intentHTML = '💥 双重攻击 ' + (atk*2); break;
+      default:             st._intentHTML = '❓'; break;
+    }
 
-  // 舔毛预告（仅猫猫Boss，提前1回合；哈气不预告）
-  var extra = [];
-  var hasGroom = G.boss.hpTriggers && G.boss.hpTriggers.some(function(t) { return t.id === 'groom'; });
-  if (hasGroom && G.turn > 0 && (G.turn + 1) % 4 === 0) extra.push('🐱舔毛预告');
-  if (extra.length) {
-    document.getElementById('enemy-intent').innerHTML += ' <span style="font-size:9px;color:#f39c12;">' + extra.join(' ') + '</span>';
+    // 舔毛预告（仅猫猫Boss，提前1回合；哈气不预告）
+    var extra = [];
+    var hasGroom = st.boss.hpTriggers && st.boss.hpTriggers.indexOf('groom') >= 0;
+    if (hasGroom && st.turn > 0 && (st.turn + 1) % 4 === 0) extra.push('🐱舔毛预告');
+    st._intentExtraHTML = extra.length ? ' <span style="font-size:9px;color:#f39c12;">' + extra.join(' ') + '</span>' : '';
   }
-}
+  if (Zhan.UI && Zhan.UI.renderEnemyIntent) Zhan.UI.renderEnemyIntent(st);
+};
 
 // ========== 三关流程 & 圣物选择 ==========
 
@@ -968,67 +1083,41 @@ var STAGES = [
   { name: '第二关·猫猫Boss', bossId: null }, // 随机
 ];
 
-function showRelicSelect() {
-  G.relicRerolls = G.relicRerolls || 0;
-  G.selectedRelic = null;
+Zhan.Engine._showRelicSelect = function() {
+  var st = this.state;
+  if (!st) return;
+  st.relicRerolls = st.relicRerolls || 0;
+  st.selectedRelic = null;
   var allRelicIds = Object.keys(RELICS);
   shuffleArray(allRelicIds);
-  G.relicOptions = allRelicIds.slice(0, 2);
-  renderRelicOptions();
-  document.getElementById('relic-select-desc').textContent =
-    '第二关通过！获得圣物' + (G.relicRerolls < 1 ? '（可刷新1次）' : '');
-  document.getElementById('relic-select-overlay').classList.add('show');
-}
+  st.relicOptions = allRelicIds.slice(0, 2);
+  if (Zhan.UI && Zhan.UI.renderRelicSelect) Zhan.UI.renderRelicSelect(st);
+};
 
-function renderRelicOptions() {
-  var el = document.getElementById('relic-select-options');
-  el.innerHTML = '';
-  for (var oi = 0; oi < G.relicOptions.length; oi++) {
-    var relic = RELICS[G.relicOptions[oi]];
-    var card = document.createElement('div');
-    card.className = 'relic-card';
-    card.id = 'relic-opt-' + oi;
-    card.innerHTML = '<div class="relic-name">' + relic.name + '</div>' +
-      '<div class="relic-type">' + relic.type + '</div>' +
-      '<div class="relic-desc">' + relic.desc + '</div>';
-    el.appendChild(card);
+Zhan.Engine._rerollRelics = function() {
+  var st = this.state;
+  if (!st) return;
+  var allRelicIds = Object.keys(RELICS);
+  shuffleArray(allRelicIds);
+  st.relicOptions = allRelicIds.slice(0, 2);
+  st.relicRerolls = (st.relicRerolls || 0) + 1;
+};
+
+Zhan.Engine._confirmRelicSelect = function() {
+  var st = this.state;
+  if (!st) return;
+  st.activeRelics = st.activeRelics || [];
+  for (var i = 0; i < st.relicOptions.length; i++) {
+    st.activeRelics.push(st.relicOptions[i]);
+    log('🎁 获得圣物：' + RELICS[st.relicOptions[i]].name + ' — ' + RELICS[st.relicOptions[i]].desc);
   }
-}
+  Zhan.Engine._startNextStage();
+};
 
-// 刷新按钮 — 换一组圣物
-(function() {
-  var btn = document.getElementById('btn-relic-reroll');
-  btn.addEventListener('click', function() {
-    var allRelicIds = Object.keys(RELICS);
-    shuffleArray(allRelicIds);
-    G.relicOptions = allRelicIds.slice(0, 2);
-    renderRelicOptions();
-    if (G.relicRerolls < 1) {
-      G.relicRerolls++;
-      btn.disabled = true;
-      btn.style.opacity = '0.4';
-      btn.textContent = '🔄 刷新（已用完）';
-      document.getElementById('relic-select-desc').textContent = '第二关通过！获得圣物';
-    }
-  });
-})();
-
-// 确认按钮 — 两个圣物全拿
-(function() {
-  var btn = document.getElementById('btn-relic-confirm');
-  btn.addEventListener('click', function() {
-    G.activeRelics = G.activeRelics || [];
-    for (var i = 0; i < G.relicOptions.length; i++) {
-      G.activeRelics.push(G.relicOptions[i]);
-      log('🎁 获得圣物：' + RELICS[G.relicOptions[i]].name + ' — ' + RELICS[G.relicOptions[i]].desc);
-    }
-    document.getElementById('relic-select-overlay').classList.remove('show');
-    startNextStage();
-  });
-})();
-
-function startNextStage() {
-  var stageIdx = G.currentStage - 1;
+Zhan.Engine._startNextStage = function() {
+  var st = this.state;
+  if (!st) return;
+  var stageIdx = st.currentStage - 1;
   if (stageIdx >= STAGES.length) return;
   var stage = STAGES[stageIdx];
   var bossId = stage.bossId;
@@ -1036,7 +1125,10 @@ function startNextStage() {
     var catIds = Object.keys(BOSSES).filter(function(k) { return k !== 'skeleton' && k !== 'catToy'; });
     bossId = catIds[Math.floor(Math.random() * catIds.length)];
   }
-  G.bossId = bossId;
+  st.bossId = bossId;
   log('🏁 ' + stage.name + ' — 对手：' + BOSSES[bossId].name + ' ' + BOSSES[bossId].emoji);
   newGame();
-}
+};
+
+// 启动脚本已移至 index.html（ui.js 之后的内联 script）
+// Zhan.Test 已移至 index.html（ui.js 之后的内联 script）

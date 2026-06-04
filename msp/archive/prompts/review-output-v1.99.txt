@@ -1,0 +1,178 @@
+Now I have the complete file. Let me compile the full review report.
+
+---
+
+# 浠ｇ爜瀹℃煡鎶ュ憡 鈥?`zhan_v1.99_sprint4.html`
+
+瀹℃煡鏃ユ湡锛?026-06-03 | 鏂囦欢琛屾暟锛?403
+
+---
+
+## 馃敶 纭畾鎬ч棶棰橈紙涓ラ噸锛?
+### 馃敶 #1 鈥?`slot_plus2` 涓?`wild_core` 鍙犲姞瀛樺湪椤哄簭渚濊禆 Bug
+
+**浣嶇疆锛?* `Zhan.Systems.Relic._handlers.increaseSlotSize` (L656) vs `enableWildCoreSlot` (L658-661)
+
+```js
+// slot_plus2 鈥?缁濆璧嬪€?increaseSlotSize: function(G, params) { G.effectiveSlotSize = CONFIG.SLOT_SIZE + params.amount; },
+// wild_core 鈥?鐩稿璧嬪€?enableWildCoreSlot: function(G) {
+  G.effectiveSlotSize = (G.effectiveSlotSize || CONFIG.SLOT_SIZE) + 1;
+},
+```
+
+`increaseSlotSize` 浣跨敤**缁濆鍊?* `CONFIG.SLOT_SIZE + 2 = 12`锛岃€?`enableWildCoreSlot` 浣跨敤**鐩稿鍊?* `(current || 10) + 1`銆傚鏋?`wild_core` 鍏堟墽琛岋紙effectiveSlotSize 鈫?11锛夛紝鐒跺悗 `slot_plus2` 鎵ц浼?*瑕嗙洊**涓?`12`锛屼涪澶?wild_core 鐨?+1銆傛纭粨鏋滃簲涓?13銆?
+**淇寤鸿锛?* 灏?`increaseSlotSize` 鏀逛负鐩稿璧嬪€硷細
+```js
+increaseSlotSize: function(G, params) {
+  G.effectiveSlotSize = (G.effectiveSlotSize || CONFIG.SLOT_SIZE) + params.amount;
+},
+```
+
+### 馃敶 #2 鈥?`computeCombos` 鍦?minCombo 涓嶆弧瓒虫椂浠嶆秷璐逛竾鑳界墝
+
+**浣嶇疆锛?* `Zhan.Rules.computeCombos` (L948-956)
+
+```js
+// 绗?48-953琛岋細鍏堟爣璁?claimed
+for (var ci = i; ci < j; ci++) {
+  if (resolved[ci].card && resolved[ci].card.type === 'wild') {
+    resolved[ci].claimed = true;
+    _claimedWildIndices.push(resolved[ci].index);
+  }
+}
+// 绗?54-956琛岋細鍚庢鏌?minCombo
+if (comboLen >= minCombo) {
+  combos.push({ ... });
+}
+```
+
+褰?`comboLen < minCombo` 鏃讹紝涓囪兘鐗屽凡琚爣璁颁负 claimed 浣嗚繛鍑绘棤鏁堛€傝繖鎰忓懗鐫€涓囪兘鐗屽湪鐭繛鍑讳腑浼氳**鏃犲０娴垂**鈥斺€旀棦涓嶇畻鏀诲嚮/闃插尽锛屼篃涓嶇畻鏈秷闄ゆ儵缃氾紙claimed=true 璺宠繃浜嗘墸琛€锛夈€備緥濡?`[attack, wild]`锛坢inCombo=3锛変腑涓囪兘鐗屾棦涓嶇粰鏀诲嚮鍔犳垚涔熶笉鎵ｈ銆?
+**淇寤鸿锛?* 灏?claimed 鏍囪绉诲埌 `if (comboLen >= minCombo)` 鍐呴儴锛?```js
+if (comboLen >= minCombo) {
+  for (var ci = i; ci < j; ci++) {
+    if (resolved[ci].card && resolved[ci].card.type === 'wild') {
+      resolved[ci].claimed = true;
+      _claimedWildIndices.push(resolved[ci].index);
+    }
+  }
+  combos.push({ n: comboLen, ... });
+}
+```
+
+### 馃敶 #3 鈥?`window.G` 鍥為€€鏄弻婧愬ご鍙嶆ā寮?
+**浣嶇疆锛?* 6 澶勫嚱鏁颁娇鐢?`var G = Zhan.Engine.state || window.G`锛圠1845, L1858, L1905, L2284, L2313, L2344锛?
+褰?`Engine.state` 琚樉寮忚涓?`null`锛圧ESET/RESTART dispatch 涓?L1047/L1056锛夋椂锛屽鏋?window.G 浠嶆寔鏈夋棫 state 寮曠敤锛岃繖浜涘嚱鏁颁細闈欓粯鎿嶄綔**宸茶寮冪敤鐨?state**銆傝繖鐮村潖浜嗗崟鍚戞暟鎹祦鍜?Engine.state 鏄敮涓€ state 鏉ユ簮"鐨勬灦鏋勬壙璇恒€?
+**淇寤鸿锛?* 绉婚櫎鎵€鏈?`|| window.G` 鍥為€€銆傚鏋?Engine.state 涓?null锛屽簲 return 鎴栨姤閿欒€岄潪榛橀粯浣跨敤鏃?state銆?
+---
+
+## 馃煛 纭畾鎬ч棶棰橈紙涓瓑锛?
+### 馃煛 #4 鈥?`boss_first` trait 鐨?`events: ['TURN_START']` 鏄浠ｇ爜
+
+**浣嶇疆锛?* BOSSES.maine_coon (L501-505) + executeTurn (L1305-1309)
+
+```js
+traits: [{
+  id: 'boss_first',
+  events: ['TURN_START'],   // 鈫?鏃犳晥澹版槑
+  params: {}
+}]
+```
+
+`_traitHandlers` 涓病鏈?`boss_first` 鐨勫鐞嗗嚱鏁般€傚疄闄呴€昏緫鍦?`executeTurn()` 涓€氳繃纭紪鐮?`if (G.boss && G.boss.id === 'maine_coon')` 瀹炵幇銆俙processEvent` 鎵句笉鍒?handler 浼氶潤榛樿烦杩囷紝浣?`events: ['TURN_START']` 澹版槑鍏锋湁璇鎬р€斺€旇璇昏€呬互涓洪粦鐩?trait 绯荤粺澶勭悊浜嗗厛鎵嬮€昏緫銆?
+**淇寤鸿锛?* 瑕佷箞灏?`events` 鏀逛负绌烘暟缁?`[]`锛岃涔堝湪 `_traitHandlers` 涓坊鍔?`boss_first` handler 骞剁Щ闄ょ‖缂栫爜銆傛帹鑽愬悗鑰呬互淇濇寔鏋舵瀯涓€鑷存€с€?
+### 馃煛 #5 鈥?`getEffectDescription` 鐩存帴璇诲叏灞€ G 鐮村潖绾嚱鏁拌竟鐣?
+**浣嶇疆锛?* L1268-1287
+
+```js
+function getEffectDescription(type, n) {
+  var minCombo = G.effectiveMinCombo || CONFIG.MIN_COMBO;  // 鈫?鐩存帴璇?G
+  var dur = Zhan.Rules.getComboDuration(n, minCombo);
+  dur += G.buffDurationBonus || 0;                          // 鈫?鐩存帴璇?G
+  Zhan.Engine._updateEffectiveFury(G);                      // 鈫?鍓綔鐢紒
+  // ... reads G.effectiveVulnMult, G.effectiveAtkBuffMult, etc.
+}
+```
+
+姝ゅ嚱鏁帮細
+1. 鐩存帴璇诲彇鍏ㄥ眬 `G`锛堜笉閫氳繃 Engine.state锛?2. 璋冪敤 `_updateEffectiveFury(G)` 浜х敓鍓綔鐢紙淇敼 effective 鍊硷級
+3. 鍦?UI 棰勮娓叉煋鏃惰璋冪敤锛屽睘浜?璇诲彇鏃跺啓鍏?鐨勫弽妯″紡
+
+**淇寤鸿锛?* 鏀逛负鎺ユ敹 state 鍙傛暟锛屽皢 `_updateEffectiveFury` 璋冪敤涓婄Щ鍒拌皟鐢ㄨ€呫€?
+### 馃煛 #6 鈥?`lock_slot` 鍥哄畾浣跨敤 `CONFIG.SLOT_SIZE`锛屾湭鑰冭檻鍦ｇ墿鎵╁
+
+**浣嶇疆锛?* L734
+
+```js
+lock_slot: {
+  onTurnStart: function(G, params) {
+    for (var i = 0; i < CONFIG.SLOT_SIZE; i++) {  // 鈫?纭紪鐮?10
+```
+
+濡傛灉鐜╁鎷ユ湁 `slot_plus2` 鎴?`wild_core`锛坋ffectiveSlotSize=12 鎴?13锛夛紝鑻辩煭閿佹Ы浠嶅彧鎵弿鍓?10 涓Ы浣嶃€傛柊澧炵殑妲戒綅 10-12 姘歌繙涓嶄細琚攣鈥斺€旇繖鍙兘鏄璁℃剰鍥撅紝浣嗗€煎緱鏍囪浠ョ‘璁ゃ€?
+### 馃煛 #7 鈥?`executeTurn` 涓?stun 璺宠繃鏃?traits 涓嶅畬鏁存墽琛?
+**浣嶇疆锛?* L1294-1302
+
+```js
+if (G.playerSkipped) {
+  G.playerSkipped = false;
+  G.phase = 'resolving';
+  G.slot = [];
+  updateEnemyIntent();
+  setTimeout(function() { enemyTurn(); }, 300);
+  return;
+}
+```
+
+琚檿鏃惰烦杩囦簡姝ｅ父鐨?`Zhan.Systems.Boss.processEvent(G, 'RESOLVE')`锛圠1334锛夛紝浠ュ強杩炲嚮璁＄畻鍜屾墍鏈?Phase 缁撶畻銆傝繖鏈韩鏄纭殑锛堣鏅曚笉搴旇鏈夋晥鏋滐級銆備絾娉ㄦ剰 `TURN_START` 鍜?`TURN_END` 鍦?`enemyTurn` 涓粛鐒舵墽琛屸€斺€斾笉浼氫涪澶便€傗渽 璁捐姝ｇ‘浣嗗€煎緱鏍囪銆?
+---
+
+## 馃煝 杞诲井闂
+
+### 馃煝 #8 鈥?`dispatch` 鍦?`END_TURN` 鏃跺弻閲嶆覆鏌?
+**浣嶇疆锛?* L1042-1043 + L1072-1074
+
+`dispatch` 璋冪敤 `executeTurn()`锛堝唴閮ㄦ湁澶氬 `render`锛夛紝鐒跺悗 dispatch 鏈熬鍙堣皟鐢?`render`銆備竴娆?`END_TURN` dispatch 瀵艰嚧鑷冲皯 2 娆″畬鏁存覆鏌撱€?
+### 馃煝 #9 鈥?`runHpTriggers` 鍜?`enemyTurn` 涓?hiss/groom 鐨勫鐞嗗瓨鍦ㄩ噸澶嶉€昏緫
+
+鏁屽洖鍚堜腑 hiss 妫€鏌ヤ娇鐢ㄥ唴鑱?for 寰幆锛圠1592-1601锛夛紝groom 妫€鏌ヤ娇鐢?`runHpTriggers(G, 'groom')`锛圠1604锛夈€備袱鑰呭疄鐜扮浉鍚屽姛鑳戒絾鐢ㄤ簡涓嶅悓椋庢牸銆傚彲缁熶竴鐢?`runHpTriggers` + filterId銆?
+### 馃煝 #10 鈥?`updateComboPreview` 涓湭娑堥櫎鎯╃綒璁＄畻涓?`executeTurn` 涓殑閫昏緫閲嶅
+
+L2196-2218 涓?L1483-1513 鍑犱箮瀹屽叏鐩稿悓鐨勬湭娑堥櫎鎯╃綒璁＄畻閫昏緫锛屼唬鐮侀噸澶嶇害 30 琛屻€?
+---
+
+## 鉂?闇€瑕佷汉宸ュ垽鏂殑鐤戠偣
+
+| # | 鐤戠偣 | 浣嶇疆 |
+|---|------|------|
+| A | **fury 鏋佺鍊艰璁?*锛欻P=0 鏃?furyMult=2锛宱verload_core 涓?defBuffRatio 鍙揪 0锛?00% 鍑忎激锛夛紝杩欐槸鍚︽湁鎰忎负涔嬶紵 | L984-999 |
+| B | **his 娓呯┖ effect 瀵硅薄**锛歚G.playerEffects = {}` / `G.enemyEffects = {}` 浼氫涪寮冩墍鏈?key銆傚鏋滄湭鏉ユ湁涓嶅簲琚竻绌虹殑 effect 灞炴€э紙濡傛寔涔呭瀷琚姩锛夛紝浼氬嚭闂 | L842-843 |
+| C | **缇庣煭 hide_intent**锛歚hideIntent` 鍦?`newGame` 涓鎵嬪姩璁剧疆锛圠1138-1144锛夛紝浣?trait 瀹氫箟涓?`events: ['TURN_START']` 鏄惁鏈?handler 鑳藉湪鍚庣画鍥炲悎姝ｇ‘闅愯棌鎰忓浘锛熷鏋滄瘡鍥炲悎閮借Е鍙?onTurnStart 鈫?璁剧疆 hideIntent=true 鈫?姣忓洖鍚堥兘闅愯棌锛?| L753-754, L1138-1144 |
+| D | **缂呭洜鐚厛鎵?+ 鎶樿€崇尗鐪╂檿浜や簰**锛氬鏋滅紖鍥犵尗鍏堟墜鍥炲悎瑙﹀彂鎶樿€崇尗鐪╂檿锛屼笅涓€鍥炲悎 executeTurn 涓?`playerSkipped=true` 浼氳蛋 skip 鍒嗘敮锛屼絾缂呭洜鐚厛鎵嬫鏌ワ紙L1305锛夊湪 skip 妫€鏌ワ紙L1294锛?*涔嬪悗**銆備篃灏辨槸璇寸湬鏅曞洖鍚堢紖鍥犵尗鍏堟墜涓嶄細瑙﹀彂锛屾槸鍚︽纭紵 | L1294-1309 |
+| E | **double_wild 鍦ｇ墿**锛歚multiplyDeckCard` 灏?`deckConfig.wild *= 2`锛屼絾 `newGame` 涓?`deckConfig` 鐢?`JSON.parse(JSON.stringify(DECK_SIZES))` 娣辨嫹璐濓紝濡傛灉 RESET 涓嶉噸缃?`deckConfig`... 绛夌瓑锛孯ESET 浼氳皟鐢?newGame 閲嶆柊鍒濆鍖栦竴鍒囷紝鎵€浠ユ病闂銆備絾濡傛灉鏄?RESTART 鍚?START_ENDLESS... 闇€瑕侀獙璇併€?| L654, L1111 |
+
+---
+
+## 鏋舵瀯涓€鑷存€ц瘎浼?
+| 缁村害 | 璇勫垎 | 璇存槑 |
+|------|------|------|
+| **澹版槑寮忔暟鎹眰** | 7/10 | Boss 瀹氫箟楂樺害澹版槑寮忥紙traits + events + params锛夛紝鍦ｇ墿瀹氫箟瀹屽叏澹版槑寮忥紙effects + phase + action锛夈€傛墸鍒嗛」锛歚boss_first` 鏈夋澹版槑锛坋vents 瀹氫箟浣?handler 缂哄け锛夛紝瀹為檯閫昏緫鏁ｅ竷鍦?executeTurn 纭紪鐮佷腑 |
+| **绾嚱鏁拌绠楀眰** | 7/10 | `Zhan.Rules` 涓嬪嚱鏁颁笉璇诲叏灞€ G锛屽弬鏁版樉寮忎紶鍏ャ€傛墸鍒嗛」锛歚getEffectDescription` 鐩存帴璇诲叏灞€ G 骞惰Е鍙戝壇浣滅敤锛坄_updateEffectiveFury`锛夛紝鐮村潖绾嚱鏁拌竟鐣?|
+| **闆嗕腑鐘舵€佺鐞?* | 6/10 | Engine.state 鏄悕涔変笂鐨勫敮涓€ state 鏉ユ簮锛宒ispatch 鏄帹鑽愬叆鍙ｃ€傛墸鍒嗛」锛? 澶?`|| window.G` 鍥為€€鐮村潖鍗曟簮鍘熷垯锛涘ぇ閲忓嚱鏁帮紙pullCard銆乪xecuteTurn銆乪nemyTurn銆乴og锛夌洿鎺ユ搷浣滃叏灞€ G 鑰屼笉閫氳繃 Engine |
+| **鍗曞悜鏁版嵁娴?* | 5/10 | action 鈫?dispatch 鈫?render 涓诲共瀛樺湪銆傛墸鍒嗛」锛歳ender 鍦?dispatch 鍐呭琚娆¤皟鐢紱state 淇敼鏁ｈ惤鍦?executeTurn銆乪nemyTurn銆乤pplyDamageToPlayer銆乶ewGame 绛夊涓嚱鏁颁腑锛沴og() 鐩存帴 push 鍒?G.logLines锛堢粫杩?dispatch锛夛紱getEffectDescription 涓湁鍐欐搷浣?|
+
+---
+
+## 寤鸿淇浼樺厛绾?
+| 浼樺厛绾?| 闂 | 鐞嗙敱 |
+|--------|------|------|
+| **P0** | 馃敶 #1 鈥?slot_plus2/wild_core 椤哄簭渚濊禆 bug | 鐜╁鍚屾椂鎷夸袱涓湥鐗╂椂妲戒綅鏁伴敊璇紝鐩存帴褰卞搷娓告垙鏈哄埗 |
+| **P0** | 馃敶 #2 鈥?computeCombos 涓囪兘鐗屾氮璐?| 褰卞搷鎵€鏈夊惈涓囪兘鐗岀殑瀵瑰眬锛屽鑷翠竾鑳界墝鍦ㄦ湁鍦ｇ墿闄嶄綆 minCombo 鍚庝粛琚氮璐?|
+| **P1** | 馃敶 #3 鈥?window.G 鍥為€€鍙嶆ā寮?| 铏界劧褰撳墠鍙兘涓嶈Е鍙?bug锛屼絾鏄灦鏋勫€哄姟锛屽鏄撳湪鏈潵鐨勪慨鏀逛腑寮曞彂闅愯斀鐨勭姸鎬佷笉涓€鑷?|
+| **P1** | 馃煛 #5 鈥?getEffectDescription 鍓綔鐢?| 鍦?UI 棰勮娓叉煋鏃朵慨鏀?state锛岃繚鍙嶅崟鍚戞暟鎹祦锛屽彲鑳藉紩鍙戞覆鏌撴椂搴忛棶棰?|
+| **P2** | 馃煛 #4 鈥?boss_first 姝诲０鏄?| 浠ｇ爜鍙鎬?鍙淮鎶ゆ€ч棶棰橈紝涓嶅奖鍝嶈繍琛?|
+| **P2** | 馃煛 #7 鈥?stun skip 涓?ON_RESOLVE | 璁捐纭鍚庢棤闇€淇敼 |
+| **P2** | 馃煝 #8-10 鈥?浠ｇ爜鏁存磥鎬?| 鎬ц兘/鍙淮鎶ゆ€т紭鍖?|
+
+---
+
+REVIEW_DONE

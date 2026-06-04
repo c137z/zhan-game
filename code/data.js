@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 //  斩 v14 — data.js
 //  所有配置数据：Boss定义、圣物定义、卡牌、数值常量
 // ============================================================
@@ -81,47 +81,8 @@ var BOSS_CYCLE_TEMPLATE = [
   { type: 'rage' },
 ];
 
-// ========== Boss 通用触发器 ==========
-var GROOM_TRIGGER = {
-  id: 'groom',
-  condition: function(G) { return G.turn > 0 && (G.turn + 1) % 4 === 0; },
-  execute: function(G) {
-    // 清空 Boss 自身全部 Debuff（易伤、降攻、眩晕）
-    G.enemyEffects.vulnerable = 0;
-    G.enemyEffects.atk_down = 0;
-    G.enemyEffects.atk_down_pct = 0;
-    G.enemyEffects.stun = 0;
-    // 同步清空 effective 缓存
-    G.effectiveVulnMult = 0;
-    log('🐱 舔毛！Boss 清除自身全部 Debuff（易伤/降攻/眩晕）');
-  }
-};
-
-var HISS_TRIGGER = {
-  id: 'hiss',
-  condition: function(G) {
-    if (G.hissPrevHP === undefined) G.hissPrevHP = G.enemyMaxHP;
-    // 固定阈值点：200 HP 和 100 HP
-    var thresholds = [200, 100];
-    for (var i = 0; i < thresholds.length; i++) {
-      // 当前 HP 已跌破阈值，且之前未跌破（触发过一次）
-      if (G.enemyHP < thresholds[i] && G.hissPrevHP >= thresholds[i]) {
-        G.hissPrevHP = G.enemyHP;
-        return true;
-      }
-    }
-    G.hissPrevHP = G.enemyHP;
-    return false;
-  },
-  execute: function(G) {
-    // 清空全场 Buff/Debuff
-    G.playerEffects = {};
-    G.enemyEffects = {};
-    log('🐱 哈气！！全场 Buff/Debuff 清空！');
-  }
-};
-
-// ========== 10只猫猫 Boss 定义 ==========
+// ========== Boss 定义 ==========
+// hpTriggers 使用纯字符串 id 引用，执行函数在 core.js Zhan.Systems.Boss._hpTriggerHandlers 中
 var BOSSES = {
   tabby: {  // 狸花猫
     id: 'tabby', name: '狸花猫', emoji: '🐱',
@@ -130,30 +91,10 @@ var BOSSES = {
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
       id: 'lock_pile',
-      onTurnStart: function(G) {
-        if (G.turn % 2 !== 0) return; // 每2回合
-        var flat = flatten(G.piles);
-        var candidates = [];
-        for (var i = 0; i < flat.length; i++) {
-          if (flat[i].length > 0 && !G.lockedPiles[i]) candidates.push(i);
-        }
-        if (candidates.length < 2) return;
-        // 随机锁2摞
-        shuffleArray(candidates);
-        G.lockedPiles = G.lockedPiles || {};
-        G.lockedPiles[candidates[0]] = 2;
-        G.lockedPiles[candidates[1]] = 2;
-        log('🐱 狸花锁牌：锁定了2摞牌，持续2回合');
-      },
-      onTurnEnd: function(G) {
-        if (!G.lockedPiles) return;
-        for (var k in G.lockedPiles) {
-          G.lockedPiles[k]--;
-          if (G.lockedPiles[k] <= 0) delete G.lockedPiles[k];
-        }
-      }
+      events: ['TURN_START', 'TURN_END'],
+      params: { interval: 2, count: 2, duration: 2 }
     }],
-    hpTriggers: [GROOM_TRIGGER, HISS_TRIGGER],
+    hpTriggers: ['groom', 'hiss'],
   },
 
   sphynx: {  // 斯芬克斯
@@ -163,16 +104,10 @@ var BOSSES = {
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
       id: 'lick_player',
-      onTurnStart: function(G) {
-        if (G.turn > 0 && G.turn % 3 === 0) {
-          // 舔掉玩家 Buff（保留 Debuff）
-          if (G.playerEffects.atk_buff) delete G.playerEffects.atk_buff;
-          if (G.playerEffects.def_buff) delete G.playerEffects.def_buff;
-          log('🐱 斯芬克斯舔你！玩家 Buff 被舔掉');
-        }
-      }
+      events: ['TURN_START'],
+      params: { interval: 3, minTurn: 1 }
     }],
-    hpTriggers: [GROOM_TRIGGER, HISS_TRIGGER],
+    hpTriggers: ['groom', 'hiss'],
   },
 
   british_shorthair: {  // 英短蓝猫
@@ -182,28 +117,10 @@ var BOSSES = {
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
       id: 'lock_slot',
-      onTurnStart: function(G) {
-        if (G.turn % 3 !== 0) return;
-        var free = [];
-        for (var i = 0; i < CONFIG.SLOT_SIZE; i++) {
-          if (!G.lockedSlots || !G.lockedSlots[i]) free.push(i);
-        }
-        if (free.length < 2) return;
-        shuffleArray(free);
-        G.lockedSlots = G.lockedSlots || {};
-        G.lockedSlots[free[0]] = 2;
-        G.lockedSlots[free[1]] = 2;
-        log('🐱 英短锁槽：锁定了2个槽位，持续2回合');
-      },
-      onTurnEnd: function(G) {
-        if (!G.lockedSlots) return;
-        for (var k in G.lockedSlots) {
-          G.lockedSlots[k]--;
-          if (G.lockedSlots[k] <= 0) delete G.lockedSlots[k];
-        }
-      }
+      events: ['TURN_START', 'TURN_END'],
+      params: { interval: 3, count: 2, duration: 2 }
     }],
-    hpTriggers: [GROOM_TRIGGER, HISS_TRIGGER],
+    hpTriggers: ['groom', 'hiss'],
   },
 
   american_shorthair: {  // 美短虎斑
@@ -211,8 +128,12 @@ var BOSSES = {
     desc: '永久隐藏下一回合行动意图\n无法预判Boss下一步',
     maxHP: 300, baseAtk: 24, startShield: 0,
     cycle: BOSS_CYCLE_TEMPLATE,
-    traits: [{ id: 'hide_intent', onTurnStart: function(G) { G.hideIntent = true; } }],
-    hpTriggers: [GROOM_TRIGGER, HISS_TRIGGER],
+    traits: [{
+      id: 'hide_intent',
+      events: ['TURN_START'],
+      params: {}
+    }],
+    hpTriggers: ['groom', 'hiss'],
   },
 
   abyssinian: {  // 阿比西尼亚
@@ -222,14 +143,10 @@ var BOSSES = {
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
       id: 'random_discard',
-      onResolve: function(G, combos) {
-        if (!G.slot.length) return;
-        var idx = Math.floor(Math.random() * G.slot.length);
-        var card = G.slot.splice(idx, 1)[0];
-        log('🐱 阿比拍飞了一张 ' + CARD_TYPES[card.type].emoji + '！');
-      }
+      events: ['RESOLVE'],
+      params: { count: 1 }
     }],
-    hpTriggers: [GROOM_TRIGGER, HISS_TRIGGER],
+    hpTriggers: ['groom', 'hiss'],
   },
 
   ragdoll: {  // 布偶猫
@@ -239,21 +156,10 @@ var BOSSES = {
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
       id: 'smear_piles',
-      onTurnStart: function(G) {
-        G.smearedPiles = {};
-        var flat = flatten(G.piles);
-        var candidates = [];
-        for (var i = 0; i < flat.length; i++) {
-          if (flat[i].length > 0) candidates.push(i);
-        }
-        if (candidates.length < 2) return;
-        shuffleArray(candidates);
-        G.smearedPiles[candidates[0]] = true;
-        G.smearedPiles[candidates[1]] = true;
-        log('🐱 布偶趴牌：涂抹了2摞牌');
-      },
+      events: ['TURN_START'],
+      params: { count: 2 }
     }],
-    hpTriggers: [GROOM_TRIGGER, HISS_TRIGGER],
+    hpTriggers: ['groom', 'hiss'],
   },
 
   bengal: {  // 豹猫
@@ -263,14 +169,10 @@ var BOSSES = {
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
       id: 'time_limit',
-      onTurnStart: function(G) {
-        G.maxTurns = G.maxTurns || 24;
-        if (G.turn >= G.maxTurns) {
-          endGame(false, '⏰ 24回合已到！豹猫赢了...');
-        }
-      }
+      events: ['TURN_START'],
+      params: { maxTurns: 24 }
     }],
-    hpTriggers: [GROOM_TRIGGER, HISS_TRIGGER],
+    hpTriggers: ['groom', 'hiss'],
   },
 
   siamese: {  // 暹罗猫
@@ -280,24 +182,10 @@ var BOSSES = {
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
       id: 'insert_junk',
-      onTurnStart: function(G) {
-        var halfHP = G.enemyMaxHP / 2;
-        var junkCount = (G.enemyHP > halfHP) ? (G.turn % 2 === 0 ? 0 : 1) : 1;
-        if (junkCount === 0) return;
-        for (var j = 0; j < junkCount; j++) {
-          var flat = flatten(G.piles);
-          var candidates = [];
-          for (var i = 0; i < flat.length; i++) {
-            if (flat[i].length > 0) candidates.push(i);
-          }
-          if (!candidates.length) return;
-          var idx = candidates[Math.floor(Math.random() * candidates.length)];
-          flat[idx].push({ type: 'junk', id: G.pickedId++, isJunk: true });
-        }
-        log('🐱 暹罗捣乱：塞了' + junkCount + '张废牌！');
-      }
+      events: ['TURN_START'],
+      params: { halfHP: true }
     }],
-    hpTriggers: [GROOM_TRIGGER, HISS_TRIGGER],
+    hpTriggers: ['groom', 'hiss'],
   },
 
   scottish_fold: {  // 折耳猫
@@ -307,14 +195,10 @@ var BOSSES = {
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
       id: 'stun_player',
-      onTurnStart: function(G) {
-        if (G.turn > 0 && G.turn % 5 === 0) {
-          G.playerSkipped = true;
-          log('🐱 折耳发作！玩家本回合无法行动');
-        }
-      }
+      events: ['TURN_START'],
+      params: { interval: 5, minTurn: 1 }
     }],
-    hpTriggers: [GROOM_TRIGGER, HISS_TRIGGER],
+    hpTriggers: ['groom', 'hiss'],
   },
 
   maine_coon: {  // 缅因猫
@@ -324,9 +208,11 @@ var BOSSES = {
     cycle: BOSS_CYCLE_TEMPLATE,
     traits: [{
       id: 'boss_first',
-      // 每回合Boss先手：在 executeTurn 中特殊处理（跳过玩家阶段直接enemyTurn）
+      // 此 trait 在 executeTurn 开头硬编码处理（Boss先手），不走 processEvent
+      events: [],
+      params: {}
     }],
-    hpTriggers: [GROOM_TRIGGER, HISS_TRIGGER],
+    hpTriggers: ['groom', 'hiss'],
   },
 
   // 第一关：逗猫棒
@@ -362,78 +248,70 @@ var BOSSES = {
 };
 
 // ========== 圣物定义 ==========
+// 所有执行逻辑移至 core.js Zhan.Systems.Relic
 var RELICS = {
   double_wild: {
     id: 'double_wild', name: '双生花', type: 'rule',
     desc: '万能卡数量翻倍',
-    onInit: function(G) { G.deckConfig.wild *= 2; },
+    effects: [{ phase: 'INIT', action: 'multiplyDeckCard', params: { cardType: 'wild', factor: 2 } }],
   },
   combo_core: {
     id: 'combo_core', name: '连击核心', type: 'rule',
     desc: '最小连击数 -1（3→2，全局生效）',
-    onInit: function(G) { G.effectiveMinCombo = 2; },
+    effects: [{ phase: 'INIT', action: 'setEffectiveMinCombo', params: { value: 2 } }],
   },
   slot_plus2: {
     id: 'slot_plus2', name: '扩容核心', type: 'rule',
     desc: '消除槽 +2（10→12）',
-    onInit: function(G) { G.effectiveSlotSize = CONFIG.SLOT_SIZE + 2; },
+    effects: [{ phase: 'INIT', action: 'increaseSlotSize', params: { amount: 2 } }],
   },
   endurance_core: {
     id: 'endurance_core', name: '耐久核心', type: 'rule',
     desc: 'Buff/Debuff 持续时间 +1 回合',
-    onInit: function(G) { G.buffDurationBonus = 1; },
+    effects: [{ phase: 'INIT', action: 'setBuffDurationBonus', params: { amount: 1 } }],
   },
   wild_core: {
     id: 'wild_core', name: '万能核心', type: 'rule',
     desc: '消除槽+1置于最前，槽内固定万能卡💎，后方卡牌连击数+1',
-    onInit: function(G) {
-      G.wildCoreSlot = true;
-      G.effectiveSlotSize = (G.effectiveSlotSize || CONFIG.SLOT_SIZE) + 1;
-    },
+    effects: [{ phase: 'INIT', action: 'enableWildCoreSlot' }],
   },
   overload_core: {
     id: 'overload_core', name: '过载核心', type: 'rule',
     desc: 'Buff/Debuff 效果提升至 200%',
-    onInit: function(G) {
-      G.atkBuffMult = 2.0;
-      G.vulnMult = 2.0;
-      G.defBuffRatio = 0.5;
-    },
+    effects: [{ phase: 'INIT', action: 'setOverloadBuffs', params: { atkBuffMult: 2.0, vulnMult: 2.0, defBuffRatio: 0.5 } }],
   },
   spirit_core: {
     id: 'spirit_core', name: '元气核心', type: 'rule',
     desc: '未消除的单卡不消耗生命值',
-    onInit: function(G) { G.noUnmatchedPenalty = true; },
+    effects: [{ phase: 'INIT', action: 'setNoUnmatchedPenalty', params: { value: true } }],
   },
   lifesaving_fur: {
     id: 'lifesaving_fur', name: '救命毫毛', type: 'function',
     desc: '开局获得三张特殊卡：特攻40/特防40/免伤1回合',
-    onInit: function(G) {
-      G.specialCards = [
+    effects: [{ phase: 'INIT', action: 'addSpecialCards', params: {
+      cards: [
         { type: 'special_atk', label: '特攻', emoji: '🙈', dmg: 40, color: 'white' },
         { type: 'special_def', label: '特防', emoji: '🙉', shield: 40, color: 'white' },
         { type: 'divine', label: '免伤', emoji: '🙊', immune: true, color: 'white' },
-      ];
-    },
+      ]
+    } }],
   },
   tenacity_core: {
     id: 'tenacity_core', name: '坚韧核心', type: 'stat',
     desc: '首次受到致命伤害时触发免伤，HP锁定为1（每局一次）',
-    onInit: function(G) { G.tenacityUsed = false; },
+    effects: [{ phase: 'INIT', action: 'enableTenacity' }],
   },
   fury_core: {
     id: 'fury_core', name: '狂暴核心', type: 'stat',
     desc: '生命值每降低1%，全部卡牌效果数值+1%',
-    onInit: function(G) { G.furyEnabled = true; },
-    getMultiplier: function(G) {
-      var hpLoss = 1 - G.playerHP / G.playerMaxHP;
-      return 1 + hpLoss; // 满血×1.0，空血×2.0
-    },
+    effects: [{ phase: 'INIT', action: 'enableFury' }],
+    multiplier: { depends: 'hpLoss', formula: '1-hpPercent' },
   },
   life_core: {
     id: 'life_core', name: '生命核心', type: 'stat',
     desc: '最大生命值 +50',
-    onInit: function(G) { G.playerMaxHP = CONFIG.PLAYER_MAX_HP + 50; },
+    effects: [{ phase: 'INIT', action: 'increaseMaxHP', params: { amount: 50 } }],
   },
 
 };
+

@@ -1,0 +1,8 @@
+node_modules/
+msp/bridge.log
+msp/inbox/*
+msp/outbox/*
+msp/archive/backup-*
+msp/archive/task-*.json
+msp/prompt-*.md
+*.log
