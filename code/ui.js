@@ -132,13 +132,17 @@ Zhan.UI.renderBoard = function(state) {
           inner.style.color = '#ccc';
           inner.style.border = '1px solid #666';
         }
-        var icon = document.createElement('span');
-        icon.className = 'card-icon';
-        icon.textContent = ct.emoji;
+        // 有美术图的卡牌不创建 card-icon（背景图已替代 emoji）
+        var artworkClasses = ['card-attack','card-defend','card-heal','card-wild','card-atk-down','card-vulnerable','card-stun','card-atk-buff','card-def-buff','card-junk'];
+        if (artworkClasses.indexOf(ct.cssClass) === -1) {
+          var icon = document.createElement('span');
+          icon.className = 'card-icon';
+          icon.textContent = ct.emoji;
+          inner.appendChild(icon);
+        }
         var label = document.createElement('span');
         label.className = 'card-label';
         label.textContent = ct.label;
-        inner.appendChild(icon);
         inner.appendChild(label);
         div.appendChild(inner);
 
