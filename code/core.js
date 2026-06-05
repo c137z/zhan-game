@@ -204,7 +204,7 @@ Zhan.Systems.Boss = {
 
   _hpTriggerHandlers: {
     groom: {
-      condition: function(G) { return G.turn > 0 && (G.turn + 1) % 5 === 0; },
+      condition: function(G) { return G.turn >= 4 && (G.turn - 4) % 4 === 0; },
       execute: function(G) {
         G.enemyEffects.vulnerable = 0;
         G.enemyEffects.atk_down = 0;
@@ -665,6 +665,25 @@ Zhan.Engine = {
     if ((st.playerEffects.atk_buff || 0) > 0) st.playerEffects.atk_buff--;
     if (st.boss.hpTriggers) { Zhan.Systems.Boss.runHpTriggers(st, 'hiss'); if (st.over) return; }
     if (st.boss.hpTriggers) { Zhan.Systems.Boss.runHpTriggers(st, 'groom'); if (st.over) return; }
+    // T1 首回合 buff_self：不被眩晕打断
+    if (st.turn === 0) {
+      log(st.boss.emoji + ' 能力值buff！power=' + st.power);
+      Zhan.Systems.Boss.processEvent(st, 'TURN_END');
+      st.power += (st.boss.powerGrowth || 0);
+      if (st.lockedSlots) {
+        var cleaned0 = [];
+        for (var _ci0 = 0; _ci0 < st.slot.length; _ci0++) {
+          if (st.slot[_ci0] !== null || (st.lockedSlots && st.lockedSlots[_ci0])) cleaned0.push(st.slot[_ci0]);
+        }
+        st.slot = cleaned0;
+      }
+      st.turn++; st.phase = 'player';
+      Zhan.Engine._updateEffectiveFury(st);
+      log('⏭ 回合' + (st.turn+1) + '开始');
+      log(st.boss.emoji + 'HP:' + st.enemyHP + '🛡' + st.enemyShield + '⚡' + st.power);
+      if (Zhan.UI && Zhan.UI.render) Zhan.UI.render(st);
+      Zhan.Engine._updateEnemyIntent(); return;
+    }
     if ((st.enemyEffects.stun || 0) > 0) {
       log('💫 ' + st.boss.name + '眩晕，跳过回合！');
       st.enemyEffects.stun--;
@@ -677,29 +696,23 @@ Zhan.Engine = {
     Zhan.Systems.Boss.processEvent(st, 'TURN_START');
     if (st.over) return;
     var t = st.turn;
-    var fastCycle = [{ type: 'attack' },{ type: 'defend' },{ type: 'charge' },{ type: 'rage' }];
-    var useCycle = t >= 7 ? fastCycle : st.boss.cycle;
-    var cycle = useCycle[t >= 7 ? (t - 7) % fastCycle.length : t % st.boss.cycle.length];
-    var rawAtk = st.boss.baseAtk + st.enemyPower;
+    var cycleIdx = (t - 1) % st.boss.cycle.length;
+    var cycle = st.boss.cycle[cycleIdx];
+    var rawAtk = st.power;
     if ((st.enemyEffects.atk_down || 0) > 0) {
       var reduction = st.enemyEffects.atk_down_pct || CONFIG.ATK_DOWN_PCT;
       rawAtk = Math.floor(rawAtk * (1 - reduction/100));
     }
-    var shieldVal = 40 + Math.floor(st.enemyPower / 2) * 2;
     switch (cycle.type) {
       case 'attack': Zhan.Engine._applyDamageToPlayer(rawAtk, rawAtk, st.boss.emoji + '攻击'); break;
-      case 'defend': st.enemyShield += (cycle.shield || shieldVal); log(st.boss.emoji + '防御+' + (cycle.shield || shieldVal) + ' 🛡' + st.enemyShield); break;
-      case 'buff_power': st.enemyPower += 2; log(st.boss.emoji + '蓄力+2 ⚡' + st.enemyPower); break;
-      case 'charge': log(st.boss.emoji + ' 蓄力中……'); break;
-      case 'rage':
-        if (cycle.powerBoost) st.enemyPower += cycle.powerBoost;
-        var rageMult = cycle.multiplier || 2;
-        Zhan.Engine._applyDamageToPlayer(rawAtk * rageMult, rawAtk * rageMult, st.boss.emoji + '怒击×' + rageMult + (cycle.powerBoost ? ' +⚡' + cycle.powerBoost : '') + '='); break;
-      case 'double_attack': Zhan.Engine._applyDamageToPlayer(rawAtk * 2, rawAtk * 2, st.boss.emoji + '双重攻击'); break;
+      case 'defend': st.enemyShield += st.power; log(st.boss.emoji + '防御+' + st.power + ' 🛡' + st.enemyShield); break;
+      case 'focus': log(st.boss.emoji + ' 蓄力中……'); break;
+      case 'crit': Zhan.Engine._applyDamageToPlayer(rawAtk * 2, rawAtk * 2, st.boss.emoji + '暴击×2='); break;
       default: log(st.boss.emoji + ' ' + st.boss.name + ' 未定义行动');
     }
     if (st.playerHP <= 0) { Zhan.Engine._endGame(false, '勇者倒下了...'); return; }
     Zhan.Systems.Boss.processEvent(st, 'TURN_END');
+    st.power += (st.boss.powerGrowth || 0);
     if (st.lockedSlots) {
       var cleaned = [];
       for (var ci = 0; ci < st.slot.length; ci++) {
@@ -710,7 +723,7 @@ Zhan.Engine = {
     st.turn++; st.phase = 'player';
     Zhan.Engine._updateEffectiveFury(st);
     log('⏭ 回合' + (st.turn+1) + '开始');
-    log(st.boss.emoji + 'HP:' + st.enemyHP + '🛡' + st.enemyShield + '⚡' + st.enemyPower);
+    log(st.boss.emoji + 'HP:' + st.enemyHP + '🛡' + st.enemyShield + '⚡' + st.power);
     if (Zhan.UI && Zhan.UI.render) Zhan.UI.render(st);
     Zhan.Engine._updateEnemyIntent();
   },
@@ -862,7 +875,7 @@ Zhan.Engine = {
     if (st._maineCoonFirst) {
       st._maineCoonFirst = false; st.phase = 'player';
       log('⏭ 回合' + (st.turn+1) + '开始');
-      log(st.boss.emoji + 'HP:' + st.enemyHP + '🛡' + st.enemyShield + '⚡' + st.enemyPower);
+      log(st.boss.emoji + 'HP:' + st.enemyHP + '🛡' + st.enemyShield + '⚡' + st.power);
       if (Zhan.UI && Zhan.UI.render) Zhan.UI.render(st);
       Zhan.Engine._updateEnemyIntent();
     } else {
@@ -890,7 +903,7 @@ function newGame() {
     enemyHP: boss.maxHP,
     enemyMaxHP: boss.maxHP,
     enemyShield: boss.startShield || 0,
-    enemyPower: 0,
+    power: boss.baseAtk,
     turn: 0,
     phase: 'player',
     pickedId: 0,
@@ -1069,25 +1082,25 @@ Zhan.Engine._updateEnemyIntent = function() {
     st._intentExtraHTML = '';
   } else {
     var t = st.turn;
-    var fastCycle = [{ type: 'attack' },{ type: 'defend' },{ type: 'charge' },{ type: 'rage' }];
-    var useCycle = t >= 7 ? fastCycle : st.boss.cycle;
-    var cycle = useCycle[t >= 7 ? (t - 7) % fastCycle.length : t % st.boss.cycle.length];
-    var atk = st.boss.baseAtk + st.enemyPower;
-    var shieldVal = 40 + Math.floor(st.enemyPower / 2) * 2;
-    switch (cycle.type) {
-      case 'attack':       st._intentHTML = '⚔️ 攻击 ' + atk; break;
-      case 'defend':       st._intentHTML = '🛡️ 防御 +' + (cycle.shield || shieldVal); break;
-      case 'buff_power':   st._intentHTML = '⚡ 蓄力 +2'; break;
-      case 'charge':       st._intentHTML = '⏳ 蓄力'; break;
-      case 'rage':         st._intentHTML = '💥 怒击 ' + (atk*2); break;
-      case 'double_attack':st._intentHTML = '💥 双重攻击 ' + (atk*2); break;
-      default:             st._intentHTML = '❓'; break;
+    // T0 显示 buff_self 意图
+    if (t === 0) {
+      st._intentHTML = '⚡ 能力值buff';
+    } else {
+      var cycleIdx = (t - 1) % st.boss.cycle.length;
+      var cycle = st.boss.cycle[cycleIdx];
+      switch (cycle.type) {
+        case 'attack':       st._intentHTML = '⚔️ 攻击 ' + st.power; break;
+        case 'defend':       st._intentHTML = '🛡️ 防御 +' + st.power; break;
+        case 'focus':        st._intentHTML = '⏳ 蓄力'; break;
+        case 'crit':         st._intentHTML = '💥 暴击 ' + (st.power*2); break;
+        default:             st._intentHTML = '❓'; break;
+      }
     }
 
     // 舔毛预告（仅猫猫Boss，提前1回合；哈气不预告）
     var extra = [];
     var hasGroom = st.boss.hpTriggers && st.boss.hpTriggers.indexOf('groom') >= 0;
-    if (hasGroom && st.turn > 0 && (st.turn + 1) % 5 === 0) extra.push('🐱舔毛预告');
+    if (hasGroom && st.turn >= 3 && (st.turn + 1 - 4) % 4 === 0) extra.push('🐱舔毛预告');
     st._intentExtraHTML = extra.length ? ' <span style="font-size:9px;color:#f39c12;">' + extra.join(' ') + '</span>' : '';
   }
   if (Zhan.UI && Zhan.UI.renderEnemyIntent) Zhan.UI.renderEnemyIntent(st);

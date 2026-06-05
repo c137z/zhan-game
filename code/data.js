@@ -69,17 +69,6 @@ var DECK_SIZES = {
   CONFIG.CARDS_PER_PILE = Math.floor(total / (CONFIG.BOARD_ROWS * CONFIG.BOARD_COLS));
 })();
 
-// ========== Boss 行动循环模板（新版7回合） ==========
-// 所有 Boss 共用，10只猫猫在此基础上加专属 traits
-var BOSS_CYCLE_TEMPLATE = [
-  { type: 'attack' },
-  { type: 'defend' },
-  { type: 'buff_power' },
-  { type: 'attack' },
-  { type: 'defend' },
-  { type: 'charge' },
-  { type: 'rage' },
-];
 
 // ========== Boss 定义 ==========
 // hpTriggers 使用纯字符串 id 引用，执行函数在 core.js Zhan.Systems.Boss._hpTriggerHandlers 中
@@ -87,8 +76,8 @@ var BOSSES = {
   tabby: {  // 狸花猫
     id: 'tabby', name: '狸花猫', emoji: '🐱',
     desc: '每2回合随机锁定2摞牌2回合\n被锁的牌无法点选',
-    maxHP: 300, baseAtk: 24, startShield: 0,
-    cycle: BOSS_CYCLE_TEMPLATE,
+    maxHP: 300, baseAtk: 20, powerGrowth: 2, startShield: 0,
+    cycle: [{ type: 'attack' },{ type: 'defend' },{ type: 'attack' },{ type: 'focus' },{ type: 'crit' }],
     traits: [{
       id: 'lock_pile',
       events: ['TURN_START', 'TURN_END'],
@@ -100,8 +89,8 @@ var BOSSES = {
   sphynx: {  // 斯芬克斯
     id: 'sphynx', name: '斯芬克斯', emoji: '🐱',
     desc: '每3回合舔掉玩家所有Buff\n（不清Debuff和Boss自身）',
-    maxHP: 300, baseAtk: 24, startShield: 0,
-    cycle: BOSS_CYCLE_TEMPLATE,
+    maxHP: 300, baseAtk: 20, powerGrowth: 2, startShield: 0,
+    cycle: [{ type: 'attack' },{ type: 'defend' },{ type: 'attack' },{ type: 'focus' },{ type: 'crit' }],
     traits: [{
       id: 'lick_player',
       events: ['TURN_START'],
@@ -113,8 +102,8 @@ var BOSSES = {
   british_shorthair: {  // 英短蓝猫
     id: 'british_shorthair', name: '英短蓝猫', emoji: '🐱',
     desc: '每3回合锁定2个槽位2回合\n锁定的槽位无法放入牌',
-    maxHP: 300, baseAtk: 24, startShield: 0,
-    cycle: BOSS_CYCLE_TEMPLATE,
+    maxHP: 300, baseAtk: 20, powerGrowth: 2, startShield: 0,
+    cycle: [{ type: 'attack' },{ type: 'defend' },{ type: 'attack' },{ type: 'focus' },{ type: 'crit' }],
     traits: [{
       id: 'lock_slot',
       events: ['TURN_START', 'TURN_END'],
@@ -126,8 +115,8 @@ var BOSSES = {
   american_shorthair: {  // 美短虎斑
     id: 'american_shorthair', name: '美短虎斑', emoji: '🐱',
     desc: '永久隐藏下一回合行动意图\n无法预判Boss下一步',
-    maxHP: 300, baseAtk: 24, startShield: 0,
-    cycle: BOSS_CYCLE_TEMPLATE,
+    maxHP: 300, baseAtk: 20, powerGrowth: 2, startShield: 0,
+    cycle: [{ type: 'attack' },{ type: 'defend' },{ type: 'attack' },{ type: 'focus' },{ type: 'crit' }],
     traits: [{
       id: 'hide_intent',
       events: ['TURN_START'],
@@ -139,8 +128,8 @@ var BOSSES = {
   abyssinian: {  // 阿比西尼亚
     id: 'abyssinian', name: '阿比西尼亚', emoji: '🐱',
     desc: '玩家消除结算时随机弃掉1张牌\n优先破坏连击链',
-    maxHP: 300, baseAtk: 24, startShield: 0,
-    cycle: BOSS_CYCLE_TEMPLATE,
+    maxHP: 300, baseAtk: 20, powerGrowth: 2, startShield: 0,
+    cycle: [{ type: 'attack' },{ type: 'defend' },{ type: 'attack' },{ type: 'focus' },{ type: 'crit' }],
     traits: [{
       id: 'random_discard',
       events: ['RESOLVE'],
@@ -152,8 +141,8 @@ var BOSSES = {
   ragdoll: {  // 布偶猫
     id: 'ragdoll', name: '布偶猫', emoji: '🐱',
     desc: '每回合涂抹随机2摞牌\n被涂的牌面信息不可见',
-    maxHP: 300, baseAtk: 24, startShield: 0,
-    cycle: BOSS_CYCLE_TEMPLATE,
+    maxHP: 300, baseAtk: 20, powerGrowth: 2, startShield: 0,
+    cycle: [{ type: 'attack' },{ type: 'defend' },{ type: 'attack' },{ type: 'focus' },{ type: 'crit' }],
     traits: [{
       id: 'smear_piles',
       events: ['TURN_START'],
@@ -165,8 +154,8 @@ var BOSSES = {
   bengal: {  // 豹猫
     id: 'bengal', name: '豹猫', emoji: '🐱',
     desc: '最大回合数24回合\n超时直接判负',
-    maxHP: 300, baseAtk: 24, startShield: 0,
-    cycle: BOSS_CYCLE_TEMPLATE,
+    maxHP: 300, baseAtk: 20, powerGrowth: 2, startShield: 0,
+    cycle: [{ type: 'attack' },{ type: 'defend' },{ type: 'attack' },{ type: 'focus' },{ type: 'crit' }],
     traits: [{
       id: 'time_limit',
       events: ['TURN_START'],
@@ -178,8 +167,8 @@ var BOSSES = {
   siamese: {  // 暹罗猫
     id: 'siamese', name: '暹罗猫', emoji: '🐱',
     desc: '前半血每2回塞1张废牌\n半血后每回塞1张废牌',
-    maxHP: 300, baseAtk: 24, startShield: 0,
-    cycle: BOSS_CYCLE_TEMPLATE,
+    maxHP: 300, baseAtk: 20, powerGrowth: 2, startShield: 0,
+    cycle: [{ type: 'attack' },{ type: 'defend' },{ type: 'attack' },{ type: 'focus' },{ type: 'crit' }],
     traits: [{
       id: 'insert_junk',
       events: ['TURN_START'],
@@ -191,8 +180,8 @@ var BOSSES = {
   scottish_fold: {  // 折耳猫
     id: 'scottish_fold', name: '折耳猫', emoji: '🐱',
     desc: '每5回合爆发一次\n玩家跳过下一回合无法行动',
-    maxHP: 300, baseAtk: 24, startShield: 0,
-    cycle: BOSS_CYCLE_TEMPLATE,
+    maxHP: 300, baseAtk: 20, powerGrowth: 2, startShield: 0,
+    cycle: [{ type: 'attack' },{ type: 'defend' },{ type: 'attack' },{ type: 'focus' },{ type: 'crit' }],
     traits: [{
       id: 'stun_player',
       events: ['TURN_START'],
@@ -204,8 +193,8 @@ var BOSSES = {
   maine_coon: {  // 缅因猫
     id: 'maine_coon', name: '缅因猫', emoji: '🐱',
     desc: '每回合Boss先于玩家行动\n必须先承受伤害再出牌',
-    maxHP: 300, baseAtk: 24, startShield: 0,
-    cycle: BOSS_CYCLE_TEMPLATE,
+    maxHP: 300, baseAtk: 20, powerGrowth: 2, startShield: 0,
+    cycle: [{ type: 'attack' },{ type: 'defend' },{ type: 'attack' },{ type: 'focus' },{ type: 'crit' }],
     traits: [{
       id: 'boss_first',
       // 此 trait 在 executeTurn 开头硬编码处理（Boss先手），不走 processEvent
@@ -231,16 +220,13 @@ var BOSSES = {
   // 第二关毛线团
   skeleton: {
     id: 'skeleton', name: '毛线团', emoji: '🧶',
-    desc: '第二关Boss\n7回合循环：攻/防/蓄/攻/双/防/怒\n毛线团冒险者来袭！',
-    maxHP: 100, baseAtk: 12, startShield: 0,
+    desc: '第二关Boss\n新4回合循环：攻/防/蓄/暴\n毛线团冒险者来袭！',
+    maxHP: 100, baseAtk: 12, powerGrowth: 1, startShield: 0,
     cycle: [
       { type: 'attack' },
-      { type: 'defend', shield: 15 },
-      { type: 'buff_power' },
-      { type: 'attack' },
-      { type: 'double_attack' },
-      { type: 'defend', shield: 20 },
-      { type: 'rage', multiplier: 2, powerBoost: 3 },
+      { type: 'defend' },
+      { type: 'focus' },
+      { type: 'crit' },
     ],
     traits: [],
     hpTriggers: [],
