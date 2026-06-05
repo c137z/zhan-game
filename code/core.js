@@ -650,6 +650,12 @@ Zhan.Engine = {
     var st = this.state;
     log(st.boss.emoji + ' ' + st.boss.name + '行动');
     st.enemyShield = 0;
+    // buff到期（敌人+玩家所有buff）
+    for (var k in st.enemyEffects) { if (k !== 'stun' && st.enemyEffects[k] > 0) st.enemyEffects[k]--; }
+    if ((st.enemyEffects.atk_down || 0) <= 0) { st.enemyEffects.atk_down = 0; st.enemyEffects.atk_down_pct = 0; }
+    if ((st.playerEffects.def_buff || 0) > 0) st.playerEffects.def_buff--;
+    if ((st.playerEffects.divine || 0) > 0) st.playerEffects.divine--;
+    if ((st.playerEffects.atk_buff || 0) > 0) st.playerEffects.atk_buff--;
     if (st.boss.hpTriggers) { Zhan.Systems.Boss.runHpTriggers(st, 'hiss'); if (st.over) return; }
     if (st.boss.hpTriggers) { Zhan.Systems.Boss.runHpTriggers(st, 'groom'); if (st.over) return; }
     if ((st.enemyEffects.stun || 0) > 0) {
@@ -687,10 +693,6 @@ Zhan.Engine = {
     }
     if (st.playerHP <= 0) { Zhan.Engine._endGame(false, '勇者倒下了...'); return; }
     Zhan.Systems.Boss.processEvent(st, 'TURN_END');
-    for (var k in st.enemyEffects) { if (st.enemyEffects[k] > 0) st.enemyEffects[k]--; }
-    if ((st.enemyEffects.atk_down || 0) <= 0) { st.enemyEffects.atk_down = 0; st.enemyEffects.atk_down_pct = 0; }
-    if ((st.playerEffects.def_buff || 0) > 0) st.playerEffects.def_buff--;
-    if ((st.playerEffects.divine || 0) > 0) st.playerEffects.divine--;
     if (st.lockedSlots) {
       var cleaned = [];
       for (var ci = 0; ci < st.slot.length; ci++) {
@@ -836,7 +838,6 @@ Zhan.Engine = {
       if (penaltyResult.totalUnmatched > 0) { st.playerHP = Math.max(0, st.playerHP - penaltyResult.totalUnmatched * CONFIG.UNMATCHED_PENALTY); log('♀未消除×' + penaltyResult.totalUnmatched + '→❤-' + penaltyResult.totalUnmatched); }
     }
     st.slot = [];
-    if ((st.playerEffects.atk_buff || 0) > 0) st.playerEffects.atk_buff--;
     Zhan.Engine._checkTenacity(st);
     if (st.enemyHP <= 0) { Zhan.Engine._endGame(true, st.boss.emoji + ' 击败！'); return; }
     if (st.playerHP <= 0) { Zhan.Engine._endGame(false, '勇者倒下了...'); return; }

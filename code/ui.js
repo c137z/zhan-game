@@ -52,7 +52,10 @@ Zhan.UI.render = function(state) {
   var ee = G.enemyEffects;
   var ebHtml = '';
   if ((ee.stun || 0) > 0) ebHtml += '<span class="badge badge-stun">💫眩晕 ' + ee.stun + 'T</span>';
-  if ((ee.vulnerable || 0) > 0) ebHtml += '<span class="badge badge-vuln">💔易伤 ' + ee.vulnerable + 'T</span>';
+  if ((ee.vulnerable || 0) > 0) {
+    var evm = G.effectiveVulnMult || CONFIG.VULN_MULT;
+    ebHtml += '<span class="badge badge-vuln">💔易伤×' + parseFloat(evm.toFixed(2)) + ' ' + ee.vulnerable + 'T</span>';
+  }
   // T3: 降攻百分比动态取值
   if ((ee.atk_down || 0) > 0) ebHtml += '<span class="badge badge-atk-down">⬇降攻-' + Math.round(ee.atk_down_pct || CONFIG.ATK_DOWN_PCT) + '% ' + ee.atk_down + 'T</span>';
   document.getElementById('enemy-badges').innerHTML = ebHtml;
