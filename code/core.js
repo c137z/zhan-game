@@ -384,7 +384,14 @@ Zhan.Rules = {
         unmatchedByType['wild'] = (unmatchedByType['wild'] || 0) + 1;
         continue;
       }
-      if (BUFF_TYPES[state.slot[si] && state.slot[si].type]) continue;
+      if (BUFF_TYPES[state.slot[si].type]) {
+        if (state.activeComboTypes) {
+          var _rt = Zhan.Rules.resolveWildType(state.slot, si);
+          if (state.activeComboTypes.indexOf(_rt) >= 0) continue;
+        } else {
+          continue;
+        }
+      }
       var mt = Zhan.Rules.resolveWildType(state.slot, si);
       if (!unmatchedByType[mt]) unmatchedByType[mt] = 0;
       unmatchedByType[mt]++;
@@ -835,7 +842,11 @@ Zhan.Engine = {
       }
     }
     if (!st.noUnmatchedPenalty) {
-      var penaltyResult = Zhan.Rules.computeUnmatchedPenalty({ slot: st.slot, _claimedWildIndices: combos._claimedWildIndices, effectiveMinCombo: st.effectiveMinCombo });
+      var activeComboTypes = [];
+      for (var _cbi = 0; _cbi < combos.length; _cbi++) {
+        if (BUFF_TYPES[combos[_cbi].type]) activeComboTypes.push(combos[_cbi].type);
+      }
+      var penaltyResult = Zhan.Rules.computeUnmatchedPenalty({ slot: st.slot, _claimedWildIndices: combos._claimedWildIndices, effectiveMinCombo: st.effectiveMinCombo, activeComboTypes: activeComboTypes });
       if (penaltyResult.totalUnmatched > 0) { st.playerHP = Math.max(0, st.playerHP - penaltyResult.totalUnmatched * CONFIG.UNMATCHED_PENALTY); log('♀未消除×' + penaltyResult.totalUnmatched + '→❤-' + penaltyResult.totalUnmatched); }
     }
     st.slot = [];

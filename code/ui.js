@@ -278,10 +278,15 @@ Zhan.UI.updateComboPreview = function(state) {
   }
 
   // 未消除扣血预览（与 core.js 改动4对齐：被消费的万能牌不扣血，未消费的照扣）
+  var activeComboTypes = [];
+  for (var _cbi2 = 0; _cbi2 < combos.length; _cbi2++) {
+    if (BUFF_TYPES[combos[_cbi2].type]) activeComboTypes.push(combos[_cbi2].type);
+  }
   var penaltyResult = Zhan.Rules.computeUnmatchedPenalty({
     slot: G.slot,
     _claimedWildIndices: combos._claimedWildIndices,
-    effectiveMinCombo: G.effectiveMinCombo
+    effectiveMinCombo: G.effectiveMinCombo,
+    activeComboTypes: activeComboTypes
   });
   for (var ut in penaltyResult.unmatchedByType) {
     if (penaltyResult.unmatchedByType[ut] >= (G.effectiveMinCombo || CONFIG.MIN_COMBO)) continue;
