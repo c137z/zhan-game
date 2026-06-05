@@ -218,7 +218,11 @@ Zhan.UI.renderSlot = function(state) {
       } else {
         var ct = CARD_TYPES[card.type] || { emoji: '⬜', color: 'junk' };
         div.classList.add('filled', ct.color);
-        div.textContent = ct.emoji;
+        // 有美术图的卡牌在槽中不显示 emoji（背景图已替代）
+        var artworkSlotTypes = ['attack','defend','heal','wild','atk_down','vulnerable','stun','atk_buff','def_buff','junk'];
+        if (artworkSlotTypes.indexOf(card.type) === -1) {
+          div.textContent = ct.emoji;
+        }
       }
     }
     bar.appendChild(div);
