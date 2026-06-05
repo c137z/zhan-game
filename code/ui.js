@@ -39,7 +39,7 @@ Zhan.UI.render = function(state) {
   if ((pe.atk_buff || 0) > 0) {
     var abm = G.effectiveAtkBuffMult || CONFIG.ATK_BUFF_MULT;
     // T3: 去尾零 — 1.50→1.5
-    pbHtml += '<span class="badge badge-atk-up">⚡攻×' + parseFloat(abm.toFixed(2)) + ' ' + pe.atk_buff + 'T</span>';
+    pbHtml += '<span class="badge badge-atk-up">⚡暴击×' + parseFloat(abm.toFixed(2)) + ' ' + pe.atk_buff + 'T</span>';
   }
   if ((pe.def_buff || 0) > 0) {
     var dbr = G.effectiveDefBuffRatio || CONFIG.DEF_BUFF_RATIO;
@@ -51,13 +51,13 @@ Zhan.UI.render = function(state) {
   // 敌人badges
   var ee = G.enemyEffects;
   var ebHtml = '';
-  if ((ee.stun || 0) > 0) ebHtml += '<span class="badge badge-stun">💫眩晕 ' + ee.stun + 'T</span>';
+  if ((ee.stun || 0) > 0) ebHtml += '<span class="badge badge-stun">💫击晕 ' + ee.stun + 'T</span>';
   if ((ee.vulnerable || 0) > 0) {
     var evm = G.effectiveVulnMult || CONFIG.VULN_MULT;
-    ebHtml += '<span class="badge badge-vuln">💔易伤×' + parseFloat(evm.toFixed(2)) + ' ' + ee.vulnerable + 'T</span>';
+    ebHtml += '<span class="badge badge-vuln">💔破甲×' + parseFloat(evm.toFixed(2)) + ' ' + ee.vulnerable + 'T</span>';
   }
-  // T3: 降攻百分比动态取值
-  if ((ee.atk_down || 0) > 0) ebHtml += '<span class="badge badge-atk-down">⬇降攻-' + Math.round(ee.atk_down_pct || CONFIG.ATK_DOWN_PCT) + '% ' + ee.atk_down + 'T</span>';
+  // T3: 虚弱百分比动态取值
+  if ((ee.atk_down || 0) > 0) ebHtml += '<span class="badge badge-atk-down">⬇虚弱-' + Math.round(ee.atk_down_pct || CONFIG.ATK_DOWN_PCT) + '% ' + ee.atk_down + 'T</span>';
   document.getElementById('enemy-badges').innerHTML = ebHtml;
 
   // 牌堆统计

@@ -211,7 +211,7 @@ Zhan.Systems.Boss = {
         G.enemyEffects.atk_down_pct = 0;
         G.enemyEffects.stun = 0;
         G.effectiveVulnMult = 0;
-        log('🐱 舔毛！Boss 清除自身全部 Debuff（易伤/降攻/眩晕）');
+        log('🐱 舔毛！Boss 清除自身全部 Debuff（破甲/虚弱/击晕）');
       }
     },
     hiss: {
@@ -435,21 +435,21 @@ Zhan.Rules = {
       case 'vulnerable':
         var vm = state.effectiveVulnMult || CONFIG.VULN_MULT;
         dur += state.enemyEffects.vulnerable || 0;
-        return '易伤×' + parseFloat(vm.toFixed(1)) + ' ' + dur + '回合';
+        return '破甲×' + parseFloat(vm.toFixed(1)) + ' ' + dur + '回合';
       case 'stun':
         var stunDur = Zhan.Rules.getStunDuration(n, minCombo);
         stunDur += state.buffDurationBonus || 0;
         stunDur += state.enemyEffects.stun || 0;
-        return '眩晕 ' + stunDur + '回合';
+        return '击晕 ' + stunDur + '回合';
       case 'atk_buff':
         dur += state.playerEffects.atk_buff || 0;
-        return '攻×' + parseFloat(state.effectiveAtkBuffMult.toFixed(1)) + ' ' + dur + '回合';
+        return '暴击×' + parseFloat(state.effectiveAtkBuffMult.toFixed(1)) + ' ' + dur + '回合';
       case 'def_buff':
         dur += state.playerEffects.def_buff || 0;
         return '减伤×' + parseFloat(state.effectiveDefBuffRatio.toFixed(1)) + ' ' + dur + '回合';
       case 'atk_down':
         dur += state.enemyEffects.atk_down || 0;
-        return '降攻-' + Math.round(state.enemyEffects.atk_down_pct || CONFIG.ATK_DOWN_PCT) + '% ' + dur + '回合';
+        return '虚弱-' + Math.round(state.enemyEffects.atk_down_pct || CONFIG.ATK_DOWN_PCT) + '% ' + dur + '回合';
       default: return '';
     }
   }
@@ -665,7 +665,7 @@ Zhan.Engine = {
     if ((st.playerEffects.atk_buff || 0) > 0) st.playerEffects.atk_buff--;
     if (st.boss.hpTriggers) { Zhan.Systems.Boss.runHpTriggers(st, 'hiss'); if (st.over) return; }
     if (st.boss.hpTriggers) { Zhan.Systems.Boss.runHpTriggers(st, 'groom'); if (st.over) return; }
-    // T1 首回合 buff_self：不被眩晕打断
+    // T1 首回合 buff_self：不被击晕打断
     if (st.turn === 0) {
       log(st.boss.emoji + ' 能力值buff！power=' + st.power);
       Zhan.Systems.Boss.processEvent(st, 'TURN_END');
@@ -685,7 +685,7 @@ Zhan.Engine = {
       Zhan.Engine._updateEnemyIntent(); return;
     }
     if ((st.enemyEffects.stun || 0) > 0) {
-      log('💫 ' + st.boss.name + '眩晕，跳过回合！');
+      log('💫 ' + st.boss.name + '击晕，跳过回合！');
       st.enemyEffects.stun--;
       if (st.enemyEffects.stun <= 0) st.enemyEffects.stun = 0;
       st.turn++; st.phase = 'player';
@@ -767,9 +767,9 @@ Zhan.Engine = {
       dur += st.buffDurationBonus || 0;
       if (st.activeRelics.indexOf('overload_core') >= 0) dur = Math.max(1, Math.floor(dur / 2));
       switch (c.type) {
-        case 'vulnerable': st.enemyEffects.vulnerable = (st.enemyEffects.vulnerable || 0) + dur; log('💔Boss易伤 +' + dur + '→' + st.enemyEffects.vulnerable + '回合'); break;
-        case 'stun': st.enemyEffects.stun = (st.enemyEffects.stun || 0) + dur; log('💫Boss眩晕 +' + dur + '→' + st.enemyEffects.stun + '回合'); break;
-        case 'atk_buff': st.playerEffects.atk_buff = (st.playerEffects.atk_buff || 0) + dur; log('⚡攻击加成 +' + dur + '→' + st.playerEffects.atk_buff + '回合'); break;
+        case 'vulnerable': st.enemyEffects.vulnerable = (st.enemyEffects.vulnerable || 0) + dur; log('💔Boss破甲 +' + dur + '→' + st.enemyEffects.vulnerable + '回合'); break;
+        case 'stun': st.enemyEffects.stun = (st.enemyEffects.stun || 0) + dur; log('💫Boss击晕 +' + dur + '→' + st.enemyEffects.stun + '回合'); break;
+        case 'atk_buff': st.playerEffects.atk_buff = (st.playerEffects.atk_buff || 0) + dur; log('⚡暴击 +' + dur + '→' + st.playerEffects.atk_buff + '回合'); break;
         case 'def_buff': st.playerEffects.def_buff = (st.playerEffects.def_buff || 0) + dur; log('💨减伤 +' + dur + '→' + st.playerEffects.def_buff + '回合'); break;
         case 'atk_down':
           var atkDownPct = st.enemyEffects.atk_down_pct || CONFIG.ATK_DOWN_PCT;
@@ -777,7 +777,7 @@ Zhan.Engine = {
           if (st.furyEnabled && RELICS.fury_core) atkDownPct = Math.min(100, atkDownPct * Zhan.Systems.Relic.getFuryMultiplier(st));
           st.enemyEffects.atk_down_pct = atkDownPct;
           st.enemyEffects.atk_down = (st.enemyEffects.atk_down || 0) + dur;
-          log('⬇降攻 +' + dur + '→' + st.enemyEffects.atk_down + '回合'); break;
+          log('⬇虚弱 +' + dur + '→' + st.enemyEffects.atk_down + '回合'); break;
       }
     }
     log('  ⚡ 行动结算...');
