@@ -515,6 +515,8 @@ Zhan.Engine = {
     st.effectiveAtkBuffMult = furyEff.atkBuffMult;
     st.effectiveVulnMult = furyEff.vulnMult;
     st.effectiveDefBuffRatio = furyEff.defBuffRatio;
+    if ((st.playerEffects.atk_buff || 0) <= 0) st.effectiveAtkBuffMult = 0;
+    if ((st.enemyEffects.vulnerable || 0) <= 0) st.effectiveVulnMult = 0;
   },
   _buildDeck: function() {
     var st = this.state;
