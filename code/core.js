@@ -204,7 +204,7 @@ Zhan.Systems.Boss = {
 
   _hpTriggerHandlers: {
     groom: {
-      condition: function(G) { return G.turn > 0 && (G.turn + 1) % 4 === 0; },
+      condition: function(G) { return G.turn > 0 && (G.turn + 1) % 5 === 0; },
       execute: function(G) {
         G.enemyEffects.vulnerable = 0;
         G.enemyEffects.atk_down = 0;
@@ -745,6 +745,7 @@ Zhan.Engine = {
       var mc = st.effectiveMinCombo || CONFIG.MIN_COMBO;
       var dur = c.type === 'stun' ? Zhan.Rules.getStunDuration(c.n, mc) : Zhan.Rules.getComboDuration(c.n, mc);
       dur += st.buffDurationBonus || 0;
+      if (st.activeRelics.indexOf('overload_core') >= 0) dur = Math.max(1, Math.floor(dur / 2));
       switch (c.type) {
         case 'vulnerable': st.enemyEffects.vulnerable = (st.enemyEffects.vulnerable || 0) + dur; log('💔Boss易伤 +' + dur + '→' + st.enemyEffects.vulnerable + '回合'); break;
         case 'stun': st.enemyEffects.stun = (st.enemyEffects.stun || 0) + dur; log('💫Boss眩晕 +' + dur + '→' + st.enemyEffects.stun + '回合'); break;
@@ -1075,7 +1076,7 @@ Zhan.Engine._updateEnemyIntent = function() {
     // 舔毛预告（仅猫猫Boss，提前1回合；哈气不预告）
     var extra = [];
     var hasGroom = st.boss.hpTriggers && st.boss.hpTriggers.indexOf('groom') >= 0;
-    if (hasGroom && st.turn > 0 && (st.turn + 1) % 4 === 0) extra.push('🐱舔毛预告');
+    if (hasGroom && st.turn > 0 && (st.turn + 1) % 5 === 0) extra.push('🐱舔毛预告');
     st._intentExtraHTML = extra.length ? ' <span style="font-size:9px;color:#f39c12;">' + extra.join(' ') + '</span>' : '';
   }
   if (Zhan.UI && Zhan.UI.renderEnemyIntent) Zhan.UI.renderEnemyIntent(st);
