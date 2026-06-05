@@ -384,6 +384,7 @@ Zhan.Rules = {
         unmatchedByType['wild'] = (unmatchedByType['wild'] || 0) + 1;
         continue;
       }
+      if (BUFF_TYPES[state.slot[si] && state.slot[si].type]) continue;
       var mt = Zhan.Rules.resolveWildType(state.slot, si);
       if (!unmatchedByType[mt]) unmatchedByType[mt] = 0;
       unmatchedByType[mt]++;
@@ -890,6 +891,9 @@ function newGame() {
     effectiveMinCombo: CONFIG.MIN_COMBO,
     effectiveSlotSize: CONFIG.SLOT_SIZE,
     effectiveAtkBuffMult: 0,
+    atkBuffMult: CONFIG.ATK_BUFF_MULT,
+    vulnMult: CONFIG.VULN_MULT,
+    defBuffRatio: CONFIG.DEF_BUFF_RATIO,
     effectiveVulnMult: 0,
     buffDurationBonus: 0,
     deckConfig: JSON.parse(JSON.stringify(DECK_SIZES)),
