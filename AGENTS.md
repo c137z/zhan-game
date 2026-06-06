@@ -110,16 +110,19 @@ node projects/zhan/msp/bridge.js
   - `forbidden`：不能碰什么（如"不要改 ui.js"、"不要改 data.js"）
 - **批量打包原则**：改同一个文件的多个修改合并成一个 task（省 token，CC CLI 只读一次文件）
 - 投递到 `msp/inbox/task-{id}.json`
-- **每次投递 task 后必须立即创建自检轮询**。**自检确认 task DONE 之后**，再派 Verifier。
+- **每次投递 task 后必须立即创建自检轮询**。
+  - CODE_EDIT task：自检确认 DONE → 派 Verifier
+  - TEST_SCRIPT task：自检确认 DONE → 运行 Playwright 脚本（无需 Verifier）
 
 ### ③ EXECUTE
 
 **执行层（Bridge → Worker）自动完成：**
 - Bridge 扫描 inbox → 备份 relatedFiles → 生成 Worker prompt → spawn Worker
-- Worker 修改文件 → 输出 diff
+- **CODE_EDIT**：Worker 修改源码文件 → 输出 diff
+- **TEST_SCRIPT**：Worker 写测试脚本到 `tests/scripts/` → 输出 TASK_DONE
 - Bridge 生成 autoDiff → 写 outbox/result.json → 归档 task
 
-**哈基米不写代码。** 所有代码修改走 MSP 执行层。
+**哈基米不写代码。** 所有代码修改和测试脚本编写走 MSP 执行层。
 
 ### ④ VERIFY（代码级验证）
 
@@ -217,7 +220,7 @@ cron add {
 - `every: 180000`（3 分钟）+ `sessionTarget: "current"` + `delivery.announce` 到飞书
 - `deleteAfterRun: true` — DONE/FAILED 后自删
 - 触发后：查 result → DONE → 审阅 + 派 Verifier → 飞书汇报（标题含 [DONE]）
-- 若是 TEST_SCRIPT task：DONE → 运行 Playwright 脚本 → 审阅报告 → 飞书汇报
+- 若是 TEST_SCRIPT task：DONE → 运行 Playwright 脚本 → 审阅报告 → 飞书汇报（无需 Verifier）
 
 ### 3.2 Verifier
 
