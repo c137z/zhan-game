@@ -314,13 +314,14 @@ Zhan.Rules = {
   },
 
   computeCombos: function(slot, minCombo) {
-    if (!slot.length) { var empty = []; empty._claimedWildIndices = []; return empty; }
+    if (!slot.length) { var empty = []; empty._claimedWildIndices = []; empty._consumedIndices = []; return empty; }
     var resolved = slot.map(function(c, i) {
       if (!c) return { type: 'null_placeholder', card: null, index: i, claimed: false };
       return { type: Zhan.Rules.resolveWildType(slot, i), card: c, index: i, claimed: false };
     });
     var combos = [];
     var _claimedWildIndices = [];
+    var _consumedIndices = [];
     var i = 0;
     while (i < resolved.length) {
       var typ = resolved[i].type;
@@ -336,6 +337,7 @@ Zhan.Rules = {
       var comboLen = j - i;
       if (comboLen >= minCombo) {
         for (var ci = i; ci < j; ci++) {
+          _consumedIndices.push(resolved[ci].index);
           if (resolved[ci].card && resolved[ci].card.type === 'wild') {
             resolved[ci].claimed = true;
             _claimedWildIndices.push(resolved[ci].index);
@@ -346,6 +348,7 @@ Zhan.Rules = {
       i = j;
     }
     combos._claimedWildIndices = _claimedWildIndices;
+    combos._consumedIndices = _consumedIndices;
     return combos;
   },
 
@@ -375,12 +378,19 @@ Zhan.Rules = {
     for (var cwi = 0; cwi < state._claimedWildIndices.length; cwi++) {
       claimedSet[state._claimedWildIndices[cwi]] = true;
     }
+    var consumedSet = {};
+    if (state._consumedIndices) {
+      for (var consi = 0; consi < state._consumedIndices.length; consi++) {
+        consumedSet[state._consumedIndices[consi]] = true;
+      }
+    }
     var unmatchedByType = {};
     for (var si = 0; si < state.slot.length; si++) {
       if (!state.slot[si]) continue; // 跳过 null 占位（锁定槽）
       if (state.slot[si].special) continue; // 特殊卡不算入未消除惩罚
+      if (consumedSet[si]) continue; // 已被 combo 消费的不扣血
       if (state.slot[si].type === 'wild') {
-        if (claimedSet[si]) continue; // 被消费的万能牌不扣血
+        if (claimedSet[si]) continue; // 被消费的万能牌不扣血（冗余保护）
         unmatchedByType['wild'] = (unmatchedByType['wild'] || 0) + 1;
         continue;
       }
@@ -861,7 +871,7 @@ Zhan.Engine = {
       for (var _cbi = 0; _cbi < combos.length; _cbi++) {
         if (BUFF_TYPES[combos[_cbi].type]) activeComboTypes.push(combos[_cbi].type);
       }
-      var penaltyResult = Zhan.Rules.computeUnmatchedPenalty({ slot: st.slot, _claimedWildIndices: combos._claimedWildIndices, effectiveMinCombo: st.effectiveMinCombo, activeComboTypes: activeComboTypes });
+      var penaltyResult = Zhan.Rules.computeUnmatchedPenalty({ slot: st.slot, _claimedWildIndices: combos._claimedWildIndices, _consumedIndices: combos._consumedIndices, effectiveMinCombo: st.effectiveMinCombo, activeComboTypes: activeComboTypes });
       if (penaltyResult.totalUnmatched > 0) { st.playerHP = Math.max(0, st.playerHP - penaltyResult.totalUnmatched * CONFIG.UNMATCHED_PENALTY); log('♀未消除×' + penaltyResult.totalUnmatched + '→❤-' + penaltyResult.totalUnmatched); }
     }
     st.slot = [];
