@@ -1,6 +1,6 @@
 # 斩 ⚔️ — AGENTS.md
 
-> 项目级工作流入口。继承 `system/execution.md` 五步协议，适配 MSP 桥接执行层。
+> 项目级工作流入口。继承 `system/execution.md` 六步协议，适配 MSP 桥接执行层。
 
 ## ⚠️ 工作目录
 
@@ -31,9 +31,9 @@
 
 | 角色 | 承载主体 | 职责 |
 |------|---------|------|
-| **Scheduler** | 哈基米（OpenClaw） | 翻译需求 → task JSON、投递 inbox、审阅结果、汇报 |
+| **Scheduler** | 哈基米（OpenClaw） | 翻译需求 → task JSON、投递 inbox、审阅结果、派 Verifier、派 Playwright task、运行 Playwright 脚本、汇报 |
 | **执行层** | Bridge（node 进程） | 任务路由、备份、Worker 适配、Worker 调用、结果封装、自动 Diff |
-| **Worker** | Claude Code CLI（默认） | 只改代码，输出 diff + 验证报告 |
+| **Worker** | Claude Code CLI（默认） | 改代码、写 Playwright 测试脚本 |
 
 Worker 不是固定的——未来可替换为 Gemini CLI / Codex 等兼容 Agent。
 
@@ -53,9 +53,14 @@ projects/zhan/
 ├── msp/           ← MSP 执行层
 │   ├── bridge.js
 │   ├── .cc-session-id  ← Session Resume UUID
-│   ├── inbox/     ← task JSON 投递处
+│   ├── inbox/     ← task JSON 投递处（CODE_EDIT / TEST_SCRIPT）
 │   ├── outbox/    ← result JSON + .notify marker
 │   └── archive/   ← 历史 task + backup + prompts
+├── tests/         ← Playwright 测试
+│   ├── scripts/   ← Worker 写的测试脚本（verify-*.js）
+│   ├── reports/   ← 测试报告（Markdown）
+│   ├── screenshots/ ← 测试截图
+│   └── fixtures/  ← 基线版本快照
 ├── context/       ← 工作文档（bug-list, spec, token-analysis）
 ├── docs/          ← 设计文档（overview.md 为权威蓝图）
 ├── archive/       ← 历史归档 + self-check.js
@@ -85,7 +90,7 @@ node projects/zhan/msp/bridge.js
 
 ---
 
-## CHECK → PLAN → EXECUTE → VERIFY → COMMIT（MSP 适配版）
+## CHECK → PLAN → EXECUTE → VERIFY → PLAYWRIGHT → COMMIT（MSP 适配版）
 
 ### ① CHECK
 
@@ -116,7 +121,7 @@ node projects/zhan/msp/bridge.js
 
 **哈基米不写代码。** 所有代码修改走 MSP 执行层。
 
-### ④ VERIFY
+### ④ VERIFY（代码级验证）
 
 **哈基米做（Scheduler 审阅）+ Verifier 独立验证（双重卡口）：**
 
@@ -132,8 +137,41 @@ node projects/zhan/msp/bridge.js
 - 注意：Verifier 和自检提醒是**不同的东西**，不要混淆
 
 **最终判定：**
-- Scheduler 审阅 PASS + Verifier PASS → 汇报老大
+- Scheduler 审阅 PASS + Verifier PASS → 进入 ④.5 PLAYWRIGHT
 - 任一 FAIL → 标记 REJECT，投递修正 task
+
+### ④.5 PLAYWRIGHT（浏览器端回归测试）
+
+> ⚠️ Verifier PASS 后、COMMIT 前，必须通过 Playwright 浏览器端回归测试。
+
+#### 步骤 A：投递 TEST_SCRIPT task
+
+Scheduler 写 Playwright task JSON（`body.type: "TEST_SCRIPT"`），投递到 `msp/inbox/`：
+
+- **description**：描述要验证的视觉/交互场景（页面加载、CSS 样式、DOM 元素、交互行为）
+- **target**：`tests/scripts/<脚本名>.js`
+- **context.relatedFiles**：`["tests/scripts/", "tests/fixtures/"]`
+- **spec.testCases**：浏览器端验收标准（如"卡牌区域可见"、"label 白底黑字"）
+
+投递后创建自检 cron（同代码 task 的 3 分钟轮询）。
+
+#### 步骤 B：Worker 写脚本
+
+Bridge + Worker 自动完成：
+- Worker 写 Playwright 脚本到 `tests/scripts/`
+- 脚本格式参考现有 `tests/scripts/verify-*.js`：headless Chrome + playwright 库
+- Worker 输出 TASK_DONE 标记
+
+#### 步骤 C：Scheduler 运行脚本
+
+自检确认 DONE → Scheduler 运行：`node tests/scripts/<脚本名>.js`
+- 产出 Markdown 报告到 `tests/reports/`
+- 截图到 `tests/screenshots/`
+
+#### 步骤 D：Scheduler 审阅报告
+
+- 全部 PASS → 进入 ⑤ COMMIT
+- 存在 FAIL → 文档化问题，投递修正 task 回到 ②，或汇报老大决策
 
 ### ⑤ COMMIT
 
@@ -142,7 +180,7 @@ node projects/zhan/msp/bridge.js
 - 写入 `memory/YYYY-MM-DD.md` 日志
 
 **COMMIT 触发条件（硬性）：**
-- 每次 VERIFY PASS 后**立即 commit**，不等、不攒、不跳过
+- 每次 VERIFY PASS + PLAYWRIGHT PASS 后**立即 commit**，不等、不攒、不跳过
 - 每次会话结束前 `git status` 确认无未提交改动
 - Scheduler 自己的文档修改（如 AGENTS.md、context/ 文档）同样适用——改完就 commit
 
@@ -179,6 +217,7 @@ cron add {
 - `every: 180000`（3 分钟）+ `sessionTarget: "current"` + `delivery.announce` 到飞书
 - `deleteAfterRun: true` — DONE/FAILED 后自删
 - 触发后：查 result → DONE → 审阅 + 派 Verifier → 飞书汇报（标题含 [DONE]）
+- 若是 TEST_SCRIPT task：DONE → 运行 Playwright 脚本 → 审阅报告 → 飞书汇报
 
 ### 3.2 Verifier
 
