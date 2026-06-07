@@ -1,0 +1,596 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>斩 v1.0</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body {
+  font-family: -apple-system, 'Segoe UI', sans-serif;
+  background: #1a1a2e; color: #eee;
+  min-height: 100dvh; display: flex; justify-content: center; align-items: flex-start;
+  touch-action: manipulation; user-select: none; -webkit-user-select: none; overflow-x: hidden;
+}
+#app { width: 100%; max-width: 520px; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+
+/* spirit bomb bar */
+#spirit-bar-wrap { background: #16213e; border-radius: 8px; padding: 3px 8px; display: flex; align-items: center; gap: 6px; font-size: 10px; }
+#spirit-bar-wrap .spirit-label { color: #f39c12; font-weight: bold; white-space: nowrap; }
+#spirit-bar-outer { flex: 1; height: 8px; background: #0f3460; border-radius: 4px; overflow: hidden; }
+#spirit-bar-inner { height: 100%; background: linear-gradient(90deg, #e67e22, #f1c40f, #f39c12); border-radius: 4px; transition: width 0.3s; width: 0%; }
+
+/* top row */
+#top-row { display: flex; gap: 6px; }
+#top-row > div { flex: 1; background: #16213e; border-radius: 10px; padding: 4px 5px; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.avatar { font-size: 24px; line-height: 1; }
+.entity-name { font-size: 9px; color: #888; letter-spacing: 1px; }
+.stat-row { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; font-size: 10px; width: 100%; }
+.stat-row .stat-item { display: flex; align-items: center; gap: 1px; background: #0f3460; padding: 0 5px; border-radius: 4px; line-height: 1.5; }
+.stat-row .stat-item .val { font-weight: bold; }
+.stat-hp .val { color: #e74c3c; }
+.stat-shield .val { color: #3498db; }
+.stat-power .val { color: #9b59b6; }
+.enemy-avatar { font-size: 30px; }
+.player-box { border-top: 3px solid #3498db; }
+.enemy-box { border-top: 3px solid #e74c3c; }
+
+/* badges */
+.badge-row { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; margin-top: 1px; }
+.badge { font-size: 8px; padding: 0 4px; border-radius: 3px; line-height: 1.5; font-weight: bold; }
+.badge-stun { background: #6c3483; color: #d7bde2; }
+.badge-vuln { background: #7b241c; color: #f5b7b1; }
+.badge-atk-down { background: #4a235a; color: #d2b4de; }
+.badge-atk-up { background: #6e2c00; color: #f0b27a; }
+.badge-def-up { background: #0b5345; color: #a3e4d7; }
+
+/* deck info */
+#deck-info { display: flex; justify-content: center; gap: 6px; font-size: 10px; color: #888; padding: 1px 0; }
+#deck-info span { background: #0f3460; padding: 1px 6px; border-radius: 4px; }
+
+/* enemy intent */
+#enemy-intent { font-size: 10px; margin-top: 1px; color: #aaa; }
+
+/* board */
+#board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; background: #16213e; border-radius: 10px; padding: 4px; touch-action: none; }
+.card-slot { background: #0f3460; border-radius: 4px; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; transition: transform 0.06s; aspect-ratio: 1 / 1; }
+.card-slot:active { transform: scale(0.93); }
+.card-slot .card { width: 100%; height: 100%; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; gap: 0; transition: opacity 0.15s; pointer-events: none; position: relative; }
+.card-slot .card .card-icon { font-size: 18px; line-height: 1; }
+.card-slot .card .card-label { font-size: 7px; opacity: 0.8; letter-spacing: 0; pointer-events: none; line-height: 1; }
+.card-slot .card .card-count { position: absolute; top: 1px; left: 2px; font-size: 10px; color: #fff; font-weight: 900; opacity: 0.9; background: rgba(0,0,0,0.4); padding: 0 3px; border-radius: 3px; line-height: 1.3; }
+.card-empty { background: transparent; border: 1px dashed #2c3e50; cursor: default; }
+.card-empty .card { display: none; }
+.card-slot .stack-count { position: absolute; top: 2px; left: 3px; font-size: 10px; color: #111; font-weight: 900; opacity: 1; background: rgba(255,255,255,0.85); padding: 0 4px; border-radius: 3px; line-height: 1.3; }
+.card-slot.locked { opacity: 0.4; cursor: not-allowed; }
+.card-slot.smeared { filter: blur(4px); }
+.card-slot.double-tap-active { outline: 2px solid #f1c40f; transform: translateY(-2px); z-index: 10; }
+
+/* card colors */
+.card-attack { background: #c0392b; color: #fff; }
+.card-defend { background: #2980b9; color: #fff; }
+.card-heal { background: #e91e63; color: #fff; }
+.card-wild { background: #f39c12; color: #fff; }
+.card-atk-down { background: #8e44ad; color: #fff; }
+.card-vulnerable { background: #a93226; color: #fff; }
+.card-stun { background: #9b59b6; color: #fff; }
+.card-atk-buff { background: #e67e22; color: #fff; }
+.card-def-buff { background: #16a085; color: #fff; }
+.card-junk { background: #555; color: #999; }
+.card-special-atk { background: #fff; color: #333; border: 1px solid #ddd; }
+.card-special-def { background: #fff; color: #333; border: 1px solid #ddd; }
+.card-divine { background: #fff; color: #333; border: 1px solid #ddd; }
+.card-special { background: #fff; color: #333; border: 1px solid #ddd; }
+
+/* slot */
+#slot-bar { display: flex; gap: 2px; background: #16213e; border-radius: 10px; padding: 3px; min-height: 40px; }
+.eslot { flex: 1; background: #0f3460; border-radius: 4px; border: 1px dashed #2c3e50; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; transition: all 0.1s; aspect-ratio: 1 / 1.1; }
+.eslot.filled { border-style: solid; }
+.eslot.filled.attack { background: #c0392b; border-color: #c0392b; }
+.eslot.filled.defend { background: #2980b9; border-color: #2980b9; }
+.eslot.filled.heal { background: #e91e63; border-color: #e91e63; }
+.eslot.filled.wild { background: #f39c12; border-color: #f39c12; }
+.eslot.filled.atk-down { background: #8e44ad; border-color: #8e44ad; }
+.eslot.filled.vulnerable { background: #a93226; border-color: #a93226; }
+.eslot.filled.stun { background: #9b59b6; border-color: #9b59b6; }
+.eslot.filled.atk-buff { background: #e67e22; border-color: #e67e22; }
+.eslot.filled.def-buff { background: #16a085; border-color: #16a085; }
+.eslot.wild-core { background: #f39c12; border-color: #e67e22; color: #fff; position: relative; }
+.wild-core-label { position: absolute; bottom: 1px; font-size: 6px; color: #fff; opacity: 0.8; }
+.eslot.filled.junk { background: #555; border-color: #555; }
+.eslot.filled.special { background: #fff; border-color: #ddd; color: #333; }
+.eslot.locked { opacity: 0.3; border-color: #666; color: #e74c3c; font-size: 16px; font-weight: bold; }
+.eslot.preview { border-color: #f1c40f; background: rgba(241,196,15,0.08); }
+
+/* combo bar */
+#combo-bar { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; font-size: 10px; padding: 1px 0; min-height: 16px; }
+.combo-preview { background: #0f3460; border-radius: 4px; padding: 1px 6px; font-weight: bold; font-size: 10px; }
+.combo-preview.atk { border-left: 2px solid #c0392b; color: #e74c3c; }
+.combo-preview.def { border-left: 2px solid #2980b9; color: #3498db; }
+.combo-preview.heal { border-left: 2px solid #e91e63; color: #f06292; }
+.combo-preview.wild { border-left: 2px solid #f39c12; color: #f1c40f; }
+.combo-preview.atk-down { border-left: 2px solid #8e44ad; color: #bb8fce; }
+.combo-preview.vulnerable { border-left: 2px solid #a93226; color: #e6b0aa; }
+.combo-preview.stun { border-left: 2px solid #9b59b6; color: #d2b4de; }
+.combo-preview.atk-buff { border-left: 2px solid #e67e22; color: #f0b27a; }
+.combo-preview.def-buff { border-left: 2px solid #16a085; color: #76d7c4; }
+.combo-none { color: #555; font-size: 10px; }
+
+/* actions */
+#actions { display: flex; gap: 6px; }
+#actions button { flex: 1; padding: 7px; border: none; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; transition: transform 0.06s, opacity 0.1s; touch-action: manipulation; }
+#actions button:active { transform: scale(0.96); }
+#actions button:disabled { opacity: 0.3; cursor: default; transform: none; }
+#btn-end-turn { background: #e67e22; color: #fff; }
+#btn-end-turn:disabled { background: #7f8c8d; }
+#btn-reset { background: #2c3e50; color: #ccc; }
+
+/* log */
+#log { background: #0d1b2a; border-radius: 8px; padding: 3px 6px; font-size: 9px; min-height: 28px; max-height: 56px; overflow-y: auto; color: #7f8c8d; line-height: 1.3; }
+#log .highlight { color: #f1c40f; }
+#log .dmg { color: #e74c3c; }
+#log .def { color: #3498db; }
+#log .heal { color: #2ecc71; }
+#log .buff { color: #f39c12; }
+
+/* result overlay */
+#result-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
+#result-overlay.show { display: flex; }
+#result-box { background: #16213e; border-radius: 16px; padding: 22px 28px; text-align: center; max-width: 280px; }
+#result-box h2 { font-size: 22px; margin-bottom: 8px; }
+#result-box p { color: #aaa; margin-bottom: 14px; font-size: 13px; }
+#result-box button { padding: 8px 30px; border: none; border-radius: 8px; background: #e67e22; color: #fff; font-size: 14px; font-weight: bold; cursor: pointer; }
+#result-box button:active { transform: scale(0.96); }
+
+/* stats panel */
+#stats-panel { margin: 6px 0 10px 0; }
+.stats-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: statsSlideUp 0.4s ease-out;
+}
+@keyframes statsSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.stat-row-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  padding: 3px 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.stat-row-item:last-child { border-bottom: none; }
+.stat-label { color: #888; white-space: nowrap; }
+.stat-value { color: #f1c40f; font-weight: bold; text-align: right; word-break: break-all; }
+
+@media (max-width: 380px) {
+  #app { padding: 3px; gap: 3px; }
+  .card-slot .card .card-icon { font-size: 14px; }
+  .card-slot .card .card-label { font-size: 6px; }
+  .avatar { font-size: 20px; }
+  .enemy-avatar { font-size: 26px; }
+  .stat-row .stat-item { font-size: 8px; padding: 0 3px; }
+  #actions button { padding: 5px; font-size: 11px; }
+  .card-slot .stack-count { font-size: 8px; }
+  .badge { font-size: 7px; }
+}
+
+</style>
+<style>
+/* relic select */
+#relic-select-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(4px); }
+#relic-select-overlay.show { display: flex; }
+#relic-select-box { background: #16213e; border-radius: 16px; padding: 18px 22px; text-align: center; max-width: 360px; width: 90%; }
+#relic-select-box h2 { font-size: 18px; margin-bottom: 4px; color: #f1c40f; }
+#relic-select-desc { color: #aaa; font-size: 11px; margin-bottom: 10px; }
+#relic-select-options { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.relic-card { background: #0f3460; border-radius: 10px; padding: 10px 14px; cursor: pointer; flex: 1; min-width: 120px; max-width: 160px; border: 2px solid transparent; transition: border-color 0.15s; }
+.relic-card:hover, .relic-card:active { border-color: #f1c40f; }
+.relic-card .relic-name { font-size: 13px; font-weight: bold; color: #fff; margin-bottom: 3px; }
+.relic-card .relic-type { font-size: 9px; color: #888; margin-bottom: 4px; }
+.relic-card .relic-desc { font-size: 10px; color: #aaa; line-height: 1.3; }
+
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="spirit-bar-wrap">
+    <span class="spirit-label">💥 元气弹</span>
+    <div id="spirit-bar-outer"><div id="spirit-bar-inner"></div></div>
+    <span id="spirit-text">0%</span>
+  </div>
+  <div id="top-row">
+    <div class="player-box">
+      <div class="avatar" id="player-avatar">🦸</div>
+      <div class="entity-name">勇 者</div>
+      <div class="stat-row">
+        <span class="stat-item stat-hp"><span>❤️</span><span class="val" id="player-hp">100</span></span>
+        <span class="stat-item stat-shield"><span>🛡️</span><span class="val" id="player-shield">0</span></span>
+      </div>
+      <div class="badge-row" id="player-badges"></div>
+    </div>
+    <div class="enemy-box">
+      <div class="avatar enemy-avatar" id="enemy-avatar">🧶</div>
+      <div class="entity-name" id="enemy-name">骷 髅</div>
+      <div class="stat-row">
+        <span class="stat-item stat-hp"><span>❤️</span><span class="val" id="enemy-hp">100</span></span>
+        <span class="stat-item stat-shield"><span>🛡️</span><span class="val" id="enemy-shield">0</span></span>
+        <span class="stat-item stat-power"><span>⚡</span><span class="val" id="enemy-power">0</span></span>
+      </div>
+      <div class="badge-row" id="enemy-badges"></div>
+      <div id="enemy-intent">⚔️ 准备攻击</div>
+    </div>
+  </div>
+  <div id="deck-info">
+    <span>🃏 <span id="deck-remain">250</span> 张</span>
+    <span>🔒 <span id="hidden-cards">0</span> 暗牌</span>
+    <span>🔍 <span id="visible-cards">0</span> 可见</span>
+  </div>
+  <div id="board"></div>
+  <div id="combo-bar"></div>
+  <div id="slot-bar"></div>
+  <div id="actions">
+    <button id="btn-end-turn" disabled>结束回合</button>
+    <button id="btn-reset">重置</button>
+  </div>
+  <div id="log"></div>
+</div>
+<div id="result-overlay">
+  <div id="result-box">
+    <h2 id="result-title">⚔️</h2>
+    <p id="result-desc"></p>
+    <div id="stats-panel"></div>
+    <div id="result-buttons" style="display:flex;flex-direction:column;gap:6px;align-items:center;">
+      <button id="btn-restart">🔄 再来一局</button>
+      <button id="btn-endless">♾️ 无尽模式</button>
+    </div>
+  </div>
+</div>
+
+<!-- Boss 描述弹窗 -->
+<div id="boss-info-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;align-items:center;justify-content:center;">
+  <div style="background:#16213e;border-radius:12px;padding:16px 20px;max-width:300px;text-align:center;">
+    <div id="boss-info-emoji" style="font-size:40px;margin-bottom:4px;"></div>
+    <div id="boss-info-name" style="font-size:16px;font-weight:bold;color:#f1c40f;margin-bottom:4px;"></div>
+    <div id="boss-info-mechanic" style="font-size:11px;color:#aaa;line-height:1.4;margin-bottom:6px;"></div>
+    <div id="boss-info-stats" style="font-size:10px;color:#888;"></div>
+    <button id="btn-boss-info-close" style="margin-top:10px;padding:4px 20px;border:none;border-radius:6px;background:#e67e22;color:#fff;font-size:12px;cursor:pointer;">关闭</button>
+  </div>
+</div>
+
+<!-- 勇者圣物弹窗（独立于 Boss 弹窗） -->
+<div id="player-info-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;align-items:center;justify-content:center;">
+  <div style="background:#16213e;border-radius:12px;padding:16px 20px;max-width:300px;text-align:center;">
+    <div id="player-info-emoji" style="font-size:40px;margin-bottom:4px;">🦸</div>
+    <div id="player-info-name" style="font-size:16px;font-weight:bold;color:#3498db;margin-bottom:4px;">勇者圣物</div>
+    <div id="player-info-mechanic" style="font-size:11px;color:#aaa;line-height:1.4;margin-bottom:6px;"></div>
+    <div id="player-info-stats" style="font-size:10px;color:#888;"></div>
+    <button id="btn-player-info-close" style="margin-top:10px;padding:4px 20px;border:none;border-radius:6px;background:#e67e22;color:#fff;font-size:12px;cursor:pointer;">关闭</button>
+  </div>
+</div>
+
+<!-- 圣物选择界面 -->
+<div id="relic-select-overlay">
+  <div id="relic-select-box">
+    <h2>🎁 选择圣物</h2>
+    <p id="relic-select-desc">第二关通过！选择一个圣物</p>
+    <div id="relic-select-options"></div>
+    <div id="relic-select-buttons" style="display:flex;gap:6px;margin-top:8px;justify-content:center;">
+      <button id="btn-relic-reroll" style="padding:6px 16px;border:none;border-radius:8px;background:#2c3e50;color:#ccc;font-size:12px;font-weight:bold;cursor:pointer;">🔄 刷新</button>
+      <button id="btn-relic-confirm" style="padding:6px 16px;border:none;border-radius:8px;background:#e67e22;color:#fff;font-size:12px;font-weight:bold;cursor:pointer;">✅ 确认（全拿）</button>
+    </div>
+  </div>
+</div>
+
+
+<script src="data.js"></script>
+<script src="core.js"></script>
+<script src="ui.js"></script>
+<script>
+// 启动脚本 — 必须在 ui.js 之后执行（此时 Zhan.UI 已定义）
+G.currentStage = 1;
+G.bossId = 'skeleton';
+G.isEndless = false;
+ENDLESS_DEFEATED = {};
+newGame();
+// ========== 浏览器内回归测试 ==========
+Zhan.Test = {
+  assert: function(cond, msg) {
+    if (!cond) { console.error('FAIL: ' + msg); throw new Error(msg); }
+  },
+  assertDeepEqual: function(a, b, msg) {
+    var sa = JSON.stringify(a);
+    var sb = JSON.stringify(b);
+    if (sa !== sb) { console.error('FAIL: ' + msg + ' | expected ' + sb + ' got ' + sa); throw new Error(msg); }
+  },
+  mockState: function(overrides) {
+    var base = {
+      playerHP: 100, playerMaxHP: 100, enemyHP: 300, enemyMaxHP: 300,
+      effectiveMinCombo: CONFIG.MIN_COMBO, effectiveSlotSize: CONFIG.SLOT_SIZE,
+      effectiveAtkBuffMult: 0, effectiveVulnMult: 0, buffDurationBonus: 0,
+      playerEffects: {}, enemyEffects: {}, tenacityUsed: false, furyEnabled: false,
+      noUnmatchedPenalty: false, deckConfig: JSON.parse(JSON.stringify(DECK_SIZES)),
+      activeRelics: [], wildCoreSlot: false,
+      boss: { id: 'tabby', name: '狸花猫', emoji: '🐱', hpTriggers: ['groom', 'hiss'],
+        maxHP: 300, baseAtk: 24, traits: [], cycle: BOSS_CYCLE_TEMPLATE },
+      lockedSlots: {}
+    };
+    for (var k in overrides) base[k] = overrides[k];
+    return base;
+  },
+  run: function() {
+    console.log('=== Zhan Regression Test ===');
+    console.log('--- Zhan.Rules ---');
+    var T = this;
+    T.assert(Zhan.Rules.calcBaseValue(5, 3) === 8, 'calcBaseValue');
+    T.assert(Zhan.Rules.resolveWildType([{ type: 'attack' }, { type: 'wild' }], 1) === 'attack', 'resolveWildType left');
+    console.log('--- Engine ---');
+    Zhan.Engine.init();
+    T.assert(Zhan.Engine.state.playerHP === 100, 'init HP');
+    T.assert(Zhan.Engine.state.bossId === 'skeleton', 'init boss');
+    Zhan.Engine.dispatch({ type: 'END_TURN' });
+    T.assert(Zhan.Engine.state.turn >= 1, 'END_TURN dispatch works');
+    Zhan.Engine.dispatch({ type: 'RESET' });
+    T.assert(Zhan.Engine.state.turn === 0, 'RESET dispatch works');
+    console.log('--- slot_plus2 + wild_core ---');
+    (function() {
+      var g1 = T.mockState();
+      Zhan.Systems.Relic._handlers.increaseSlotSize(g1, { amount: 2 });
+      T.assert(g1.effectiveSlotSize === 12, 'slot_plus2 alone → 12');
+      var g2 = T.mockState();
+      Zhan.Systems.Relic._handlers.enableWildCoreSlot(g2);
+      T.assert(g2.effectiveSlotSize === 11, 'wild_core alone → 11');
+      T.assert(g2.wildCoreSlot === true, 'wild_core flag set');
+      var g3 = T.mockState();
+      Zhan.Systems.Relic._handlers.enableWildCoreSlot(g3);
+      Zhan.Systems.Relic._handlers.increaseSlotSize(g3, { amount: 2 });
+      T.assert(g3.effectiveSlotSize === 13, 'wild_core+slot_plus2 → 13');
+      var g4 = T.mockState();
+      Zhan.Systems.Relic._handlers.increaseSlotSize(g4, { amount: 2 });
+      Zhan.Systems.Relic._handlers.enableWildCoreSlot(g4);
+      T.assert(g4.effectiveSlotSize === 13, 'slot_plus2+wild_core → 13');
+    })();
+    console.log('--- computeCombos wild ---');
+    (function() {
+      var mk = function(types) { return types.map(function(t, i) { return { type: t, id: i }; }); };
+      var r1 = Zhan.Rules.computeCombos(mk(['attack','attack','wild']), 3);
+      T.assert(r1.length === 1 && r1[0].n === 3, '[a,a,w] min3 → combo n=3');
+      T.assert(r1._claimedWildIndices.length === 1, '[a,a,w] 1 wild claimed');
+      var r2 = Zhan.Rules.computeCombos(mk(['attack','wild']), 3);
+      T.assert(r2.length === 0, '[a,w] min3 → no combo');
+      var r3 = Zhan.Rules.computeCombos(mk(['wild','attack','wild']), 3);
+      T.assert(r3.length === 1 && r3[0].n === 3, '[w,a,w] min3 → combo n=3');
+      T.assert(r3._claimedWildIndices.length === 2, '[w,a,w] 2 wilds claimed');
+      var r4 = Zhan.Rules.computeCombos(mk(['attack','attack','attack']), 3);
+      T.assert(r4.length === 1 && r4[0].n === 3, '[a,a,a] min3 → combo n=3');
+      T.assert(r4._claimedWildIndices.length === 0, '[a,a,a] 0 wilds claimed');
+    })();
+    console.log('--- getEffectDescription ---');
+    (function() {
+      var s1 = T.mockState({ effectiveVulnMult: 2.0, buffDurationBonus: 1 });
+      var before = JSON.stringify(s1);
+      var desc1 = Zhan.Rules.getEffectDescription(s1, 'vulnerable', 4);
+      T.assert(desc1.indexOf('易伤') === 0, 'vulnerable desc starts with 易伤');
+      T.assert(desc1.indexOf('2') >= 0, 'vulnerable desc contains mult');
+      T.assert(JSON.stringify(s1) === before, 'getEffectDescription does not mutate state (vuln)');
+      var s2 = T.mockState({ effectiveAtkBuffMult: 1.5 });
+      var before2 = JSON.stringify(s2);
+      var desc2 = Zhan.Rules.getEffectDescription(s2, 'atk_buff', 3);
+      T.assert(desc2.indexOf('攻×') === 0, 'atk_buff desc starts with 攻×');
+      T.assert(desc2.indexOf('1.5') >= 0, 'atk_buff desc contains 1.5');
+      T.assert(JSON.stringify(s2) === before2, 'getEffectDescription does not mutate state (atk_buff)');
+      var s3 = T.mockState();
+      var desc3 = Zhan.Rules.getEffectDescription(s3, 'stun', 5);
+      T.assert(desc3.indexOf('眩晕') === 0, 'stun desc starts with 眩晕');
+      var s4 = T.mockState({ effectiveDefBuffRatio: 0.7 });
+      var desc4 = Zhan.Rules.getEffectDescription(s4, 'def_buff', 3);
+      T.assert(desc4.indexOf('减伤') === 0, 'def_buff desc starts with 减伤');
+      var s5 = T.mockState();
+      s5.enemyEffects.atk_down_pct = 30;
+      var desc5 = Zhan.Rules.getEffectDescription(s5, 'atk_down', 3);
+      T.assert(desc5.indexOf('降攻') === 0, 'atk_down desc starts with 降攻');
+      var desc6 = Zhan.Rules.getEffectDescription(s5, 'nonexistent', 3);
+      T.assert(desc6 === '', 'unknown type returns empty');
+    })();
+    console.log('--- window.G fallback ---');
+    (function() {
+      var saved = Zhan.Engine.state;
+      Zhan.Engine.state = null;
+      var threw = false;
+      try { Zhan.Engine._showRelicSelect(); } catch(e) { threw = true; }
+      T.assert(!threw, 'Zhan.Engine._showRelicSelect with null state does not throw');
+      var threw2 = false;
+      try { log('test-null-log'); } catch(e) { threw2 = true; }
+      T.assert(!threw2, 'log with null state does not throw');
+      Zhan.Engine.state = saved;
+    })();
+    console.log('--- hiss/groom ---');
+    (function() {
+      var g1 = T.mockState();
+      g1.turn = 0;
+      g1.boss.hpTriggers = ['groom', 'hiss'];
+      g1.hissPrevHP = 250; g1.enemyHP = 199; g1.enemyMaxHP = 300;
+      g1.turn = 3;
+      g1.playerEffects = { atk_buff: 3 };
+      g1.enemyEffects = { vulnerable: 2, atk_down: 2, atk_down_pct: 30, stun: 1 };
+      g1.effectiveVulnMult = 1.5;
+      Zhan.Systems.Boss.runHpTriggers(g1, 'hiss');
+      T.assert(JSON.stringify(g1.playerEffects) === '{}', 'hiss clears playerEffects');
+      T.assert(JSON.stringify(g1.enemyEffects) === '{}', 'hiss clears enemyEffects');
+      var g2 = T.mockState();
+      g2.turn = 3;
+      g2.boss.hpTriggers = ['groom', 'hiss'];
+      g2.enemyEffects = { vulnerable: 2, atk_down: 2, atk_down_pct: 30, stun: 1 };
+      g2.effectiveVulnMult = 1.5;
+      Zhan.Systems.Boss.runHpTriggers(g2, 'groom');
+      T.assert(g2.enemyEffects.vulnerable === 0, 'groom clears vulnerable');
+      T.assert(g2.enemyEffects.atk_down === 0, 'groom clears atk_down');
+      T.assert(g2.enemyEffects.stun === 0, 'groom clears stun');
+      var g3 = T.mockState();
+      g3.turn = 3;
+      g3.boss.hpTriggers = ['groom', 'hiss'];
+      g3.enemyEffects = { vulnerable: 5 };
+      g3.effectiveVulnMult = 1.5;
+      var before3 = JSON.stringify(g3.enemyEffects);
+      Zhan.Systems.Boss.runHpTriggers(g3, 'nonexistent');
+      T.assert(JSON.stringify(g3.enemyEffects) === before3, 'unknown filterId does nothing');
+      var g4 = T.mockState();
+      g4.boss.hpTriggers = [];
+      Zhan.Systems.Boss.runHpTriggers(g4, 'hiss');
+      T.assert(true, 'no hpTriggers no error');
+    })();
+    console.log('--- Relic handlers ---');
+    (function() {
+      var g1 = T.mockState();
+      var beforeWild = g1.deckConfig.wild;
+      Zhan.Systems.Relic._handlers.multiplyDeckCard(g1, { cardType: 'wild', factor: 2 });
+      T.assert(g1.deckConfig.wild === beforeWild * 2, 'multiplyDeckCard doubles wild');
+      var g1b = T.mockState();
+      var beforeAtk = g1b.deckConfig.attack;
+      Zhan.Systems.Relic._handlers.multiplyDeckCard(g1b, { cardType: 'attack', factor: 2 });
+      T.assert(g1b.deckConfig.attack === beforeAtk * 2, 'multiplyDeckCard doubles attack');
+      var g2 = T.mockState();
+      Zhan.Systems.Relic._handlers.setEffectiveMinCombo(g2, { value: 2 });
+      T.assert(g2.effectiveMinCombo === 2, 'setEffectiveMinCombo → 2');
+      var g3 = T.mockState();
+      Zhan.Systems.Relic._handlers.increaseSlotSize(g3, { amount: 3 });
+      T.assert(g3.effectiveSlotSize === 13, 'increaseSlotSize +3 → 13');
+      var g5 = T.mockState();
+      Zhan.Systems.Relic._handlers.setBuffDurationBonus(g5, { amount: 1 });
+      T.assert(g5.buffDurationBonus === 1, 'setBuffDurationBonus → 1');
+      var g6 = T.mockState();
+      Zhan.Systems.Relic._handlers.setOverloadBuffs(g6, { atkBuffMult: 2.0, vulnMult: 2.0, defBuffRatio: 0.5 });
+      T.assert(g6.atkBuffMult === 2.0, 'setOverloadBuffs atkBuffMult');
+      T.assert(g6.vulnMult === 2.0, 'setOverloadBuffs vulnMult');
+      T.assert(g6.defBuffRatio === 0.5, 'setOverloadBuffs defBuffRatio');
+      var g7 = T.mockState();
+      Zhan.Systems.Relic._handlers.setNoUnmatchedPenalty(g7, { value: true });
+      T.assert(g7.noUnmatchedPenalty === true, 'setNoUnmatchedPenalty');
+      var g8 = T.mockState();
+      var cards = [{ type: 'special_atk', label: '特攻', emoji: '🙈', dmg: 40 }];
+      Zhan.Systems.Relic._handlers.addSpecialCards(g8, { cards: cards });
+      T.assert(g8.specialCards && g8.specialCards.length === 1 && g8.specialCards[0].dmg === 40, 'addSpecialCards');
+      var g9 = T.mockState();
+      T.assert(g9.tenacityUsed === false, 'tenacity starts false');
+      Zhan.Systems.Relic._handlers.enableTenacity(g9);
+      T.assert(g9.tenacityUsed === false, 'enableTenacity resets to false');
+      var g10 = T.mockState();
+      Zhan.Systems.Relic._handlers.enableFury(g10);
+      T.assert(g10.furyEnabled === true, 'enableFury sets flag');
+      var g11 = T.mockState();
+      Zhan.Systems.Relic._handlers.increaseMaxHP(g11, { amount: 50 });
+      T.assert(g11.playerMaxHP === CONFIG.PLAYER_MAX_HP + 50, 'increaseMaxHP +50');
+    })();
+    console.log('--- applyInit multi-relic ---');
+    (function() {
+      var g = T.mockState();
+      g.activeRelics = ['slot_plus2', 'wild_core', 'life_core', 'endurance_core'];
+      Zhan.Systems.Relic.applyInit(g);
+      T.assert(g.effectiveSlotSize === 13, 'applyInit slot+wild → 13');
+      T.assert(g.wildCoreSlot === true, 'applyInit wildCore flag');
+      T.assert(g.playerMaxHP === CONFIG.PLAYER_MAX_HP + 50, 'applyInit life_core +50');
+      T.assert(g.buffDurationBonus === 1, 'applyInit endurance_core');
+      var g2 = T.mockState();
+      g2.activeRelics = ['combo_core'];
+      Zhan.Systems.Relic.applyInit(g2);
+      T.assert(g2.effectiveMinCombo === 2, 'applyInit combo_core → minCombo=2');
+      var g3 = T.mockState();
+      g3.activeRelics = [];
+      var before3 = JSON.stringify(g3);
+      Zhan.Systems.Relic.applyInit(g3);
+      T.assert(JSON.stringify(g3) === before3, 'applyInit empty relics does nothing');
+    })();
+    console.log('--- computeCombos edge ---');
+    (function() {
+      var r1 = Zhan.Rules.computeCombos([], 3);
+      T.assert(Array.isArray(r1) && r1.length === 0, 'computeCombos([]) → []');
+      T.assert(Array.isArray(r1._claimedWildIndices) && r1._claimedWildIndices.length === 0, 'computeCombos([]) no wilds');
+      var r2 = Zhan.Rules.computeCombos([{type:'wild', id:1}], 3);
+      T.assert(Array.isArray(r2) && r2.length === 0, 'computeCombos([w]) → []');
+      T.assert(Array.isArray(r2._claimedWildIndices) && r2._claimedWildIndices.length === 0, 'computeCombos([w]) no wilds claimed');
+      var r3 = Zhan.Rules.computeCombos([{type:'wild',id:1},{type:'attack',id:2}], 3);
+      T.assert(r3.length === 0, 'computeCombos([w,a]) min3 → []');
+      var r4 = Zhan.Rules.computeCombos([{type:'attack',id:1},{type:'wild',id:2},{type:'attack',id:3}], 3);
+      T.assert(r4.length === 1 && r4[0].n === 3, 'computeCombos([a,w,a]) min3 → n=3');
+      var r5 = Zhan.Rules.computeCombos([{type:'attack',id:1},{type:'attack',id:2},{type:'attack',id:3},{type:'defend',id:4},{type:'defend',id:5},{type:'defend',id:6}], 3);
+      T.assert(r5.length === 2, 'computeCombos mixed → 2 combos');
+      T.assert(r5[0].type === 'attack' && r5[1].type === 'defend', 'computeCombos mixed types');
+      var r6 = Zhan.Rules.computeCombos([{type:'attack',id:1},{type:'attack',id:2},{type:'junk',id:3,isJunk:true},{type:'attack',id:4},{type:'attack',id:5},{type:'attack',id:6}], 3);
+      T.assert(r6.length === 1, 'junk breaks combo');
+      var r7 = Zhan.Rules.computeCombos([{type:'wild',id:1},{type:'wild',id:2},{type:'attack',id:3},{type:'wild',id:4}], 3);
+      T.assert(r7.length === 1 && r7[0].n === 4, 'computeCombos([w,w,a,w]) → n=4');
+    })();
+    console.log('--- resolveWildType edge ---');
+    (function() {
+      var t1 = Zhan.Rules.resolveWildType([{type:'wild'},{type:'defend'}], 0);
+      T.assert(t1 === 'defend', 'resolveWildType right → defend');
+      var t2 = Zhan.Rules.resolveWildType([{type:'attack'},{type:'wild'}], 1);
+      T.assert(t2 === 'attack', 'resolveWildType left → attack');
+      var t3 = Zhan.Rules.resolveWildType([{type:'wild'},{type:'wild'}], 0);
+      T.assert(t3 === 'wild', 'resolveWildType all wild → wild');
+      var t4 = Zhan.Rules.resolveWildType([{type:'attack'}], 0);
+      T.assert(t4 === 'attack', 'resolveWildType non-wild passes through');
+      var t5 = Zhan.Rules.resolveWildType([{type:'junk',isJunk:true}], 0);
+      T.assert(t5 === 'junk', 'resolveWildType junk → junk');
+      var t6 = Zhan.Rules.resolveWildType([{type:'attack'},{type:'wild'},{type:'defend'}], 1);
+      T.assert(t6 === 'attack', 'resolveWildType left priority');
+    })();
+    console.log('--- calcPursuitMultiplier ---');
+    (function() {
+      T.assert(Zhan.Rules.calcPursuitMultiplier(3, 3) === 1, 'pursuit 3wmin3 → 1');
+      T.assert(Zhan.Rules.calcPursuitMultiplier(4, 3) > 1, 'pursuit 4wmin3 > 1');
+      T.assert(Zhan.Rules.calcPursuitMultiplier(2, 3) === 1, 'pursuit below min → 1');
+    })();
+    console.log('--- computeEffectiveFury ---');
+    (function() {
+      var f1 = Zhan.Rules.computeEffectiveFury(100, 100, { furyEnabled: false });
+      T.assert(f1.atkBuffMult === CONFIG.ATK_BUFF_MULT, 'fury off → default atkBuffMult');
+      T.assert(f1.vulnMult === CONFIG.VULN_MULT, 'fury off → default vulnMult');
+      var f2 = Zhan.Rules.computeEffectiveFury(100, 100, { furyEnabled: true, atkBuffMult: CONFIG.ATK_BUFF_MULT });
+      T.assert(f2.atkBuffMult === CONFIG.ATK_BUFF_MULT, 'fury full HP → no change');
+      var f3 = Zhan.Rules.computeEffectiveFury(50, 100, { furyEnabled: true, atkBuffMult: CONFIG.ATK_BUFF_MULT, vulnMult: CONFIG.VULN_MULT, defBuffRatio: CONFIG.DEF_BUFF_RATIO });
+      T.assert(f3.atkBuffMult > CONFIG.ATK_BUFF_MULT, 'fury half HP → increased atkBuffMult');
+    })();
+    console.log('--- Boss runHpTriggers conditions ---');
+    (function() {
+      var g1 = T.mockState();
+      g1.turn = 0;
+      g1.boss.hpTriggers = ['groom'];
+      g1.enemyEffects = { vulnerable: 2, atk_down: 2, stun: 1 };
+      g1.effectiveVulnMult = 1.5;
+      Zhan.Systems.Boss.runHpTriggers(g1, 'groom');
+      T.assert(g1.enemyEffects.vulnerable === 2, 'groom turn=0 not triggered');
+      var g2 = T.mockState();
+      g2.turn = 1;
+      g2.boss.hpTriggers = ['groom'];
+      g2.enemyEffects = { vulnerable: 2, atk_down: 2, stun: 1 };
+      g2.effectiveVulnMult = 1.5;
+      Zhan.Systems.Boss.runHpTriggers(g2, 'groom');
+      T.assert(g2.enemyEffects.vulnerable === 2, 'groom turn=1 not triggered');
+      var g3 = T.mockState();
+      g3.turn = 3;
+      g3.boss.hpTriggers = ['hiss'];
+      g3.enemyMaxHP = 300;
+      g3.enemyHP = 150;
+      g3.hissPrevHP = 250;
+      g3.playerEffects = { atk_buff: 2 };
+      g3.enemyEffects = { vulnerable: 1 };
+      Zhan.Systems.Boss.runHpTriggers(g3, 'hiss');
+      T.assert(JSON.stringify(g3.playerEffects) === '{}', 'hiss cross-threshold clears effects');
+    })();
+    console.log('=== All Tests Passed ===');
+  }
+};
+if (location.hash === '#test') {
+  setTimeout(function() { Zhan.Test.run(); }, 800);
+}
+</script>
+</body>
+</html>

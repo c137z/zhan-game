@@ -9,67 +9,6 @@ if (!window.Zhan) window.Zhan = {};
 // ========== 渲染主函数 ==========
 Zhan.UI = {};
 
-// ========== 视图切换 ==========
-Zhan.UI._showView = function(viewId) {
-  var views = ['main-menu', 'stage-select', 'battle-view'];
-  for (var i = 0; i < views.length; i++) {
-    var el = document.getElementById(views[i]);
-    if (el) el.style.display = (views[i] === viewId) ? (views[i] === 'main-menu' ? 'flex' : 'block') : 'none';
-  }
-};
-
-// ========== 首页渲染 ==========
-Zhan.UI.renderMainMenu = function() {
-  document.getElementById('result-overlay').classList.remove('show');
-  Zhan.UI._showView('main-menu');
-  if (typeof SAVE !== 'undefined' && SAVE) {
-    document.getElementById('menu-catmao').textContent = '🐱 猫毛：' + (SAVE.catMao || 0);
-    document.getElementById('menu-best').textContent = '今日最佳：' + (SAVE.towerBestFloor || 0) + '层';
-  }
-};
-
-// ========== 关卡选择 5x5 网格 ==========
-Zhan.UI.renderStageSelect = function() {
-  Zhan.UI._showView('stage-select');
-  var grid = document.getElementById('stage-grid');
-  grid.innerHTML = '';
-  var unlocked = (typeof SAVE !== 'undefined' && SAVE) ? (SAVE.advUnlocked || 1) : 1;
-  var currentStage = (Zhan.Engine.state && Zhan.Engine.state.adventureStageId) || 1;
-  for (var i = 0; i < ADVENTURE_STAGES.length; i++) {
-    var stage = ADVENTURE_STAGES[i];
-    var cell = document.createElement('div');
-    cell.className = 'stage-cell';
-    if (i + 1 <= unlocked) {
-      cell.classList.add('unlocked');
-      if (i + 1 === currentStage) cell.classList.add('current');
-    } else {
-      cell.classList.add('locked');
-    }
-    cell.innerHTML = '<div class="stage-cell-num">' + stage.id + '</div>' +
-      '<div class="stage-cell-emoji">' + (stage.emoji || '?') + '</div>' +
-      '<div class="stage-cell-name">' + stage.name + '</div>';
-    if (i + 1 <= unlocked) {
-      (function(stageId) {
-        cell.addEventListener('click', function() {
-          if (Zhan.Engine._startAdventure) {
-            Zhan.Engine._startAdventure(stageId);
-          } else {
-            var st = Zhan.Engine.state || {};
-            st.bossId = stage.bossId;
-            st.mode = 'adventure';
-            st.adventureStageId = stageId;
-            st.activeRelics = [];
-            Zhan.Engine.state = st;
-            G = st;
-            newGame();
-          }
-        });
-      })(stage.id);
-    }
-    grid.appendChild(cell);
-  }
-};
-
 Zhan.UI.render = function(state) {
   // TASK: FURY_DYNAMIC — effective 值已由 Engine._updateEffectiveFury 在 phase 结束时计算好，render 只读不写
   var G = state || Zhan.Engine.state;
@@ -406,74 +345,20 @@ function renderStatsPanel(G) { Zhan.UI.renderStatsPanel(G); }
 // ========== 结算面板显示 ==========
 Zhan.UI.showResult = function(state) {
   var G = state;
-  if (!G) return;
+  var overlay = document.getElementById('result-overlay');
+  var btnEndless = document.getElementById('btn-endless');
+
   Zhan.UI.renderStatsPanel(G);
   document.getElementById('result-title').textContent = G._resultTitle || '';
   document.getElementById('result-desc').textContent = G._resultDesc || '';
 
-  // Hide all mode-specific buttons first
-  document.getElementById('btn-restart').style.display = 'none';
-  document.getElementById('btn-endless').style.display = 'none';
-  document.getElementById('btn-adv-continue').style.display = 'none';
-  document.getElementById('btn-return-home').style.display = 'none';
-
-  if (G.mode === 'adventure') {
-    Zhan.UI.showResultAdventure(G);
-  } else if (G.mode === 'maze') {
-    Zhan.UI.showResultMaze(G);
-  } else if (G.mode === 'tower') {
-    Zhan.UI.showResultTower(G);
+  if (G._showEndlessBtn) {
+    btnEndless.style.display = 'block';
   } else {
-    // Legacy mode
-    document.getElementById('btn-restart').style.display = '';
-    document.getElementById('btn-restart').textContent = G._restartText || '🔄 再来一局';
-    if (G._showEndlessBtn) {
-      document.getElementById('btn-endless').style.display = '';
-    }
-    document.getElementById('btn-return-home').textContent = '🏠 返回主页';
-    document.getElementById('btn-return-home').style.display = '';
+    btnEndless.style.display = 'none';
   }
-
-  document.getElementById('result-overlay').classList.add('show');
-};
-
-// 冒险模式结果弹窗
-Zhan.UI.showResultAdventure = function(G) {
-  if (G.win) {
-    document.getElementById('btn-adv-continue').textContent = '🏁 继续闯关';
-    document.getElementById('btn-adv-continue').style.display = '';
-  } else {
-    document.getElementById('btn-restart').textContent = '🔄 重试';
-    document.getElementById('btn-restart').style.display = '';
-  }
-  document.getElementById('btn-return-home').textContent = '🏠 返回主页';
-  document.getElementById('btn-return-home').style.display = '';
-};
-
-// 迷宫模式结果弹窗
-Zhan.UI.showResultMaze = function(G) {
-  if (G.win) {
-    // 毛线团通关后由核心逻辑接管圣物选择，此处不弹窗
-  } else {
-    document.getElementById('btn-restart').textContent = '🔄 重新挑战';
-    document.getElementById('btn-restart').style.display = '';
-    document.getElementById('btn-return-home').textContent = '🏠 返回主页';
-    document.getElementById('btn-return-home').style.display = '';
-  }
-};
-
-// 猫王塔结果弹窗
-Zhan.UI.showResultTower = function(G) {
-  var floor = G.towerFloor || 1;
-  if (G.win) {
-    document.getElementById('result-desc').textContent = '全猫征服！到达第 ' + floor + ' 层';
-  } else {
-    document.getElementById('result-desc').textContent = '败于第 ' + floor + ' 层';
-    document.getElementById('btn-restart').textContent = '🔄 重新挑战';
-    document.getElementById('btn-restart').style.display = '';
-  }
-  document.getElementById('btn-return-home').textContent = '🏠 返回主页';
-  document.getElementById('btn-return-home').style.display = '';
+  document.getElementById('btn-restart').textContent = G._restartText || '🔄 再来一局';
+  overlay.classList.add('show');
 };
 
 // ========== 敌人意图渲染 ==========
@@ -490,16 +375,6 @@ Zhan.UI.renderRelicSelect = function(state) {
   var G = state;
   if (!G) return;
 
-  // 注入选中状态的样式（仅首次调用时执行一次）
-  if (!this._relicSelectStyleInjected) {
-    this._relicSelectStyleInjected = true;
-    var styleEl = document.createElement('style');
-    styleEl.textContent = '.relic-card.selected { border-color: #f1c40f !important; box-shadow: 0 0 10px rgba(241,196,15,0.5); }';
-    document.head.appendChild(styleEl);
-  }
-
-  var isTower = G.mode === 'tower';
-
   // 渲染选项
   var optionsEl = document.getElementById('relic-select-options');
   optionsEl.innerHTML = '';
@@ -508,9 +383,6 @@ Zhan.UI.renderRelicSelect = function(state) {
     var relic = RELICS[opts[oi]];
     var card = document.createElement('div');
     card.className = 'relic-card';
-    if (isTower && G.selectedRelic === opts[oi]) {
-      card.classList.add('selected');
-    }
     card.id = 'relic-opt-' + oi;
     card.innerHTML = '<div class="relic-name">' + relic.name + '</div>' +
       '<div class="relic-type">' + relic.type + '</div>' +
@@ -520,13 +392,8 @@ Zhan.UI.renderRelicSelect = function(state) {
 
   // 描述文字
   var rerolls = G.relicRerolls || 0;
-  if (isTower) {
-    document.getElementById('relic-select-desc').textContent =
-      '点击选中1个圣物' + (rerolls < 1 ? '（可刷新1次）' : '');
-  } else {
-    document.getElementById('relic-select-desc').textContent =
-      '第二关通过！获得圣物' + (rerolls < 1 ? '（可刷新1次）' : '');
-  }
+  document.getElementById('relic-select-desc').textContent =
+    '第二关通过！获得圣物' + (rerolls < 1 ? '（可刷新1次）' : '');
 
   // 刷新按钮状态
   var btnReroll = document.getElementById('btn-relic-reroll');
@@ -538,18 +405,6 @@ Zhan.UI.renderRelicSelect = function(state) {
     btnReroll.disabled = false;
     btnReroll.style.opacity = '1';
     btnReroll.textContent = '🔄 刷新';
-  }
-
-  // 确认按钮状态（猫王塔：无选择时禁用）
-  var btnConfirm = document.getElementById('btn-relic-confirm');
-  if (isTower) {
-    btnConfirm.textContent = G.selectedRelic ? '✅ 确认选择' : '✅ 请先点击选择圣物';
-    btnConfirm.disabled = !G.selectedRelic;
-    btnConfirm.style.opacity = G.selectedRelic ? '1' : '0.4';
-  } else {
-    btnConfirm.textContent = '✅ 确认（全拿）';
-    btnConfirm.disabled = false;
-    btnConfirm.style.opacity = '1';
   }
 
   // 显示 overlay
@@ -568,35 +423,13 @@ document.getElementById('btn-reset').addEventListener('click', function() {
 
 document.getElementById('btn-restart').addEventListener('click', function() {
   document.getElementById('result-overlay').classList.remove('show');
-  if (Zhan.Engine._retry) {
-    Zhan.Engine._retry();
-  } else {
-    Zhan.Engine.dispatch({ type: 'RESTART' });
-  }
+  Zhan.Engine.dispatch({ type: 'RESTART' });
 });
 
 document.getElementById('btn-endless').addEventListener('click', function() {
   document.getElementById('result-overlay').classList.remove('show');
   Zhan.Engine.dispatch({ type: 'START_ENDLESS' });
 });
-
-// ========== 冒险继续闯关 ==========
-var _advContinueBtn = document.getElementById('btn-adv-continue');
-if (_advContinueBtn) {
-  _advContinueBtn.addEventListener('click', function() {
-    document.getElementById('result-overlay').classList.remove('show');
-    Zhan.Engine.dispatch({ type: 'ADV_CONTINUE' });
-  });
-}
-
-// ========== 返回主页 ==========
-var _returnHomeBtn = document.getElementById('btn-return-home');
-if (_returnHomeBtn) {
-  _returnHomeBtn.addEventListener('click', function() {
-    document.getElementById('result-overlay').classList.remove('show');
-    Zhan.Engine.dispatch({ type: 'GO_HOME' });
-  });
-}
 
 // ========== LOG ==========
 function log(msg) {
@@ -695,24 +528,12 @@ document.getElementById('player-info-overlay').addEventListener('click', functio
   });
 })();
 
-// 确认按钮 — 两个圣物全拿（迷宫）/ 确认选择（猫王塔）
+// 确认按钮 — 两个圣物全拿
 (function() {
   var btn = document.getElementById('btn-relic-confirm');
   btn.addEventListener('click', function() {
     document.getElementById('relic-select-overlay').classList.remove('show');
     Zhan.Engine._confirmRelicSelect();
-  });
-})();
-
-// 圣物卡片点击 — 猫王塔模式：选中单个圣物
-(function() {
-  document.getElementById('relic-select-options').addEventListener('click', function(e) {
-    var card = e.target.closest('.relic-card');
-    if (!card) return;
-    var st = Zhan.Engine.state;
-    if (!st || st.mode !== 'tower') return;
-    var idx = parseInt(card.id.replace('relic-opt-', ''), 10);
-    if (!isNaN(idx)) Zhan.Engine._selectRelicOption(idx);
   });
 })();
 

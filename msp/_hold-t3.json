@@ -1,0 +1,21 @@
+{
+  "header": {
+    "taskId": "adventure-t3",
+    "from": "architect",
+    "to": "worker",
+    "priority": "P0"
+  },
+  "body": {
+    "type": "CODE",
+    "description": "重写 newGame/_endGame 三模式分发",
+    "target": "code/core.js",
+    "spec": {
+      "constraints": [
+        "严格按照设计手册中对应 Task 的 spec 实现",
+        "不要修改 spec 中未列出的函数或文件",
+        "完成后打开 index.html 确认不报错"
+      ],
+      "fullSpec": ""
+    }
+  }
+}
