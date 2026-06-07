@@ -5,6 +5,7 @@ const path = require('path');
 const MSP_DIR = path.resolve(__dirname);
 const INBOX = path.join(MSP_DIR, 'inbox');
 const SESSION_ID_FILE = path.join(MSP_DIR, '.cc-session-id');
+const MAX_TASKS_PER_SESSION = 50; // 每 50 个 task 后重置 session，防止上下文累积导致 token 膨胀
 const OUTBOX = path.join(MSP_DIR, 'outbox');
 const ARCHIVE = path.join(MSP_DIR, 'archive');
 // MSP_DIR = .../projects/zhan/msp → PROJECT_ROOT = .../projects/zhan
@@ -191,7 +192,7 @@ function callClaudeCode(taskPath, callback) {
   // 构建 spawn 参数（如果已有 session 则 --resume，否则 --session-id 首次创建）
   const args = [
     '-p', promptPath,
-    '--model', 'deepseek-v4-pro',
+    '--model', 'deepseek-v4-flash',
     '--allowedTools', 'Read,Edit,Bash',
     '--add-dir', PROJECT_ROOT
   ];
@@ -286,10 +287,27 @@ function callClaudeCode(taskPath, callback) {
 
     writeNotifyFile(taskId, result.header.status, task.body.description);
 
+    // Session 自动重置：每 MAX_TASKS_PER_SESSION 个 task 后删除 session 文件
+    // 原因：上下文累积导致每轮 input_tokens 从几百涨到 20-30 万，cache 命中率从 80%+ 掉到 ~40%
+    if (!callClaudeCode._taskCount) callClaudeCode._taskCount = 0;
+    callClaudeCode._taskCount++;
+
     if (fs.existsSync(SESSION_ID_FILE)) {
-    log(`  session: ${fs.readFileSync(SESSION_ID_FILE, 'utf-8').trim().substring(0, 8)}...`);
-  }
-  log(`Task ${taskId} completed with status: ${result.header.status}`);
+      const sid = fs.readFileSync(SESSION_ID_FILE, 'utf-8').trim().substring(0, 8);
+      log(`  session: ${sid}... | task #${callClaudeCode._taskCount}/${MAX_TASKS_PER_SESSION}`);
+
+      if (callClaudeCode._taskCount >= MAX_TASKS_PER_SESSION) {
+        try {
+          fs.unlinkSync(SESSION_ID_FILE);
+          log(`  session reset: deleted .cc-session-id after ${callClaudeCode._taskCount} tasks (threshold=${MAX_TASKS_PER_SESSION})`);
+          callClaudeCode._taskCount = 0;
+        } catch (e) {
+          log(`  session reset failed: ${e.message}`);
+        }
+      }
+    }
+
+    log(`Task ${taskId} completed with status: ${result.header.status}`);
     callback(result);
   });
 }

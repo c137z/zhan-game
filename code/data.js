@@ -69,6 +69,32 @@ var DECK_SIZES = {
   CONFIG.CARDS_PER_PILE = Math.floor(total / (CONFIG.BOARD_ROWS * CONFIG.BOARD_COLS));
 })();
 
+// ========== 冒险关卡配置 ==========
+var ADVENTURE_STAGES = [
+  // 教学关
+  { id: 1, bossId: 'catToy', name: '逗猫棒', emoji: '🪄',
+    deck: { attack: 50, defend: 50 },
+    hp: 50, atk: 5, def: 5, growth: 0,
+    cycle: 'atk_def', desc: '基础玩法' },
+  { id: 2, bossId: 'cup', name: '水杯', emoji: '🥤',
+    deck: { attack: 50, defend: 50, atk_buff: 50, vulnerable: 50 },
+    hp: 100, atk: 10, def: 10, growth: 0,
+    cycle: 'atk_def', desc: '增伤入门' },
+  { id: 3, bossId: 'bee', name: '小蜜蜂', emoji: '🐝',
+    deck: { attack: 50, defend: 50, atk_buff: 50, vulnerable: 50, atk_down: 50, def_buff: 50 },
+    hp: 100, atk: 20, def: 20, growth: 0,
+    cycle: 'atk_def', desc: '防守入门' },
+  { id: 4, bossId: 'snake', name: '小蛇', emoji: '🐍',
+    deck: { stun: 20, heal: 20, wild: 20 },
+    hp: 100, atk: 50, def: 0, growth: 0,
+    cycle: 'focus_attack', desc: '进阶博弈' },
+  // 第一幕·昆虫序列
+  { id: 5, bossId: 'ant', name: '工蚁', emoji: '🐜',
+    deck: null,  // null = 标准卡池 DECK_SIZES
+    hp: 80, atk: 8, def: 8, growth: 0,
+    cycle: 'atk_def', desc: '昆虫序列' },
+  // 6-25 后续扩展
+];
 
 // ========== Boss 定义 ==========
 // hpTriggers 使用纯字符串 id 引用，执行函数在 core.js Zhan.Systems.Boss._hpTriggerHandlers 中
@@ -217,6 +243,38 @@ var BOSSES = {
     hpTriggers: [],
   },
 
+  cup: {
+    id: 'cup', name: '水杯', emoji: '🥤',
+    desc: '教学关Boss·增伤入门',
+    maxHP: 100, baseAtk: 10, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 10 }],
+    traits: [], hpTriggers: []
+  },
+
+  bee: {
+    id: 'bee', name: '小蜜蜂', emoji: '🐝',
+    desc: '教学关Boss·防守入门',
+    maxHP: 100, baseAtk: 20, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 20 }],
+    traits: [], hpTriggers: []
+  },
+
+  snake: {
+    id: 'snake', name: '小蛇', emoji: '🐍',
+    desc: '教学关Boss·进阶博弈',
+    maxHP: 100, baseAtk: 50, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'focus' }, { type: 'attack' }],
+    traits: [], hpTriggers: []
+  },
+
+  ant: {
+    id: 'ant', name: '工蚁', emoji: '🐜',
+    desc: '昆虫序列·第5关',
+    maxHP: 80, baseAtk: 8, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 8 }],
+    traits: [], hpTriggers: []
+  },
+
   // 第二关毛线团
   skeleton: {
     id: 'skeleton', name: '毛线团', emoji: '🧶',
@@ -232,6 +290,9 @@ var BOSSES = {
     hpTriggers: [],
   }
 };
+
+// ========== 猫Boss白名单 ==========
+var CAT_BOSS_IDS = ['tabby','sphynx','british_shorthair','american_shorthair','abyssinian','ragdoll','bengal','siamese','scottish_fold','maine_coon'];
 
 // ========== 圣物定义 ==========
 // 所有执行逻辑移至 core.js Zhan.Systems.Relic
