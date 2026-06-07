@@ -250,6 +250,7 @@ body {
 <div id="app">
   <!-- 首屏首页 -->
   <div id="main-menu">
+    <button id="btn-settings" title="设置">⚙️</button>
     <div id="menu-title">斩</div>
     <hr class="menu-divider">
     <div id="menu-best">今日最佳：0层</div>
@@ -286,6 +287,26 @@ body {
       <div class="menu-icon"><span class="menu-icon-emoji">⚙️</span>设置</div>
     </div>
   </div>
+  <!-- 设置面板 -->
+  <div id="settings-panel">
+    <div id="settings-box">
+      <h3>⚙️ 设置</h3>
+      <div class="setting-row">
+        <span class="setting-label">🎵 音乐</span>
+        <input type="range" class="setting-slider" id="slider-music" min="0" max="100" value="80">
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">🔊 音效</span>
+        <input type="range" class="setting-slider" id="slider-sfx" min="0" max="100" value="80">
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">📳 震动</span>
+        <div class="toggle on" id="toggle-vibrate"></div>
+      </div>
+      <button id="btn-back-to-home">🏠 返回主页</button>
+    </div>
+  </div>
+
   <!-- 关卡选择 -->
   <div id="stage-select">
     <div id="stage-select-header">
@@ -393,6 +414,8 @@ body {
 <script src="ui.js"></script>
 <script>
 // 启动脚本 — 必须在 ui.js 之后执行（此时 Zhan.UI 已定义）
+window.Zhan = window.Zhan || {};
+window.Zhan.Settings = { musicVolume: 0.8, sfxVolume: 0.8, vibrate: true };
 loadProgress();
 Zhan.UI.renderMainMenu();
 // ========== 浏览器内回归测试 ==========
@@ -701,6 +724,39 @@ document.getElementById('btn-tower').addEventListener('click', function() {
 });
 
 document.getElementById('btn-back-menu').addEventListener('click', function() {
+  Zhan.UI.renderMainMenu();
+});
+
+// ========== 设置面板 ==========
+var settingsPanel = document.getElementById('settings-panel');
+var btnSettings = document.getElementById('btn-settings');
+if (btnSettings) {
+  btnSettings.addEventListener('click', function() { settingsPanel.classList.add('show'); });
+}
+settingsPanel.addEventListener('click', function(e) {
+  if (e.target === settingsPanel) settingsPanel.classList.remove('show');
+});
+// 震动开关
+var toggleVibrate = document.getElementById('toggle-vibrate');
+if (toggleVibrate) {
+  toggleVibrate.addEventListener('click', function() {
+    this.classList.toggle('on');
+    window.Zhan.Settings.vibrate = this.classList.contains('on');
+  });
+}
+// 音乐滑块
+var sliderMusic = document.getElementById('slider-music');
+if (sliderMusic) {
+  sliderMusic.addEventListener('input', function() { window.Zhan.Settings.musicVolume = this.value / 100; });
+}
+// 音效滑块
+var sliderSfx = document.getElementById('slider-sfx');
+if (sliderSfx) {
+  sliderSfx.addEventListener('input', function() { window.Zhan.Settings.sfxVolume = this.value / 100; });
+}
+// 设置面板返回主页
+document.getElementById('btn-back-to-home').addEventListener('click', function() {
+  settingsPanel.classList.remove('show');
   Zhan.UI.renderMainMenu();
 });
 
