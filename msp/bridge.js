@@ -4,8 +4,6 @@ const path = require('path');
 
 const MSP_DIR = path.resolve(__dirname);
 const INBOX = path.join(MSP_DIR, 'inbox');
-const SESSION_ID_FILE = path.join(MSP_DIR, '.cc-session-id');
-const MAX_TASKS_PER_SESSION = 50; // 每 50 个 task 后重置 session，防止上下文累积导致 token 膨胀
 const OUTBOX = path.join(MSP_DIR, 'outbox');
 const ARCHIVE = path.join(MSP_DIR, 'archive');
 // MSP_DIR = .../projects/zhan/msp → PROJECT_ROOT = .../projects/zhan
@@ -106,17 +104,6 @@ function buildPrompt(task) {
 
   return `# 任务 ${task.header.taskId}
 
-## 角色
-你是 Writer（代码修改者）。你只修改代码，不运行测试，不验证结果。
-
-## 项目约束
-- 纯前端 HTML/CSS/JS 游戏，单文件结构
-- 使用 window.Zhan 命名空间
-- data.js 禁止写 function（polyfill 除外）
-- core.js 禁止碰 DOM
-- ui.js 禁止直接修改 state
-- 所有修改必须先备份到指定目录
-
 ## 当前任务
 ${task.body.description}
 
@@ -181,32 +168,17 @@ function callClaudeCode(taskPath, callback) {
   const promptPath = path.join(MSP_DIR, `prompt-${taskId}.md`);
   fs.writeFileSync(promptPath, promptContent, 'utf-8');
 
-  // 读取或创建 session ID（复用 session = 缓存命中）
-  let sessionId = null;
-  try {
-    if (fs.existsSync(SESSION_ID_FILE)) {
-      sessionId = fs.readFileSync(SESSION_ID_FILE, 'utf-8').trim();
-    }
-  } catch (e) { /* ignore */ }
-
-  // 构建 spawn 参数（如果已有 session 则 --resume，否则 --session-id 首次创建）
+  // 每个 task 都用新 session，不复用（避免上下文累积导致 token 膨胀）
+  // 旧 session 复用已禁用：context 从几百涨到 20-30 万 token / cache 命中率掉到 ~40%
+  const { randomUUID } = require('crypto');
+  const newSessionId = randomUUID();
   const args = [
     '-p', promptPath,
     '--model', 'deepseek-v4-flash',
     '--allowedTools', 'Read,Edit,Bash',
-    '--add-dir', PROJECT_ROOT
+    '--add-dir', PROJECT_ROOT,
+    '--session-id', newSessionId
   ];
-  if (sessionId) {
-    args.push('-r', sessionId);
-  } else {
-    const { randomUUID } = require('crypto');
-    const newSessionId = randomUUID();
-    args.push('--session-id', newSessionId);
-    sessionId = newSessionId;
-    try {
-      fs.writeFileSync(SESSION_ID_FILE, sessionId, 'utf-8');
-    } catch (e) { /* ignore */ }
-  }
 
   // 调用 Claude Code（cwd 由 spawn 选项指定，不要传 --cwd）
   const child = spawn('claude', args, {
@@ -287,25 +259,10 @@ function callClaudeCode(taskPath, callback) {
 
     writeNotifyFile(taskId, result.header.status, task.body.description);
 
-    // Session 自动重置：每 MAX_TASKS_PER_SESSION 个 task 后删除 session 文件
-    // 原因：上下文累积导致每轮 input_tokens 从几百涨到 20-30 万，cache 命中率从 80%+ 掉到 ~40%
+    // Session 不复用：每次 task 都独立 session（见上方调用处注释）
     if (!callClaudeCode._taskCount) callClaudeCode._taskCount = 0;
     callClaudeCode._taskCount++;
-
-    if (fs.existsSync(SESSION_ID_FILE)) {
-      const sid = fs.readFileSync(SESSION_ID_FILE, 'utf-8').trim().substring(0, 8);
-      log(`  session: ${sid}... | task #${callClaudeCode._taskCount}/${MAX_TASKS_PER_SESSION}`);
-
-      if (callClaudeCode._taskCount >= MAX_TASKS_PER_SESSION) {
-        try {
-          fs.unlinkSync(SESSION_ID_FILE);
-          log(`  session reset: deleted .cc-session-id after ${callClaudeCode._taskCount} tasks (threshold=${MAX_TASKS_PER_SESSION})`);
-          callClaudeCode._taskCount = 0;
-        } catch (e) {
-          log(`  session reset failed: ${e.message}`);
-        }
-      }
-    }
+    log(`  session: fresh | task #${callClaudeCode._taskCount}`);
 
     log(`Task ${taskId} completed with status: ${result.header.status}`);
     callback(result);

@@ -959,6 +959,7 @@ function resolveCycle(cycleStr, defValue) {
     case 'atk_def': return [{ type: 'attack' }, { type: 'defend', shield: defValue || 0 }];
     case 'focus_attack': return [{ type: 'focus' }, { type: 'attack' }];
     case 'atk_def_focus_crit': return [{ type: 'attack' }, { type: 'defend' }, { type: 'focus' }, { type: 'crit' }];
+    case 'atk_def_atk_focus_crit': return [{ type: 'attack' }, { type: 'defend' }, { type: 'attack' }, { type: 'focus' }, { type: 'crit' }];
     default: return [{ type: 'attack' }, { type: 'defend' }, { type: 'focus' }, { type: 'crit' }];
   }
 }
@@ -968,7 +969,8 @@ function pickRandomCat() {
 }
 
 function pickTowerCat() {
-  var st = Zhan.Engine.state;
+  var st = Zhan.Engine.state || G;
+  if (!st) return CAT_BOSS_IDS[Math.floor(Math.random() * CAT_BOSS_IDS.length)];
   var defeated = st.towerDefeated || [];
   var remaining = CAT_BOSS_IDS.filter(function(id) { return defeated.indexOf(id) < 0; });
   if (!remaining.length) return CAT_BOSS_IDS[Math.floor(Math.random() * CAT_BOSS_IDS.length)];

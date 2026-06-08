@@ -93,7 +93,99 @@ var ADVENTURE_STAGES = [
     deck: null,  // null = 标准卡池 DECK_SIZES
     hp: 80, atk: 8, def: 8, growth: 0,
     cycle: 'atk_def', desc: '昆虫序列' },
-  // 6-25 后续扩展
+  // === 第一幕·昆虫序列 (6-19) ===
+  { id: 6, bossId: 'ladybug', name: '瓢虫', emoji: '🐞',
+    deck: null, hp: 95, atk: 9, def: 9, growth: 0, cycle: 'atk_def', desc: '昆虫序列' },
+  { id: 7, bossId: 'snail', name: '蜗牛', emoji: '🐌',
+    deck: null, hp: 110, atk: 10, def: 10, growth: 0, cycle: 'atk_def', desc: '昆虫序列' },
+  { id: 8, bossId: 'mosquito', name: '蚊子', emoji: '🦟',
+    deck: null, hp: 125, atk: 11, def: 11, growth: 0, cycle: 'atk_def', desc: '昆虫序列' },
+  { id: 9, bossId: 'fly', name: '绿头苍蝇', emoji: '🪰',
+    deck: null, hp: 140, atk: 12, def: 12, growth: 0, cycle: 'atk_def', desc: '昆虫序列' },
+  { id: 10, bossId: 'earthworm', name: '蚯蚓', emoji: '🪱',
+    deck: null, hp: 155, atk: 13, def: 13, growth: 0, cycle: 'atk_def', desc: '昆虫序列' },
+  { id: 11, bossId: 'spider', name: '园蛛', emoji: '🕷️',
+    deck: null, hp: 170, atk: 14, def: 14, growth: 0, cycle: 'atk_def', desc: '昆虫序列' },
+  { id: 12, bossId: 'cricket', name: '蟋蟀', emoji: '🦗',
+    deck: null, hp: 185, atk: 15, def: 15, growth: 0, cycle: 'atk_def', desc: '昆虫序列' },
+  { id: 13, bossId: 'centipede', name: '蜈蚣', emoji: '🦂',
+    deck: null, hp: 200, atk: 16, def: 16, growth: 0, cycle: 'atk_def', desc: '昆虫序列' },
+  { id: 14, bossId: 'mantis', name: '螳螂', emoji: '🪳',
+    deck: null, hp: 215, atk: 17, def: 17, growth: 0, cycle: 'atk_def', desc: '昆虫序列' },
+  { id: 15, bossId: 'butterfly', name: '菜粉蝶', emoji: '🦋',
+    deck: null, hp: 230, atk: 18, def: 18, growth: 0, cycle: 'atk_def', desc: '昆虫序列' },
+  { id: 16, bossId: 'hornet', name: '马蜂', emoji: '🐝',
+    deck: null, hp: 245, atk: 18, def: 18, growth: 0, cycle: 'atk_def', desc: '昆虫序列' },
+  { id: 17, bossId: 'firefly', name: '萤火虫', emoji: '✨',
+    deck: null, hp: 260, atk: 19, def: 19, growth: 0, cycle: 'atk_def', desc: '昆虫序列' },
+  { id: 18, bossId: 'tick', name: '蜱虫', emoji: '🪳',
+    deck: null, hp: 280, atk: 19, def: 19, growth: 0, cycle: 'atk_def', desc: '昆虫序列' },
+  { id: 19, bossId: 'beetle', name: '独角仙', emoji: '🪲',
+    deck: null, hp: 300, atk: 20, def: 20, growth: 0, cycle: 'atk_def', desc: '昆虫序列·关底' },
+  // === 第二幕·小动物序列 (20-39) ===
+  { id: 20, bossId: 'mouse', name: '家鼠', emoji: '🐭',
+    deck: null, hp: 200, atk: 15, def: 15, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 21, bossId: 'sparrow', name: '麻雀', emoji: '🐦',
+    deck: null, hp: 205, atk: 15, def: 15, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 22, bossId: 'treefrog', name: '树蛙', emoji: '🐸',
+    deck: null, hp: 210, atk: 15, def: 15, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 23, bossId: 'squirrel', name: '松鼠', emoji: '🐿️',
+    deck: null, hp: 215, atk: 16, def: 16, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 24, bossId: 'hedgehog', name: '刺猬', emoji: '🦔',
+    deck: null, hp: 220, atk: 16, def: 16, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 25, bossId: 'bat', name: '蝙蝠', emoji: '🦇',
+    deck: null, hp: 225, atk: 16, def: 16, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 26, bossId: 'loach', name: '泥鳅', emoji: '🐟',
+    deck: null, hp: 230, atk: 17, def: 17, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 27, bossId: 'viper', name: '毒蛇', emoji: '🐍',
+    deck: null, hp: 235, atk: 17, def: 17, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 28, bossId: 'gecko', name: '壁虎', emoji: '🦎',
+    deck: null, hp: 240, atk: 17, def: 17, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 29, bossId: 'hamster', name: '仓鼠', emoji: '🐹',
+    deck: null, hp: 245, atk: 17, def: 17, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 30, bossId: 'pigeon', name: '灰鸽', emoji: '🕊️',
+    deck: null, hp: 250, atk: 18, def: 18, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 31, bossId: 'crow', name: '乌鸦', emoji: '🐦‍⬛',
+    deck: null, hp: 255, atk: 18, def: 18, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 32, bossId: 'hare', name: '野兔', emoji: '🐰',
+    deck: null, hp: 260, atk: 18, def: 18, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 33, bossId: 'duck', name: '野鸭', emoji: '🦆',
+    deck: null, hp: 265, atk: 18, def: 18, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 34, bossId: 'chick', name: '小鸡', emoji: '🐤',
+    deck: null, hp: 270, atk: 19, def: 19, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 35, bossId: 'turtle', name: '草龟', emoji: '🐢',
+    deck: null, hp: 275, atk: 19, def: 19, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 36, bossId: 'crab', name: '螃蟹', emoji: '🦀',
+    deck: null, hp: 280, atk: 19, def: 19, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 37, bossId: 'crayfish', name: '小龙虾', emoji: '🦞',
+    deck: null, hp: 285, atk: 19, def: 19, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 38, bossId: 'mole', name: '鼹鼠', emoji: '🐀',
+    deck: null, hp: 290, atk: 20, def: 20, growth: 1, cycle: 'atk_def_focus_crit', desc: '成长压迫' },
+  { id: 39, bossId: 'raccoon', name: '浣熊', emoji: '🦝',
+    deck: null, hp: 300, atk: 20, def: 20, growth: 1, cycle: 'atk_def_focus_crit', desc: '第二幕·关底' },
+  // === 第三幕·中等动物序列 (40-50) ===
+  { id: 40, bossId: 'weasel', name: '黄鼠狼', emoji: '🦡',
+    deck: null, hp: 250, atk: 18, def: 18, growth: 2, cycle: 'atk_def_atk_focus_crit', desc: '双重压迫' },
+  { id: 41, bossId: 'fox', name: '赤狐', emoji: '🦊',
+    deck: null, hp: 255, atk: 18, def: 18, growth: 2, cycle: 'atk_def_atk_focus_crit', desc: '双重压迫' },
+  { id: 42, bossId: 'meerkat', name: '猫鼬', emoji: '🐱',
+    deck: null, hp: 260, atk: 18, def: 18, growth: 2, cycle: 'atk_def_atk_focus_crit', desc: '双重压迫' },
+  { id: 43, bossId: 'goose', name: '大鹅', emoji: '🪿',
+    deck: null, hp: 265, atk: 19, def: 19, growth: 2, cycle: 'atk_def_atk_focus_crit', desc: '双重压迫' },
+  { id: 44, bossId: 'straydog', name: '流浪狗', emoji: '🐕',
+    deck: null, hp: 270, atk: 19, def: 19, growth: 2, cycle: 'atk_def_atk_focus_crit', desc: '双重压迫' },
+  { id: 45, bossId: 'skunk', name: '臭鼬', emoji: '🦨',
+    deck: null, hp: 275, atk: 19, def: 19, growth: 2, cycle: 'atk_def_atk_focus_crit', desc: '双重压迫' },
+  { id: 46, bossId: 'boar', name: '野猪', emoji: '🐗',
+    deck: null, hp: 280, atk: 20, def: 20, growth: 2, cycle: 'atk_def_atk_focus_crit', desc: '双重压迫' },
+  { id: 47, bossId: 'deer', name: '小鹿', emoji: '🦌',
+    deck: null, hp: 285, atk: 20, def: 20, growth: 2, cycle: 'atk_def_atk_focus_crit', desc: '双重压迫' },
+  { id: 48, bossId: 'goat', name: '山羊', emoji: '🐐',
+    deck: null, hp: 290, atk: 20, def: 20, growth: 2, cycle: 'atk_def_atk_focus_crit', desc: '双重压迫' },
+  { id: 49, bossId: 'calf', name: '小牛', emoji: '🐮',
+    deck: null, hp: 295, atk: 20, def: 20, growth: 2, cycle: 'atk_def_atk_focus_crit', desc: '双重压迫' },
+  { id: 50, bossId: 'straycat', name: '野猫首领', emoji: '🐈‍⬛',
+    deck: null, hp: 300, atk: 20, def: 20, growth: 2, cycle: 'atk_def_atk_focus_crit', desc: '冒险模式·关底' },
 ];
 
 // ========== Boss 定义 ==========
@@ -272,6 +364,325 @@ var BOSSES = {
     desc: '昆虫序列·第5关',
     maxHP: 80, baseAtk: 8, powerGrowth: 0, startShield: 0,
     cycle: [{ type: 'attack' }, { type: 'defend', shield: 8 }],
+    traits: [], hpTriggers: []
+  },
+
+  // ===== 猫咪冒险·第一幕：昆虫 =====
+  ladybug: {
+    id: 'ladybug', name: '瓢虫', emoji: '🐞',
+    desc: '冒险第6关白板Boss',
+    maxHP: 95, baseAtk: 9, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 9 }],
+    traits: [], hpTriggers: []
+  },
+  snail: {
+    id: 'snail', name: '蜗牛', emoji: '🐌',
+    desc: '冒险第7关白板Boss',
+    maxHP: 110, baseAtk: 10, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 10 }],
+    traits: [], hpTriggers: []
+  },
+  mosquito: {
+    id: 'mosquito', name: '蚊子', emoji: '🦟',
+    desc: '冒险第8关白板Boss',
+    maxHP: 125, baseAtk: 11, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 11 }],
+    traits: [], hpTriggers: []
+  },
+  fly: {
+    id: 'fly', name: '绿头苍蝇', emoji: '🪰',
+    desc: '冒险第9关白板Boss',
+    maxHP: 140, baseAtk: 12, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 12 }],
+    traits: [], hpTriggers: []
+  },
+  earthworm: {
+    id: 'earthworm', name: '蚯蚓', emoji: '🪱',
+    desc: '冒险第10关白板Boss',
+    maxHP: 155, baseAtk: 13, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 13 }],
+    traits: [], hpTriggers: []
+  },
+  spider: {
+    id: 'spider', name: '园蛛', emoji: '🕷️',
+    desc: '冒险第11关白板Boss',
+    maxHP: 170, baseAtk: 14, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 14 }],
+    traits: [], hpTriggers: []
+  },
+  cricket: {
+    id: 'cricket', name: '蟋蟀', emoji: '🦗',
+    desc: '冒险第12关白板Boss',
+    maxHP: 185, baseAtk: 15, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 15 }],
+    traits: [], hpTriggers: []
+  },
+  centipede: {
+    id: 'centipede', name: '蜈蚣', emoji: '🦂',
+    desc: '冒险第13关白板Boss',
+    maxHP: 200, baseAtk: 16, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 16 }],
+    traits: [], hpTriggers: []
+  },
+  mantis: {
+    id: 'mantis', name: '螳螂', emoji: '🪳',
+    desc: '冒险第14关白板Boss',
+    maxHP: 215, baseAtk: 17, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 17 }],
+    traits: [], hpTriggers: []
+  },
+  butterfly: {
+    id: 'butterfly', name: '菜粉蝶', emoji: '🦋',
+    desc: '冒险第15关白板Boss',
+    maxHP: 230, baseAtk: 18, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 18 }],
+    traits: [], hpTriggers: []
+  },
+  hornet: {
+    id: 'hornet', name: '马蜂', emoji: '🐝',
+    desc: '冒险第16关白板Boss',
+    maxHP: 245, baseAtk: 18, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 18 }],
+    traits: [], hpTriggers: []
+  },
+  firefly: {
+    id: 'firefly', name: '萤火虫', emoji: '✨',
+    desc: '冒险第17关白板Boss',
+    maxHP: 260, baseAtk: 19, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 19 }],
+    traits: [], hpTriggers: []
+  },
+  tick: {
+    id: 'tick', name: '蜱虫', emoji: '🪳',
+    desc: '冒险第18关白板Boss',
+    maxHP: 280, baseAtk: 19, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 19 }],
+    traits: [], hpTriggers: []
+  },
+  beetle: {
+    id: 'beetle', name: '独角仙', emoji: '🪲',
+    desc: '冒险第19关Boss·昆虫序列关底',
+    maxHP: 300, baseAtk: 20, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 20 }],
+    traits: [], hpTriggers: []
+  },
+  // ===== 猫咪冒险·第二幕：小动物 =====
+  mouse: {
+    id: 'mouse', name: '家鼠', emoji: '🐭',
+    desc: '冒险第20关白板Boss',
+    maxHP: 200, baseAtk: 15, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 15 }],
+    traits: [], hpTriggers: []
+  },
+  sparrow: {
+    id: 'sparrow', name: '麻雀', emoji: '🐦',
+    desc: '冒险第21关白板Boss',
+    maxHP: 205, baseAtk: 15, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 15 }],
+    traits: [], hpTriggers: []
+  },
+  treefrog: {
+    id: 'treefrog', name: '树蛙', emoji: '🐸',
+    desc: '冒险第22关白板Boss',
+    maxHP: 210, baseAtk: 15, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 15 }],
+    traits: [], hpTriggers: []
+  },
+  squirrel: {
+    id: 'squirrel', name: '松鼠', emoji: '🐿️',
+    desc: '冒险第23关白板Boss',
+    maxHP: 215, baseAtk: 16, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 16 }],
+    traits: [], hpTriggers: []
+  },
+  hedgehog: {
+    id: 'hedgehog', name: '刺猬', emoji: '🦔',
+    desc: '冒险第24关白板Boss',
+    maxHP: 220, baseAtk: 16, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 16 }],
+    traits: [], hpTriggers: []
+  },
+  bat: {
+    id: 'bat', name: '蝙蝠', emoji: '🦇',
+    desc: '冒险第25关白板Boss',
+    maxHP: 225, baseAtk: 16, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 16 }],
+    traits: [], hpTriggers: []
+  },
+  loach: {
+    id: 'loach', name: '泥鳅', emoji: '🐟',
+    desc: '冒险第26关白板Boss',
+    maxHP: 230, baseAtk: 17, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 17 }],
+    traits: [], hpTriggers: []
+  },
+  viper: {
+    id: 'viper', name: '毒蛇', emoji: '🐍',
+    desc: '冒险第27关白板Boss',
+    maxHP: 235, baseAtk: 17, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 17 }],
+    traits: [], hpTriggers: []
+  },
+  gecko: {
+    id: 'gecko', name: '壁虎', emoji: '🦎',
+    desc: '冒险第28关白板Boss',
+    maxHP: 240, baseAtk: 17, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 17 }],
+    traits: [], hpTriggers: []
+  },
+  hamster: {
+    id: 'hamster', name: '仓鼠', emoji: '🐹',
+    desc: '冒险第29关白板Boss',
+    maxHP: 245, baseAtk: 17, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 17 }],
+    traits: [], hpTriggers: []
+  },
+  pigeon: {
+    id: 'pigeon', name: '灰鸽', emoji: '🕊️',
+    desc: '冒险第30关白板Boss',
+    maxHP: 250, baseAtk: 18, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 18 }],
+    traits: [], hpTriggers: []
+  },
+  crow: {
+    id: 'crow', name: '乌鸦', emoji: '🐦‍⬛',
+    desc: '冒险第31关白板Boss',
+    maxHP: 255, baseAtk: 18, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 18 }],
+    traits: [], hpTriggers: []
+  },
+  hare: {
+    id: 'hare', name: '野兔', emoji: '🐰',
+    desc: '冒险第32关白板Boss',
+    maxHP: 260, baseAtk: 18, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 18 }],
+    traits: [], hpTriggers: []
+  },
+  duck: {
+    id: 'duck', name: '野鸭', emoji: '🦆',
+    desc: '冒险第33关白板Boss',
+    maxHP: 265, baseAtk: 18, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 18 }],
+    traits: [], hpTriggers: []
+  },
+  chick: {
+    id: 'chick', name: '小鸡', emoji: '🐤',
+    desc: '冒险第34关白板Boss',
+    maxHP: 270, baseAtk: 19, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 19 }],
+    traits: [], hpTriggers: []
+  },
+  turtle: {
+    id: 'turtle', name: '草龟', emoji: '🐢',
+    desc: '冒险第35关白板Boss',
+    maxHP: 275, baseAtk: 19, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 19 }],
+    traits: [], hpTriggers: []
+  },
+  crab: {
+    id: 'crab', name: '螃蟹', emoji: '🦀',
+    desc: '冒险第36关白板Boss',
+    maxHP: 280, baseAtk: 19, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 19 }],
+    traits: [], hpTriggers: []
+  },
+  crayfish: {
+    id: 'crayfish', name: '小龙虾', emoji: '🦞',
+    desc: '冒险第37关白板Boss',
+    maxHP: 285, baseAtk: 19, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 19 }],
+    traits: [], hpTriggers: []
+  },
+  mole: {
+    id: 'mole', name: '鼹鼠', emoji: '🐀',
+    desc: '冒险第38关白板Boss',
+    maxHP: 290, baseAtk: 20, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 20 }],
+    traits: [], hpTriggers: []
+  },
+  raccoon: {
+    id: 'raccoon', name: '浣熊', emoji: '🦝',
+    desc: '冒险第39关Boss·第二幕关底',
+    maxHP: 300, baseAtk: 20, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 20 }],
+    traits: [], hpTriggers: []
+  },
+  // ===== 猫咪冒险·第三幕：中等动物 =====
+  weasel: {
+    id: 'weasel', name: '黄鼠狼', emoji: '🦡',
+    desc: '冒险第40关白板Boss',
+    maxHP: 250, baseAtk: 18, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 18 }],
+    traits: [], hpTriggers: []
+  },
+  fox: {
+    id: 'fox', name: '赤狐', emoji: '🦊',
+    desc: '冒险第41关白板Boss',
+    maxHP: 255, baseAtk: 18, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 18 }],
+    traits: [], hpTriggers: []
+  },
+  meerkat: {
+    id: 'meerkat', name: '猫鼬', emoji: '🐱',
+    desc: '冒险第42关白板Boss',
+    maxHP: 260, baseAtk: 18, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 18 }],
+    traits: [], hpTriggers: []
+  },
+  goose: {
+    id: 'goose', name: '大鹅', emoji: '🪿',
+    desc: '冒险第43关白板Boss',
+    maxHP: 265, baseAtk: 19, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 19 }],
+    traits: [], hpTriggers: []
+  },
+  straydog: {
+    id: 'straydog', name: '流浪狗', emoji: '🐕',
+    desc: '冒险第44关白板Boss',
+    maxHP: 270, baseAtk: 19, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 19 }],
+    traits: [], hpTriggers: []
+  },
+  skunk: {
+    id: 'skunk', name: '臭鼬', emoji: '🦨',
+    desc: '冒险第45关白板Boss',
+    maxHP: 275, baseAtk: 19, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 19 }],
+    traits: [], hpTriggers: []
+  },
+  boar: {
+    id: 'boar', name: '野猪', emoji: '🐗',
+    desc: '冒险第46关白板Boss',
+    maxHP: 280, baseAtk: 20, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 20 }],
+    traits: [], hpTriggers: []
+  },
+  deer: {
+    id: 'deer', name: '小鹿', emoji: '🦌',
+    desc: '冒险第47关白板Boss',
+    maxHP: 285, baseAtk: 20, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 20 }],
+    traits: [], hpTriggers: []
+  },
+  goat: {
+    id: 'goat', name: '山羊', emoji: '🐐',
+    desc: '冒险第48关白板Boss',
+    maxHP: 290, baseAtk: 20, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 20 }],
+    traits: [], hpTriggers: []
+  },
+  calf: {
+    id: 'calf', name: '小牛', emoji: '🐮',
+    desc: '冒险第49关白板Boss',
+    maxHP: 295, baseAtk: 20, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 20 }],
+    traits: [], hpTriggers: []
+  },
+  straycat: {
+    id: 'straycat', name: '野猫首领', emoji: '🐈‍⬛',
+    desc: '冒险第50关Boss·冒险模式关底',
+    maxHP: 300, baseAtk: 20, powerGrowth: 0, startShield: 0,
+    cycle: [{ type: 'attack' }, { type: 'defend', shield: 20 }],
     traits: [], hpTriggers: []
   },
 

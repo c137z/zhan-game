@@ -31,6 +31,13 @@ Zhan.UI.renderMainMenu = function() {
 // ========== 关卡选择 5x5 网格 ==========
 Zhan.UI.renderStageSelect = function() {
   Zhan.UI._showView('stage-select');
+  // 50关支持滚动
+  if (!document.getElementById('stage-scroll-style')) {
+    var ss = document.createElement('style');
+    ss.id = 'stage-scroll-style';
+    ss.textContent = '#stage-select { max-height: 85vh; overflow-y: auto; }';
+    document.head.appendChild(ss);
+  }
   var grid = document.getElementById('stage-grid');
   grid.innerHTML = '';
   var unlocked = (typeof SAVE !== 'undefined' && SAVE) ? (SAVE.advUnlocked || 1) : 1;
