@@ -9,6 +9,10 @@ if (!window.Zhan) window.Zhan = {};
 // ========== 渲染主函数 ==========
 Zhan.UI = {};
 
+// 移除区缓存：追踪最近一次消除/移除的卡牌
+Zhan.UI._removedCards = [];
+Zhan.UI._prevSlot = [];
+
 // ========== 视图切换 ==========
 Zhan.UI._showView = function(viewId) {
   var views = ['main-menu', 'stage-select', 'battle-view'];
@@ -21,6 +25,8 @@ Zhan.UI._showView = function(viewId) {
 // ========== 首页渲染 ==========
 Zhan.UI.renderMainMenu = function() {
   document.getElementById('result-overlay').classList.remove('show');
+  Zhan.UI._removedCards = [];
+  Zhan.UI._prevSlot = [];
   Zhan.UI._showView('main-menu');
   if (typeof SAVE !== 'undefined' && SAVE) {
     document.getElementById('menu-catmao').textContent = '🐱 猫毛：' + (SAVE.catMao || 0);
@@ -151,6 +157,13 @@ Zhan.UI.render = function(state) {
   document.getElementById('hidden-cards').textContent = hiddenCount;
   document.getElementById('visible-cards').textContent = visibleCount;
 
+  // 移除区追踪：slot 清空时保存被消除/移除的卡牌
+  if (Zhan.UI._prevSlot.length > 0 && G.slot.length === 0) {
+    Zhan.UI._removedCards = Zhan.UI._prevSlot.filter(function(c) { return c !== null; });
+  }
+  Zhan.UI._prevSlot = G.slot.slice();
+
+  Zhan.UI.renderRemovedBar(G);
   Zhan.UI.renderBoard(G);
   Zhan.UI.renderSlot(G);
 
@@ -302,6 +315,29 @@ Zhan.UI.renderSlot = function(state) {
         }
       }
     }
+    bar.appendChild(div);
+  }
+};
+
+// ========== 移除区渲染 ==========
+Zhan.UI.renderRemovedBar = function(state) {
+  var G = state;
+  var bar = document.getElementById('removed-bar');
+  if (!bar) return;
+  bar.innerHTML = '';
+  var removed = Zhan.UI._removedCards || [];
+  if (removed.length === 0) {
+    bar.innerHTML = '<div class="rslot" style="flex:0 0 100%;border:none;color:#444;font-size:9px;opacity:1;">— 移除区 —</div>';
+    return;
+  }
+  for (var i = 0; i < removed.length; i++) {
+    var card = removed[i];
+    if (card === null) continue;
+    var ct = CARD_TYPES[card.type] || { emoji: '⬜', label: '废牌' };
+    var div = document.createElement('div');
+    div.className = 'rslot removed';
+    div.textContent = ct.emoji;
+    div.title = ct.label;
     bar.appendChild(div);
   }
 };
@@ -579,11 +615,15 @@ document.getElementById('btn-end-turn').addEventListener('click', function() {
 
 document.getElementById('btn-reset').addEventListener('click', function() {
   document.getElementById('result-overlay').classList.remove('show');
+  Zhan.UI._removedCards = [];
+  Zhan.UI._prevSlot = [];
   Zhan.Engine.dispatch({ type: 'RESET' });
 });
 
 document.getElementById('btn-restart').addEventListener('click', function() {
   document.getElementById('result-overlay').classList.remove('show');
+  Zhan.UI._removedCards = [];
+  Zhan.UI._prevSlot = [];
   if (Zhan.Engine._retry) {
     Zhan.Engine._retry();
   } else {
@@ -610,6 +650,8 @@ var _returnHomeBtn = document.getElementById('btn-return-home');
 if (_returnHomeBtn) {
   _returnHomeBtn.addEventListener('click', function() {
     document.getElementById('result-overlay').classList.remove('show');
+    Zhan.UI._removedCards = [];
+    Zhan.UI._prevSlot = [];
     Zhan.Engine.dispatch({ type: 'GO_HOME' });
   });
 }

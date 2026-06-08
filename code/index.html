@@ -73,7 +73,7 @@ body {
 }
 
 /* ensure battle content is above portrait */
-#top-row, #deck-info, #board, #combo-bar, #slot-bar, #actions, #log {
+#top-row, #deck-info, #board, #combo-bar, #slot-bar, #removed-bar, #actions, #log {
   position: relative;
   z-index: 1;
 }
@@ -165,6 +165,11 @@ body {
 .eslot.filled.special { background: #fff; border-color: #ddd; color: #333; }
 .eslot.locked { opacity: 0.3; border-color: #666; color: #e74c3c; font-size: 16px; font-weight: bold; }
 .eslot.preview { border-color: #f1c40f; background: rgba(241,196,15,0.08); }
+
+/* removed bar — shows cards that were consumed/removed from slot */
+#removed-bar { display: flex; gap: 2px; background: #1a1a2e; border-radius: 10px; padding: 3px; min-height: 36px; }
+.rslot { flex: 1; background: #2c3e50; border-radius: 4px; border: 1px dashed #3a3a3a; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #666; opacity: 0.7; aspect-ratio: 1 / 1; }
+.rslot.removed { border-style: solid; border-color: #555; }
 
 /* combo bar */
 #combo-bar { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; font-size: 10px; padding: 1px 0; min-height: 16px; }
@@ -435,9 +440,10 @@ body {
     <span>🔒 <span id="hidden-cards">0</span> 暗牌</span>
     <span>🔍 <span id="visible-cards">0</span> 可见</span>
   </div>
+  <div id="slot-bar"></div>
+  <div id="removed-bar"></div>
   <div id="board"></div>
   <div id="combo-bar"></div>
-  <div id="slot-bar"></div>
   <div id="actions">
     <button id="btn-end-turn" disabled>结束回合</button>
     <button id="btn-reset">重置</button>
