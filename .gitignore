@@ -6,3 +6,4 @@ msp/archive/backup-*
 msp/archive/task-*.json
 msp/prompt-*.md
 *.log
+bridge.js.bak-20260608
