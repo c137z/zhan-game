@@ -1015,8 +1015,8 @@ function newGame() {
     boss.maxHP = advDef.hp;
     boss.baseAtk = advDef.atk;
     boss.powerGrowth = advDef.growth || 0;
-    boss.startShield = advDef.def || 0;
-    boss.cycle = resolveCycle(advDef.cycle, boss.startShield);
+    boss.startShield = 0;  // 冒险模式Boss无初始护盾，def只给resolveCycle算防御值
+    boss.cycle = resolveCycle(advDef.cycle, advDef.def || 0);
     if (advDef.deck) deckOverride = JSON.parse(JSON.stringify(advDef.deck));
   } else if (mode === 'maze') {
     if (G.mazePhase === 'skeleton') {
@@ -1308,7 +1308,15 @@ Zhan.Engine._updateEnemyIntent = function() {
       if (st.boss.powerGrowth > 0) {
         st._intentHTML = '⚡ 能力值buff';
       } else {
-        st._intentHTML = '⏳ 蓄力中';
+        // powerGrowth=0 时无 buff_self 阶段，直接显示第一个 cycle 意图
+        var firstCycle = st.boss.cycle[0];
+        switch (firstCycle.type) {
+          case 'attack':       st._intentHTML = '⚔️ 攻击 ' + st.power; break;
+          case 'defend':       st._intentHTML = '🛡️ 防御 +' + st.power; break;
+          case 'focus':        st._intentHTML = '⏳ 蓄力'; break;
+          case 'crit':         st._intentHTML = '💥 暴击 ' + (st.power*2); break;
+          default:             st._intentHTML = '❓'; break;
+        }
       }
     } else {
       var cycleIdx = (t - 1) % st.boss.cycle.length;
