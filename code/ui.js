@@ -87,6 +87,18 @@ Zhan.UI.render = function(state) {
   // TASK: FURY_DYNAMIC — effective 值已由 Engine._updateEffectiveFury 在 phase 结束时计算好，render 只读不写
   var G = state || Zhan.Engine.state;
   if (!G) return;
+
+  // T5: 伤害弹出检测 — 比较 enemyHP 变化
+  if (Zhan.UI._prevEnemyHP !== undefined) {
+    var hpDrop = Zhan.UI._prevEnemyHP - G.enemyHP;
+    if (hpDrop > 0) {
+      var shieldDmg = Math.max(0, (Zhan.UI._prevEnemyShield || 0) - (G.enemyShield || 0));
+      Zhan.UI.showDamagePopup(hpDrop + shieldDmg);
+    }
+  }
+  Zhan.UI._prevEnemyHP = G.enemyHP;
+  Zhan.UI._prevEnemyShield = G.enemyShield;
+
   document.getElementById('player-hp').textContent = G.playerHP;
   document.getElementById('player-shield').textContent = G.playerShield;
   document.getElementById('enemy-hp').textContent = G.enemyHP;
@@ -672,6 +684,38 @@ function log(msg) {
   }
   el.scrollTop = el.scrollHeight;
 }
+
+// ========== 伤害数字弹出动画（T5） ==========
+Zhan.UI.showDamagePopup = function(damage) {
+  var container = document.getElementById('damage-popup-container');
+  if (!container) return;
+  var el = document.createElement('div');
+  el.className = 'damage-popup';
+  el.textContent = '-' + damage;
+  // 按伤害分颜色字号
+  if (damage < 10) {
+    el.style.color = '#fff';
+    el.style.fontSize = '22px';
+  } else if (damage < 30) {
+    el.style.color = '#f1c40f';
+    el.style.fontSize = '30px';
+  } else if (damage < 50) {
+    el.style.color = '#e67e22';
+    el.style.fontSize = '38px';
+  } else if (damage < 80) {
+    el.style.color = '#e74c3c';
+    el.style.fontSize = '46px';
+  } else {
+    el.style.color = '#c0392b';
+    el.style.fontSize = '54px';
+  }
+  el.style.left = (20 + Math.random() * 60) + '%';
+  el.style.top = (20 + Math.random() * 30) + '%';
+  container.appendChild(el);
+  setTimeout(function() {
+    if (el.parentNode) el.parentNode.removeChild(el);
+  }, 1300);
+};
 
 // ========== Boss 描述弹窗（点击头像） ==========
 document.getElementById('enemy-avatar').addEventListener('click', function() {

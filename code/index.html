@@ -77,6 +77,32 @@ body {
   position: relative;
   z-index: 1;
 }
+
+/* damage number popup — T5 */
+#damage-popup-container {
+  position: absolute;
+  top: 5%;
+  left: 50%;
+  width: 45%;
+  height: 50%;
+  pointer-events: none;
+  z-index: 100;
+  overflow: visible;
+}
+.damage-popup {
+  position: absolute;
+  font-weight: bold;
+  font-family: -apple-system, 'Segoe UI', sans-serif;
+  text-shadow: 0 0 6px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,0.5);
+  white-space: nowrap;
+  animation: dmg-float-up 1.2s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes dmg-float-up {
+  0%   { opacity: 1; transform: translateY(0) scale(0.6); }
+  25%  { opacity: 1; transform: translateY(-20px) scale(1.1); }
+  100% { opacity: 0; transform: translateY(-100px) scale(1.2); }
+}
 /* 移除 #battle-view 的 position:relative 连锁；#boss-portrait-bg 的 absolute 父容器仍为 #battle-view */
 
 /* top row — character display + VS separator */
@@ -459,6 +485,7 @@ body {
       </div>
     </div>
   </div>
+  <div id="damage-popup-container"></div>
   <div id="spirit-bar-wrap">
     <span class="spirit-label">💥 元气弹</span>
     <div id="spirit-bar-outer"><div id="spirit-bar-inner"></div></div>
@@ -567,12 +594,11 @@ Zhan.Test = {
     return base;
   },
   run: function() {
-    console.log('=== Zhan Regression Test ===');
-    console.log('--- Zhan.Rules ---');
+    // === Zhan Regression Test ===
     var T = this;
     T.assert(Zhan.Rules.calcBaseValue(5, 3) === 8, 'calcBaseValue');
     T.assert(Zhan.Rules.resolveWildType([{ type: 'attack' }, { type: 'wild' }], 1) === 'attack', 'resolveWildType left');
-    console.log('--- Engine ---');
+    // --- Engine ---
     Zhan.Engine.init();
     T.assert(Zhan.Engine.state.playerHP === 100, 'init HP');
     T.assert(Zhan.Engine.state.bossId === 'skeleton', 'init boss');
@@ -580,7 +606,7 @@ Zhan.Test = {
     T.assert(Zhan.Engine.state.turn >= 1, 'END_TURN dispatch works');
     Zhan.Engine.dispatch({ type: 'RESET' });
     T.assert(Zhan.Engine.state.turn === 0, 'RESET dispatch works');
-    console.log('--- slot_plus2 + wild_core ---');
+    // --- slot_plus2 + wild_core ---
     (function() {
       var g1 = T.mockState();
       Zhan.Systems.Relic._handlers.increaseSlotSize(g1, { amount: 2 });
@@ -598,7 +624,7 @@ Zhan.Test = {
       Zhan.Systems.Relic._handlers.enableWildCoreSlot(g4);
       T.assert(g4.effectiveSlotSize === 13, 'slot_plus2+wild_core → 13');
     })();
-    console.log('--- computeCombos wild ---');
+    // --- computeCombos wild ---
     (function() {
       var mk = function(types) { return types.map(function(t, i) { return { type: t, id: i }; }); };
       var r1 = Zhan.Rules.computeCombos(mk(['attack','attack','wild']), 3);
@@ -613,7 +639,7 @@ Zhan.Test = {
       T.assert(r4.length === 1 && r4[0].n === 3, '[a,a,a] min3 → combo n=3');
       T.assert(r4._claimedWildIndices.length === 0, '[a,a,a] 0 wilds claimed');
     })();
-    console.log('--- getEffectDescription ---');
+    // --- getEffectDescription ---
     (function() {
       var s1 = T.mockState({ effectiveVulnMult: 2.0, buffDurationBonus: 1 });
       var before = JSON.stringify(s1);
@@ -640,7 +666,7 @@ Zhan.Test = {
       var desc6 = Zhan.Rules.getEffectDescription(s5, 'nonexistent', 3);
       T.assert(desc6 === '', 'unknown type returns empty');
     })();
-    console.log('--- window.G fallback ---');
+    // --- window.G fallback ---
     (function() {
       var saved = Zhan.Engine.state;
       Zhan.Engine.state = null;
@@ -652,7 +678,7 @@ Zhan.Test = {
       T.assert(!threw2, 'log with null state does not throw');
       Zhan.Engine.state = saved;
     })();
-    console.log('--- hiss/groom ---');
+    // --- hiss/groom ---
     (function() {
       var g1 = T.mockState();
       g1.turn = 0;
@@ -687,7 +713,7 @@ Zhan.Test = {
       Zhan.Systems.Boss.runHpTriggers(g4, 'hiss');
       T.assert(true, 'no hpTriggers no error');
     })();
-    console.log('--- Relic handlers ---');
+    // --- Relic handlers ---
     (function() {
       var g1 = T.mockState();
       var beforeWild = g1.deckConfig.wild;
@@ -729,7 +755,7 @@ Zhan.Test = {
       Zhan.Systems.Relic._handlers.increaseMaxHP(g11, { amount: 50 });
       T.assert(g11.playerMaxHP === CONFIG.PLAYER_MAX_HP + 50, 'increaseMaxHP +50');
     })();
-    console.log('--- applyInit multi-relic ---');
+    // --- applyInit multi-relic ---
     (function() {
       var g = T.mockState();
       g.activeRelics = ['slot_plus2', 'wild_core', 'life_core', 'endurance_core'];
@@ -748,7 +774,7 @@ Zhan.Test = {
       Zhan.Systems.Relic.applyInit(g3);
       T.assert(JSON.stringify(g3) === before3, 'applyInit empty relics does nothing');
     })();
-    console.log('--- computeCombos edge ---');
+    // --- computeCombos edge ---
     (function() {
       var r1 = Zhan.Rules.computeCombos([], 3);
       T.assert(Array.isArray(r1) && r1.length === 0, 'computeCombos([]) → []');
@@ -768,7 +794,7 @@ Zhan.Test = {
       var r7 = Zhan.Rules.computeCombos([{type:'wild',id:1},{type:'wild',id:2},{type:'attack',id:3},{type:'wild',id:4}], 3);
       T.assert(r7.length === 1 && r7[0].n === 4, 'computeCombos([w,w,a,w]) → n=4');
     })();
-    console.log('--- resolveWildType edge ---');
+    // --- resolveWildType edge ---
     (function() {
       var t1 = Zhan.Rules.resolveWildType([{type:'wild'},{type:'defend'}], 0);
       T.assert(t1 === 'defend', 'resolveWildType right → defend');
@@ -783,13 +809,13 @@ Zhan.Test = {
       var t6 = Zhan.Rules.resolveWildType([{type:'attack'},{type:'wild'},{type:'defend'}], 1);
       T.assert(t6 === 'attack', 'resolveWildType left priority');
     })();
-    console.log('--- calcPursuitMultiplier ---');
+    // --- calcPursuitMultiplier ---
     (function() {
       T.assert(Zhan.Rules.calcPursuitMultiplier(3, 3) === 1, 'pursuit 3wmin3 → 1');
       T.assert(Zhan.Rules.calcPursuitMultiplier(4, 3) > 1, 'pursuit 4wmin3 > 1');
       T.assert(Zhan.Rules.calcPursuitMultiplier(2, 3) === 1, 'pursuit below min → 1');
     })();
-    console.log('--- computeEffectiveFury ---');
+    // --- computeEffectiveFury ---
     (function() {
       var f1 = Zhan.Rules.computeEffectiveFury(100, 100, { furyEnabled: false });
       T.assert(f1.atkBuffMult === CONFIG.ATK_BUFF_MULT, 'fury off → default atkBuffMult');
@@ -799,7 +825,7 @@ Zhan.Test = {
       var f3 = Zhan.Rules.computeEffectiveFury(50, 100, { furyEnabled: true, atkBuffMult: CONFIG.ATK_BUFF_MULT, vulnMult: CONFIG.VULN_MULT, defBuffRatio: CONFIG.DEF_BUFF_RATIO });
       T.assert(f3.atkBuffMult > CONFIG.ATK_BUFF_MULT, 'fury half HP → increased atkBuffMult');
     })();
-    console.log('--- Boss runHpTriggers conditions ---');
+    // --- Boss runHpTriggers conditions ---
     (function() {
       var g1 = T.mockState();
       g1.turn = 0;
@@ -826,7 +852,7 @@ Zhan.Test = {
       Zhan.Systems.Boss.runHpTriggers(g3, 'hiss');
       T.assert(JSON.stringify(g3.playerEffects) === '{}', 'hiss cross-threshold clears effects');
     })();
-    console.log('=== All Tests Passed ===');
+    // === All Tests Passed ===
   }
 };
 if (location.hash === '#test') {
