@@ -779,6 +779,7 @@ if (sliderSfx) {
 // 设置面板返回主页
 document.getElementById('btn-back-to-home').addEventListener('click', function() {
   settingsPanel.classList.remove('show');
+  Zhan.UI.renderMainMenu();
 });
 
 // 返回主页按钮（结果弹窗中）
