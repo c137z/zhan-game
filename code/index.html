@@ -73,7 +73,7 @@ body {
 }
 
 /* ensure battle content is above portrait */
-#top-row, #deck-info, #board, #combo-bar, #slot-bar, #removed-bar, #actions, #log {
+#top-row, #deck-info, #board, #combo-bar, #slot-bar, #removed-bar, #log {
   position: relative;
   z-index: 1;
 }
@@ -165,7 +165,7 @@ body {
 .eslot.filled.special { background: #fff; border-color: #ddd; color: #333; }
 .eslot.locked { opacity: 0.3; border-color: #666; color: #e74c3c; font-size: 16px; font-weight: bold; }
 .eslot.preview { border-color: #f1c40f; background: rgba(241,196,15,0.08); }
-
+.eslot.selected { border-color: #f1c40f !important; box-shadow: 0 0 8px rgba(241,196,15,0.5); background: rgba(241,196,15,0.12) !important; }
 /* removed bar — shows cards that were consumed/removed from slot */
 #removed-bar { display: flex; gap: 2px; background: #1a1a2e; border-radius: 10px; padding: 3px; min-height: 36px; }
 .rslot { flex: 1; background: #2c3e50; border-radius: 4px; border: 1px dashed #3a3a3a; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #666; opacity: 0.7; aspect-ratio: 1 / 1; }
@@ -185,14 +185,42 @@ body {
 .combo-preview.def-buff { border-left: 2px solid #16a085; color: #76d7c4; }
 .combo-none { color: #555; font-size: 10px; }
 
-/* actions */
-#actions { display: flex; gap: 6px; }
-#actions button { flex: 1; padding: 7px; border: none; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; transition: transform 0.06s, opacity 0.1s; touch-action: manipulation; }
+/* actions — floating bottom bar */
+#actions {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  position: sticky;
+  bottom: 0;
+  background: rgba(26, 26, 46, 0.92);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  z-index: 100;
+  margin: 0 -6px;
+  width: calc(100% + 12px);
+}
+#actions button {
+  flex: 1;
+  padding: 8px 4px;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.06s, opacity 0.1s;
+  touch-action: manipulation;
+}
 #actions button:active { transform: scale(0.96); }
 #actions button:disabled { opacity: 0.3; cursor: default; transform: none; }
-#btn-end-turn { background: #e67e22; color: #fff; }
-#btn-end-turn:disabled { background: #7f8c8d; }
-#btn-reset { background: #2c3e50; color: #ccc; }
+#btn-end-turn {
+  background: linear-gradient(135deg, #e67e22, #d35400);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(230,126,34,0.35);
+}
+#btn-end-turn:disabled { background: #7f8c8d; box-shadow: none; }
+#btn-remove-card, #btn-shuffle { background: #2c3e50; color: #ccc; }
+#btn-remove-card:disabled, #btn-shuffle:disabled { background: #1a1a2e; color: #555; }
 
 /* log */
 #log { background: #0d1b2a; border-radius: 8px; padding: 3px 6px; font-size: 9px; min-height: 28px; max-height: 56px; overflow-y: auto; color: #7f8c8d; line-height: 1.3; }
@@ -246,7 +274,8 @@ body {
   .avatar { font-size: 36px; }
   .enemy-avatar { font-size: 52px; }
   .stat-row .stat-item { font-size: 8px; padding: 0 3px; }
-  #actions button { padding: 5px; font-size: 11px; }
+  #actions { padding: 4px; gap: 4px; }
+  #actions button { padding: 6px 3px; font-size: 10px; }
   .card-slot .stack-count { font-size: 8px; }
   .badge { font-size: 7px; }
 }
@@ -445,9 +474,11 @@ body {
   <div id="board"></div>
   <div id="combo-bar"></div>
   <div id="actions">
-    <button id="btn-end-turn" disabled>结束回合</button>
-    <button id="btn-reset">重置</button>
+    <button id="btn-remove-card" disabled>🗑️ 移出</button>
+    <button id="btn-end-turn" disabled>⚔️ 结束回合</button>
+    <button id="btn-shuffle">🔀 洗牌 <small id="ad-count" style="color:#f1c40f;font-size:9px;">(3)</small></button>
   </div>
+  <button id="btn-reset" style="display:none"></button>
   <div id="log"></div>
   </div>
 </div>
@@ -865,6 +896,121 @@ if (btnHome) {
     Zhan.UI.renderMainMenu();
   });
 }
+
+// ========== T4: 操作按钮 — 槽位选中/移出/洗牌/广告次数 ==========
+window.Zhan._adCount = window.Zhan._adCount || 3;
+
+function _updateAdDisplay() {
+  var el = document.getElementById('ad-count');
+  if (el) el.textContent = '(' + window.Zhan._adCount + ')';
+  var btn = document.getElementById('btn-shuffle');
+  if (btn) btn.disabled = window.Zhan._adCount <= 0;
+}
+
+// 槽中卡牌点击选中
+function _attachSlotSelection() {
+  var bar = document.getElementById('slot-bar');
+  var G = Zhan.Engine.state;
+  if (!bar || !G || G.phase !== 'player' || G.over) return;
+  for (var si = 0; si < bar.children.length; si++) {
+    (function(div) {
+      if (div.classList.contains('filled') && !div.classList.contains('locked') && !div.classList.contains('wild-core') && !div.classList.contains('special')) {
+        div.addEventListener('click', function(e) {
+          e.stopPropagation();
+          var all = bar.querySelectorAll('.eslot.selected');
+          for (var k = 0; k < all.length; k++) all[k].classList.remove('selected');
+          div.classList.add('selected');
+          var rmBtn = document.getElementById('btn-remove-card');
+          if (rmBtn) rmBtn.disabled = false;
+        });
+      }
+    })(bar.children[si]);
+  }
+  if (!bar.querySelector('.eslot.selected')) {
+    var rmBtn = document.getElementById('btn-remove-card');
+    if (rmBtn) rmBtn.disabled = true;
+  }
+}
+
+// 包装 render 以注入选中和广告更新
+(function() {
+  var _origRender = Zhan.UI.render;
+  Zhan.UI.render = function(state) {
+    _origRender(state);
+    _updateAdDisplay();
+    _attachSlotSelection();
+  };
+})();
+
+// 移出卡牌
+document.getElementById('btn-remove-card').addEventListener('click', function() {
+  var G = Zhan.Engine.state;
+  if (!G || G.phase !== 'player' || G.over) return;
+  var bar = document.getElementById('slot-bar');
+  if (!bar) return;
+  var sel = bar.querySelector('.eslot.selected');
+  if (!sel) return;
+  var idx = Array.prototype.indexOf.call(bar.children, sel);
+  if (idx < 0 || idx >= G.slot.length) return;
+  var card = G.slot[idx];
+  if (card === null) return;
+  G.slot.splice(idx, 1)[0];
+  G.piles[0][0].push(card);
+  var ct = CARD_TYPES[card.type] || { emoji: '⬜', label: '?' };
+  log('🗑️ 移出 ' + ct.emoji + ct.label);
+  updateComboPreview();
+  Zhan.UI.render(G);
+});
+
+// 洗牌（消耗广告次数）
+document.getElementById('btn-shuffle').addEventListener('click', function() {
+  var G = Zhan.Engine.state;
+  if (!G || G.phase !== 'player' || G.over) return;
+  if (window.Zhan._adCount <= 0) return;
+  window.Zhan._adCount--;
+  var cards = [];
+  for (var si = 0; si < G.slot.length; si++) {
+    if (G.slot[si] !== null) cards.push(G.slot[si]);
+  }
+  G.slot.length = 0;
+  var totalPiles = CONFIG.BOARD_ROWS * CONFIG.BOARD_COLS;
+  for (var ci = 0; ci < cards.length; ci++) {
+    var ri = ci % totalPiles;
+    var rr = Math.floor(ri / CONFIG.BOARD_COLS);
+    var cc = ri % CONFIG.BOARD_COLS;
+    G.piles[rr][cc].push(cards[ci]);
+  }
+  for (var r = 0; r < CONFIG.BOARD_ROWS; r++) {
+    for (var c = 0; c < CONFIG.BOARD_COLS; c++) {
+      var pile = G.piles[r][c];
+      for (var pi = pile.length - 1; pi > 0; pi--) {
+        var pj = Math.floor(Math.random() * (pi + 1));
+        var tmp = pile[pi];
+        pile[pi] = pile[pj];
+        pile[pj] = tmp;
+      }
+    }
+  }
+  var maxSize = G.effectiveSlotSize || CONFIG.SLOT_SIZE;
+  while (G.slot.length < maxSize) {
+    var drawn = false;
+    for (var r = 0; r < CONFIG.BOARD_ROWS && !drawn; r++) {
+      for (var c = 0; c < CONFIG.BOARD_COLS && !drawn; c++) {
+        if (G.piles[r][c].length > 0) {
+          G.slot.push(G.piles[r][c].pop());
+          drawn = true;
+        }
+      }
+    }
+    if (!drawn) break;
+  }
+  updateComboPreview();
+  log('🔀 洗牌！（剩余 ' + window.Zhan._adCount + ' 次）');
+  Zhan.UI.render(G);
+  _updateAdDisplay();
+});
+
+_updateAdDisplay();
 </script>
 </body>
 </html>
