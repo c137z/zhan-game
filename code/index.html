@@ -240,11 +240,17 @@ body {
 #actions button:active { transform: scale(0.96); }
 #actions button:disabled { opacity: 0.3; cursor: default; transform: none; }
 #btn-end-turn {
-  background: linear-gradient(135deg, #e67e22, #d35400);
+  background: linear-gradient(135deg, #f1c40f, #e67e22);
   color: #fff;
-  box-shadow: 0 0 10px rgba(230,126,34,0.35);
+  border: 2px solid #f1c40f !important;
+  box-shadow: 0 0 12px rgba(241,196,15,0.5);
+  animation: goldPulse 2s ease-in-out infinite;
 }
-#btn-end-turn:disabled { background: #7f8c8d; box-shadow: none; }
+#btn-end-turn:disabled { background: #7f8c8d; border: 2px solid #7f8c8d !important; box-shadow: none; animation: none; }
+@keyframes goldPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(241,196,15,0.3); }
+  50% { box-shadow: 0 0 20px rgba(241,196,15,0.8); }
+}
 #btn-remove-card, #btn-shuffle { background: #2c3e50; color: #ccc; }
 #btn-remove-card:disabled, #btn-shuffle:disabled { background: #1a1a2e; color: #555; }
 
@@ -308,8 +314,8 @@ body {
 
 /* main menu */
 #main-menu { display: flex; flex-direction: column; gap: 10px; padding: 20px 0; position: relative; }
-/* gear — fixed top-right, always visible across all views */
-#btn-settings { position: fixed; top: 4px; right: 4px; background: none; border: none; font-size: 20px; cursor: pointer; padding: 4px 8px; z-index: 1000; color: #888; transition: color 0.15s; }
+/* gear — absolute top-right of slot-bar, battle-view only */
+#btn-settings { position: absolute; top: -26px; right: 0; background: none; border: none; font-size: 20px; cursor: pointer; padding: 4px 8px; z-index: 10; color: #888; transition: color 0.15s; }
 #btn-settings:active { color: #f1c40f; }
 #menu-title { text-align: center; font-size: 36px; font-weight: bold; color: #f1c40f; letter-spacing: 8px; margin: 10px 0; }
 .menu-divider { border: 0; height: 1px; background: linear-gradient(90deg, transparent, #f1c40f, transparent); margin: 8px 0; }
@@ -389,7 +395,6 @@ body {
 </head>
 <body>
 <div id="app">
-  <button id="btn-settings" title="设置">⚙️</button>
   <!-- 设置面板 -->
   <div id="settings-panel">
     <div id="settings-box">
@@ -496,7 +501,7 @@ body {
     <span>🔒 <span id="hidden-cards">0</span> 暗牌</span>
     <span>🔍 <span id="visible-cards">0</span> 可见</span>
   </div>
-  <div id="slot-bar"></div>
+  <div id="slot-bar"><button id="btn-settings" title="设置">⚙️</button></div>
   <div id="removed-bar"></div>
   <div id="board"></div>
   <div id="combo-bar"></div>
@@ -505,7 +510,6 @@ body {
     <button id="btn-end-turn" disabled>⚔️ 结束回合</button>
     <button id="btn-shuffle">🔀 洗牌 <small id="ad-count" style="color:#f1c40f;font-size:9px;">(3)</small></button>
   </div>
-  <button id="btn-reset" style="display:none"></button>
   <div id="log"></div>
   </div>
 </div>
