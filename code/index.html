@@ -185,7 +185,8 @@ body {
 
 /* main menu */
 #main-menu { display: flex; flex-direction: column; gap: 10px; padding: 20px 0; position: relative; }
-#btn-settings { position: absolute; top: 4px; right: 4px; background: none; border: none; font-size: 20px; cursor: pointer; padding: 4px 8px; z-index: 10; color: #888; transition: color 0.15s; }
+/* gear — fixed top-right, always visible across all views */
+#btn-settings { position: fixed; top: 4px; right: 4px; background: none; border: none; font-size: 20px; cursor: pointer; padding: 4px 8px; z-index: 1000; color: #888; transition: color 0.15s; }
 #btn-settings:active { color: #f1c40f; }
 #menu-title { text-align: center; font-size: 36px; font-weight: bold; color: #f1c40f; letter-spacing: 8px; margin: 10px 0; }
 .menu-divider { border: 0; height: 1px; background: linear-gradient(90deg, transparent, #f1c40f, transparent); margin: 8px 0; }
@@ -231,8 +232,8 @@ body {
 /* battle view hidden by default */
 #battle-view { display: none; }
 
-/* settings panel */
-#settings-panel { display: none; background: #16213e; border-radius: 10px; padding: 12px 14px; margin: 4px 0; border: 1px solid rgba(255,255,255,0.1); font-size: 12px; }
+/* settings panel — fixed overlay near gear button */
+#settings-panel { display: none; position: fixed; top: 36px; right: 6px; width: 200px; background: #16213e; border-radius: 10px; padding: 12px 14px; border: 1px solid rgba(255,255,255,0.1); font-size: 12px; z-index: 999; }
 #settings-panel.show { display: block; }
 #settings-box { display: flex; flex-direction: column; gap: 6px; }
 #settings-box h3 { font-size: 14px; text-align: center; color: #f1c40f; margin: 0 0 4px 0; }
@@ -265,28 +266,28 @@ body {
 </head>
 <body>
 <div id="app">
+  <button id="btn-settings" title="设置">⚙️</button>
+  <!-- 设置面板 -->
+  <div id="settings-panel">
+    <div id="settings-box">
+      <h3>⚙️ 设置</h3>
+      <div class="setting-row">
+        <span class="setting-label">🎵 音乐</span>
+        <input type="range" class="setting-slider" id="slider-music" min="0" max="100" value="80">
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">🔊 音效</span>
+        <input type="range" class="setting-slider" id="slider-sfx" min="0" max="100" value="80">
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">📳 震动</span>
+        <div class="toggle on" id="toggle-vibrate"></div>
+      </div>
+      <button id="btn-back-to-home">🏠 返回主页</button>
+    </div>
+  </div>
   <!-- 首屏首页 -->
   <div id="main-menu">
-    <button id="btn-settings" title="设置">⚙️</button>
-    <!-- 设置面板 -->
-    <div id="settings-panel">
-      <div id="settings-box">
-        <h3>⚙️ 设置</h3>
-        <div class="setting-row">
-          <span class="setting-label">🎵 音乐</span>
-          <input type="range" class="setting-slider" id="slider-music" min="0" max="100" value="80">
-        </div>
-        <div class="setting-row">
-          <span class="setting-label">🔊 音效</span>
-          <input type="range" class="setting-slider" id="slider-sfx" min="0" max="100" value="80">
-        </div>
-        <div class="setting-row">
-          <span class="setting-label">📳 震动</span>
-          <div class="toggle on" id="toggle-vibrate"></div>
-        </div>
-        <button id="btn-back-to-home">🏠 返回主页</button>
-      </div>
-    </div>
     <div id="menu-title">斩</div>
     <hr class="menu-divider">
     <div id="menu-best">今日最佳：0层</div>

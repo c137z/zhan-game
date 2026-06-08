@@ -622,18 +622,10 @@ function log(msg) {
   el.scrollTop = el.scrollHeight;
 }
 
-// ========== Boss 描述弹窗（长按头像） ==========
-(function() {
-  var el = document.getElementById('enemy-avatar');
-  var timer;
-  el.addEventListener('touchstart', function(e) {
-    timer = setTimeout(function() { showBossInfo(); }, CONFIG.LONG_PRESS_DELAY);
-  }, {passive: true});
-  el.addEventListener('touchend', function() { clearTimeout(timer); });
-  el.addEventListener('touchmove', function() { clearTimeout(timer); });
-  // 桌面端右键
-  el.addEventListener('contextmenu', function(e) { e.preventDefault(); showBossInfo(); });
-})();
+// ========== Boss 描述弹窗（点击头像） ==========
+document.getElementById('enemy-avatar').addEventListener('click', function() {
+  showBossInfo();
+});
 
 function showBossInfo() {
   var st = Zhan.Engine.state;
@@ -641,8 +633,16 @@ function showBossInfo() {
   document.getElementById('boss-info-emoji').textContent = st.boss.emoji || '?';
   document.getElementById('boss-info-name').textContent = st.boss.name;
   document.getElementById('boss-info-mechanic').textContent = st.boss.desc;
-  document.getElementById('boss-info-stats').textContent =
-    'HP ' + st.boss.maxHP + ' | 攻击 ' + st.boss.baseAtk + ' | 护盾 ' + (st.boss.startShield || 0);
+  // 基础属性
+  var statsText = 'HP ' + st.boss.maxHP + ' | 攻击 ' + st.boss.baseAtk + ' | 护盾 ' + (st.boss.startShield || 0);
+  // 20关起显示能力值加成（powerGrowth）
+  if (st.mode === 'adventure' && st.adventureStageId >= 20) {
+    var growth = st.boss.powerGrowth || 0;
+    if (growth > 0) {
+      statsText += ' | 每回合攻击+' + growth;
+    }
+  }
+  document.getElementById('boss-info-stats').textContent = statsText;
   document.getElementById('boss-info-overlay').style.display = 'flex';
 }
 
