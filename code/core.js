@@ -729,11 +729,13 @@ Zhan.Engine = {
     if ((st.playerEffects.atk_buff || 0) > 0) st.playerEffects.atk_buff--;
     if (st.boss.hpTriggers) { Zhan.Systems.Boss.runHpTriggers(st, 'hiss'); if (st.over) return; }
     if (st.boss.hpTriggers) { Zhan.Systems.Boss.runHpTriggers(st, 'groom'); if (st.over) return; }
-    // T1 首回合 buff_self：不被击晕打断
+    // T1 首回合 buff_self：不被击晕打断（仅 powerGrowth>0 时生效）
     if (st.turn === 0) {
-      log(st.boss.emoji + ' 能力值buff！power=' + st.power);
+      if (st.boss.powerGrowth > 0) {
+        log(st.boss.emoji + ' 能力值buff！power=' + st.power);
+        st.power += st.boss.powerGrowth;
+      }
       Zhan.Systems.Boss.processEvent(st, 'TURN_END');
-      st.power += (st.boss.powerGrowth || 0);
       if (st.lockedSlots) {
         var cleaned0 = [];
         for (var _ci0 = 0; _ci0 < st.slot.length; _ci0++) {
@@ -1301,9 +1303,13 @@ Zhan.Engine._updateEnemyIntent = function() {
     st._intentExtraHTML = '';
   } else {
     var t = st.turn;
-    // T0 显示 buff_self 意图
+    // T0 显示 buff_self 意图（仅 powerGrowth>0 时显示 buff）
     if (t === 0) {
-      st._intentHTML = '⚡ 能力值buff';
+      if (st.boss.powerGrowth > 0) {
+        st._intentHTML = '⚡ 能力值buff';
+      } else {
+        st._intentHTML = '⏳ 蓄力中';
+      }
     } else {
       var cycleIdx = (t - 1) % st.boss.cycle.length;
       var cycle = st.boss.cycle[cycleIdx];
