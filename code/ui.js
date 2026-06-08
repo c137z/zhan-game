@@ -98,8 +98,17 @@ Zhan.UI.render = function(state) {
   remaining += G.slot.length;
   var consumed = totalCards - remaining;
   var spiritPct = Math.floor(consumed / totalCards * 100);
-  document.getElementById('spirit-bar-inner').style.width = spiritPct + '%';
+  document.getElementById('spirit-bar-inner').style.height = spiritPct + '%';
   document.getElementById('spirit-text').textContent = spiritPct + '%';
+
+  // 猫猫Boss立绘背景（只对猫猫Boss显示大号半透明emoji）
+  var bossPortrait = document.getElementById('boss-portrait-bg');
+  if (bossPortrait && G.boss && typeof CAT_BOSS_IDS !== 'undefined' && CAT_BOSS_IDS.indexOf(G.boss.id) !== -1) {
+    bossPortrait.style.display = 'flex';
+    bossPortrait.textContent = G.boss.emoji || '🐱';
+  } else if (bossPortrait) {
+    bossPortrait.style.display = 'none';
+  }
 
   // 玩家badges
   var pe = G.playerEffects;
