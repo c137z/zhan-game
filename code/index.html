@@ -17,26 +17,22 @@ body {
 /* spirit bomb bar — vertical left */
 #spirit-bar-wrap {
   position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 24px;
+  left: 4px; top: 4px;
+  width: 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  background: #16213e;
-  border-radius: 0 8px 8px 0;
+  background: rgba(22,33,62,0.85);
+  border-radius: 8px;
   padding: 6px 2px;
-  gap: 4px;
-  font-size: 10px;
+  gap: 3px;
   z-index: 10;
+  height: calc(30vh - 8px);
 }
-#spirit-bar-wrap .spirit-label { color: #f39c12; font-weight: bold; writing-mode: vertical-rl; text-orientation: mixed; font-size: 9px; }
 #spirit-bar-outer {
   flex: 1;
   width: 8px;
   min-height: 40px;
-  height: 50%;
-  max-height: 60%;
   background: #0f3460;
   border-radius: 4px;
   overflow: hidden;
@@ -51,9 +47,8 @@ body {
   border-radius: 4px;
   transition: height 0.3s;
 }
-#spirit-text { writing-mode: vertical-rl; text-orientation: mixed; font-size: 8px; color: #f39c12; }
-#spirit-bar-wrap .spirit-label,
-#spirit-text { white-space: nowrap; }
+#spirit-text { font-size: 8px; color: #f39c12; text-align: center; }
+#spirit-bar-wrap .spirit-label { white-space: nowrap; writing-mode: vertical-rl; text-orientation: mixed; font-size: 9px; }
 
 /* cat boss portrait background */
 #boss-portrait-bg {
