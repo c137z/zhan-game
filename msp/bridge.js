@@ -174,7 +174,7 @@ function callClaudeCode(taskPath, callback) {
   const newSessionId = randomUUID();
   const args = [
     '-p', promptPath,
-    '--model', 'deepseek-v4-flash',
+    '--model', 'deepseek-v4-pro',
     '--allowedTools', 'Read,Edit,Bash',
     '--add-dir', PROJECT_ROOT,
     '--session-id', newSessionId
