@@ -668,23 +668,6 @@ if (_returnHomeBtn) {
   });
 }
 
-// ========== LOG ==========
-function log(msg) {
-  var st = Zhan.Engine.state;
-  if (!st) return;
-  st.logLines.push(msg);
-  if (st.logLines.length > CONFIG.LOG_MAX_LINES) st.logLines.shift();
-  var el = document.getElementById('log');
-  // 逐行用 textContent 防止 XSS
-  el.innerHTML = '';
-  for (var i = 0; i < st.logLines.length; i++) {
-    var line = document.createElement('div');
-    line.textContent = st.logLines[i];
-    el.appendChild(line);
-  }
-  el.scrollTop = el.scrollHeight;
-}
-
 // ========== 伤害数字弹出动画（T5） ==========
 Zhan.UI.showDamagePopup = function(damage) {
   var container = document.getElementById('damage-popup-container');

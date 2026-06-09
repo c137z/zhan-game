@@ -68,7 +68,7 @@ body {
 }
 
 /* ensure battle content is above portrait */
-#top-row, #deck-info, #board, #combo-bar, #slot-bar, #removed-bar, #log {
+#top-row, #deck-info, #board, #combo-bar, #slot-bar, #removed-bar {
   position: relative;
   z-index: 1;
 }
@@ -253,13 +253,7 @@ body {
 #btn-remove-card, #btn-shuffle { flex: 1.2; background: #2c3e50; color: #ccc; }
 #btn-remove-card:disabled, #btn-shuffle:disabled { background: #1a1a2e; color: #555; }
 
-/* log */
-#log { background: #0d1b2a; border-radius: 8px; padding: 3px 6px; font-size: 9px; min-height: 28px; max-height: 56px; overflow-y: auto; color: #7f8c8d; line-height: 1.3; }
-#log .highlight { color: #f1c40f; }
-#log .dmg { color: #e74c3c; }
-#log .def { color: #3498db; }
-#log .heal { color: #2ecc71; }
-#log .buff { color: #f39c12; }
+
 
 /* result overlay */
 #result-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
@@ -509,7 +503,6 @@ body {
     <button id="btn-end-turn" disabled>⚔️ 结束回合</button>
     <button id="btn-shuffle">🔀 洗牌 <small id="ad-count" style="color:#f1c40f;font-size:9px;">(3)</small></button>
   </div>
-  <div id="log"></div>
   </div>
 </div>
 <div id="result-overlay">
@@ -677,8 +670,7 @@ Zhan.Test = {
       try { Zhan.Engine._showRelicSelect(); } catch(e) { threw = true; }
       T.assert(!threw, 'Zhan.Engine._showRelicSelect with null state does not throw');
       var threw2 = false;
-      try { log('test-null-log'); } catch(e) { threw2 = true; }
-      T.assert(!threw2, 'log with null state does not throw');
+      T.assert(true, 'log function removed (T5)');
       Zhan.Engine.state = saved;
     })();
     // --- hiss/groom ---
@@ -985,8 +977,6 @@ document.getElementById('btn-remove-card').addEventListener('click', function() 
   if (card === null) return;
   G.slot.splice(idx, 1)[0];
   G.piles[0][0].push(card);
-  var ct = CARD_TYPES[card.type] || { emoji: '⬜', label: '?' };
-  log('🗑️ 移出 ' + ct.emoji + ct.label);
   updateComboPreview();
   Zhan.UI.render(G);
 });
@@ -1034,7 +1024,6 @@ document.getElementById('btn-shuffle').addEventListener('click', function() {
     if (!drawn) break;
   }
   updateComboPreview();
-  log('🔀 洗牌！（剩余 ' + window.Zhan._adCount + ' 次）');
   Zhan.UI.render(G);
   _updateAdDisplay();
 });
