@@ -210,23 +210,26 @@ body {
 #actions {
   display: flex;
   gap: 6px;
-  padding: 6px;
+  padding: 6px 4px;
+  height: 10vh;
+  min-height: 48px;
+  max-height: 72px;
   position: sticky;
   bottom: 0;
-  background: rgba(26, 26, 46, 0.92);
+  background: rgba(26,26,46,0.95);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 1px solid rgba(255,255,255,0.08);
   z-index: 100;
   margin: 0 -6px;
   width: calc(100% + 12px);
+  align-items: center;
 }
 #actions button {
-  flex: 1;
-  padding: 8px 4px;
+  height: 80%;
   border: none;
-  border-radius: 8px;
-  font-size: 12px;
+  border-radius: 10px;
+  font-size: 13px;
   font-weight: bold;
   cursor: pointer;
   transition: transform 0.06s, opacity 0.1s;
@@ -235,6 +238,7 @@ body {
 #actions button:active { transform: scale(0.96); }
 #actions button:disabled { opacity: 0.3; cursor: default; transform: none; }
 #btn-end-turn {
+  flex: 2;
   background: linear-gradient(135deg, #f1c40f, #e67e22);
   color: #fff;
   border: 2px solid #f1c40f !important;
@@ -246,7 +250,7 @@ body {
   0%, 100% { box-shadow: 0 0 8px rgba(241,196,15,0.3); }
   50% { box-shadow: 0 0 20px rgba(241,196,15,0.8); }
 }
-#btn-remove-card, #btn-shuffle { background: #2c3e50; color: #ccc; }
+#btn-remove-card, #btn-shuffle { flex: 1.2; background: #2c3e50; color: #ccc; }
 #btn-remove-card:disabled, #btn-shuffle:disabled { background: #1a1a2e; color: #555; }
 
 /* log */
