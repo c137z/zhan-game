@@ -1,0 +1,6 @@
+- [background-vibecoder](background-vibecoder.md) — 用户背景：0基础vibecode，但有代码审美
+- [code-style-and-workflow](code-style-and-workflow.md) — 代码风格与协作流程规范
+- [collaboration-contract](collaboration-contract.md) — 核心协作契约：对齐-约束-拉住
+- [permissions-all-access](permissions-all-access.md) — 全部工具放行，无需权限弹窗
+- [preferences-general](preferences-general.md) — 用户的通用交互偏好
+- [user-workflow-pattern](user-workflow-pattern.md) — 用户工作模式：先搭框架→再定约束→再划范围→再动手
