@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 //  斩 v14 — core.js
 //  战斗引擎：洗牌/发牌/结算/状态管理/敌人回合
 //  依赖 data.js（先加载）
@@ -472,18 +472,6 @@ Zhan.Rules = {
 // 跳过槽位计数（pullCard 中跨作用域用）
 var _skippedSlots = 0;
 
-// ========== 日志 ==========
-function log(msg) {
-  if (window.console && window.console.log) console.log(msg);
-  var st = Zhan.Engine && Zhan.Engine.state;
-  if (st && st.logLines) {
-    st.logLines.push(msg);
-    if (st.logLines.length > (CONFIG.LOG_MAX_LINES || 100)) {
-      st.logLines.splice(0, st.logLines.length - (CONFIG.LOG_MAX_LINES || 100));
-    }
-  }
-}
-
 // ========== 存档读写 ==========
 function loadProgress() {
   try {
@@ -494,14 +482,13 @@ function loadProgress() {
       if (!SAVE.mazeUnlocked) SAVE.mazeUnlocked = false;
       if (!SAVE.towerUnlocked) SAVE.towerUnlocked = false;
       if (!SAVE.version) SAVE.version = 1;
-      SAVE.advUnlocked = 50; // 强制全部解锁
     } else {
-      SAVE = { version: 1, catMao: 0, advUnlocked: 50, bestFloor: 0,
+      SAVE = { version: 1, catMao: 0, advUnlocked: 1, bestFloor: 0,
                mazeFirstKills: [], towerBestFloor: 0,
                mazeUnlocked: false, towerUnlocked: false };
     }
   } catch(e) {
-    SAVE = { version: 1, catMao: 0, advUnlocked: 50, bestFloor: 0,
+    SAVE = { version: 1, catMao: 0, advUnlocked: 1, bestFloor: 0,
              mazeFirstKills: [], towerBestFloor: 0,
              mazeUnlocked: false, towerUnlocked: false };
   }
@@ -724,74 +711,6 @@ Zhan.Engine = {
         G = {};
         if (Zhan.UI && Zhan.UI.renderMainMenu) Zhan.UI.renderMainMenu();
         break;
-      case 'REMOVE_CARD':
-        if (this.state.slot.length > 0 && (this.state.removeUsed || 0) < 1) {
-          this.state.removedSlot = this.state.slot.slice();
-          this.state.slot = [];
-          this.state.removeUsed = (this.state.removeUsed || 0) + 1;
-          if (Zhan.UI && Zhan.UI.updateComboPreview) Zhan.UI.updateComboPreview(this.state);
-        }
-        break;
-      case 'RETURN_CARD':
-        if (this.state.removedSlot && this.state.removedSlot.length > 0) {
-          var idx = action.index;
-          if (idx === undefined || idx < 0 || idx >= this.state.removedSlot.length) break;
-          var effectiveSize = this.state.effectiveSlotSize || CONFIG.SLOT_SIZE;
-          if (this.state.slot.length >= effectiveSize) break;
-          var card = this.state.removedSlot.splice(idx, 1)[0];
-          if (card) {
-            this.state.slot.push(card);
-            if (this.state.removedSlot.length === 0) this.state.removedSlot = [];
-            if (Zhan.UI && Zhan.UI.updateComboPreview) Zhan.UI.updateComboPreview(this.state);
-          }
-        }
-        break;
-      case 'SHUFFLE':
-        if ((this.state.shuffleUsed || 0) < 1) {
-          this.state.shuffleUsed = (this.state.shuffleUsed || 0) + 1;
-          // 收集所有 piles 中剩余卡牌
-          var allCards = [];
-          var stPiles = this.state.piles;
-          for (var _r = 0; _r < CONFIG.BOARD_ROWS; _r++) {
-            for (var _c = 0; _c < CONFIG.BOARD_COLS; _c++) {
-              var pile = stPiles[_r][_c];
-              for (var _i = 0; _i < pile.length; _i++) allCards.push(pile[_i]);
-              stPiles[_r][_c] = [];
-            }
-          }
-          shuffleArray(allCards);
-          // 重新平均分布到 25 个 piles
-          var idx = 0;
-          var totalCards = allCards.length;
-          var nPiles = CONFIG.BOARD_ROWS * CONFIG.BOARD_COLS;
-          var basePileSize = Math.floor(totalCards / nPiles);
-          var remaining = totalCards - basePileSize * nPiles;
-          var flatPiles = [];
-          for (var _r2 = 0; _r2 < CONFIG.BOARD_ROWS; _r2++) {
-            for (var _c2 = 0; _c2 < CONFIG.BOARD_COLS; _c2++) flatPiles.push(stPiles[_r2][_c2]);
-          }
-          for (var _pi = 0; _pi < flatPiles.length; _pi++) {
-            var sz = basePileSize + (_pi < remaining ? 1 : 0);
-            for (var _j = 0; _j < sz; _j++) flatPiles[_pi].push(allCards[idx++]);
-          }
-          // 每个 pile 内部洗顶牌
-          for (var _pi2 = 0; _pi2 < flatPiles.length; _pi2++) {
-            var p = flatPiles[_pi2];
-            if (p.length > 1) {
-              var topN = Math.min(4, p.length);
-              var top = p.slice(0, topN);
-              for (var ti = top.length - 1; ti > 0; ti--) {
-                var si = Math.floor(Math.random() * (ti + 1));
-                var tmp = top[ti]; top[ti] = top[si]; top[si] = tmp;
-              }
-              for (var tii = 0; tii < top.length; tii++) p[tii] = top[tii];
-            }
-          }
-          this.state.lockedPiles = {};
-          this.state.smearedPiles = {};
-          if (Zhan.UI && Zhan.UI.updateComboPreview) Zhan.UI.updateComboPreview(this.state);
-        }
-        break;
     }
     if (this.state && action.type !== 'END_TURN' && Zhan.UI && Zhan.UI.render) {
       Zhan.UI.render(this.state);
@@ -825,7 +744,6 @@ Zhan.Engine = {
         st.slot = cleaned0;
       }
       st.turn++; st.phase = 'player';
-      st.removedSlot = [];
       Zhan.Engine._updateEffectiveFury(st);
       log('⏭ 回合' + (st.turn+1) + '开始');
       log(st.boss.emoji + 'HP:' + st.enemyHP + '🛡' + st.enemyShield + '⚡' + st.power);
@@ -837,7 +755,6 @@ Zhan.Engine = {
       st.enemyEffects.stun--;
       if (st.enemyEffects.stun <= 0) st.enemyEffects.stun = 0;
       st.turn++; st.phase = 'player';
-      st.removedSlot = [];
       log('⏭ 回合' + (st.turn+1) + '开始');
       if (Zhan.UI && Zhan.UI.render) Zhan.UI.render(st);
       Zhan.Engine._updateEnemyIntent(); return;
@@ -870,7 +787,6 @@ Zhan.Engine = {
       st.slot = cleaned;
     }
     st.turn++; st.phase = 'player';
-    st.removedSlot = [];
     Zhan.Engine._updateEffectiveFury(st);
     log('⏭ 回合' + (st.turn+1) + '开始');
     log(st.boss.emoji + 'HP:' + st.enemyHP + '🛡' + st.enemyShield + '⚡' + st.power);
@@ -1024,7 +940,6 @@ Zhan.Engine = {
     Zhan.Engine._updateEnemyIntent();
     if (st._maineCoonFirst) {
       st._maineCoonFirst = false; st.phase = 'player';
-      st.removedSlot = [];
       log('⏭ 回合' + (st.turn+1) + '开始');
       log(st.boss.emoji + 'HP:' + st.enemyHP + '🛡' + st.enemyShield + '⚡' + st.power);
       if (Zhan.UI && Zhan.UI.render) Zhan.UI.render(st);
@@ -1077,6 +992,11 @@ function saveProgress(st) {
     mazeUnlocked: mazeUnlocked, towerUnlocked: towerUnlocked
   };
   try { localStorage.setItem('zhan_save', JSON.stringify(save)); } catch(e) {}
+}
+
+function loadProgress() {
+  try { var raw = localStorage.getItem('zhan_save'); if (raw) return JSON.parse(raw); } catch(e) {}
+  return null;
 }
 
 function newGame() {
@@ -1156,8 +1076,6 @@ function newGame() {
     towerFloor: G.towerFloor || 0,
     towerDefeated: G.towerDefeated || [],
     towerRelicCount: G.towerRelicCount || 0,
-    removeUsed: 0,
-    shuffleUsed: 0,
   };
 
   Zhan.Engine.state = G;
@@ -1566,4 +1484,3 @@ Zhan.Engine.advGoNext = function() {
 
 // 启动脚本已移至 index.html（ui.js 之后的内联 script）
 // Zhan.Test 已移至 index.html（ui.js 之后的内联 script）
-
