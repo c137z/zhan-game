@@ -28,7 +28,57 @@ var CONFIG = {
   DEF_BUFF_RATIO: 0.7,
   ATK_DOWN_PCT: 30,
   UNMATCHED_PENALTY: 1,
+
+  // --- 模式/阶段 ---
+  MODE_ADVENTURE: 'adventure',
+  MODE_TOWER: 'tower',
+  MODE_MAZE: 'maze',
+  MODE_NORMAL: 'normal',
+  PHASE_PLAYER: 'player',
+  PHASE_ENEMY: 'enemy',
+  PHASE_RESOLVING: 'resolving',
+  PHASE_OVER: 'over',
+
+  // --- 卡牌/效果类型 ---
+  TYPE_ATTACK: 'attack',
+  TYPE_DEFEND: 'defend',
+  TYPE_HEAL: 'heal',
+  TYPE_WILD: 'wild',
+  TYPE_JUNK: 'junk',
+  TYPE_VULNERABLE: 'vulnerable',
+  TYPE_STUN: 'stun',
+  TYPE_ATK_BUFF: 'atk_buff',
+  TYPE_DEF_BUFF: 'def_buff',
+  TYPE_ATK_DOWN: 'atk_down',
+
+  // --- 默认值 ---
+  BOSS_DEFAULT_ID: 'skeleton',
+  BOSS_DEFAULT_NAME: '毛线团',
+  BOSS_DEFAULT_EMOJI: '🧶',
+  PLAYER_DEFAULT_NAME: '勇者',
+  PLAYER_DEFAULT_EMOJI: '🦸',
+
+  // --- 游戏数值阈值 ---
+  MAZE_UNLOCK_THRESHOLD: 4,
+  TOWER_UNLOCK_THRESHOLD: 4,
+  RELIC_COUNT_TOWER: 1,
+  RELIC_COUNT_OTHER: 2,
+  MAX_RELIC_REROLLS: 1,
+  MAX_REMOVE_PER_TURN: 1,
+  MAX_SHUFFLE_PER_TURN: 1,
+  SAVE_VERSION: 3,        // v3: 猫毛效果系统（亲和圣物选择）
 };
+
+// ========== 猫毛商店 ==========
+var CATMAO_SHOP = [
+  { id: 'extra_reroll',  name: '多一次刷新',    price: 100, desc: '每局圣物选择多一次刷新机会', once: true },
+  { id: 'clairvoyance',  name: '瞳力',          price: 100, desc: '可多看一回合敌人意图', once: true },
+  { id: 'card_stats',    name: '卡牌统计',      price:  50, desc: '战斗时显示每种卡牌剩余数量', once: true },
+  { id: 'hp_boost',      name: '生命上限 +5',   price:  50, desc: '开局生命上限提升', maxLevel: 4 },
+  { id: 'shield_boost',  name: '回合护盾 +1',   price:  50, desc: '每回合结束自动获得护盾', maxLevel: 5 },
+  { id: 'revive',        name: '复苏',          price: 100, desc: '生命首次低于50时恢复10点血（每局一次）', once: true },
+  { id: 'relic_affinity',name: '圣物亲和',      price: 300, desc: '自选一个圣物，之后每次圣物选择必出现', once: true },
+];
 
 // ========== 卡牌定义 ==========
 var CARD_TYPES = {
@@ -61,13 +111,6 @@ var DECK_SIZES = {
   atk_buff:   50,
   def_buff:   50,
 };
-
-(function() {
-  var total = 0;
-  for (var k in DECK_SIZES) total += DECK_SIZES[k];
-  CONFIG.TOTAL_CARDS = total;
-  CONFIG.CARDS_PER_PILE = Math.floor(total / (CONFIG.BOARD_ROWS * CONFIG.BOARD_COLS));
-})();
 
 // ========== 冒险关卡配置 ==========
 var ADVENTURE_STAGES = [
@@ -771,6 +814,34 @@ var RELICS = {
     effects: [{ phase: 'INIT', action: 'increaseMaxHP', params: { amount: 50 } }],
   },
 
+};
+
+// ========== 美术资源路径常量 ==========
+var ASSETS = {
+  // --- 卡牌 emoji（临时，将来替换为图片路径） ---
+  CARD_ATTACK:     '🗡️',
+  CARD_DEFEND:     '🛡️',
+  CARD_HEAL:       '❤️',
+  CARD_WILD:       '💎',
+  CARD_ATK_DOWN:   '⬇️',
+  CARD_VULNERABLE: '💔',
+  CARD_STUN:       '💫',
+  CARD_ATK_BUFF:   '⚡',
+  CARD_DEF_BUFF:   '💨',
+  CARD_JUNK:       '⬜',
+
+  // --- 角色 ---
+  PLAYER_AVATAR:       '🦸',
+  PLAYER_AVATAR_LIFE:  '💪',
+  PLAYER_AVATAR_FURY:  '🔥',
+  BOSS_DEFAULT:        '🧶',
+
+  // --- UI 图标 ---
+  ICON_SHIELD:     '🛡️',
+  ICON_HEART:      '❤️',
+  ICON_POWER:      '⚡',
+  ICON_CARD_COUNT: '🃏',
+  ICON_CAT_MAO:    '🐱',
 };
 
 

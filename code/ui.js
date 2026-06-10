@@ -23,10 +23,8 @@ Zhan.UI.renderMainMenu = function() {
   document.getElementById('result-overlay').classList.remove('show');
   document.getElementById('settings-panel').classList.remove('show');
   Zhan.UI._showView('main-menu');
-  if (typeof SAVE !== 'undefined' && SAVE) {
-    document.getElementById('menu-catmao').textContent = '🐱 猫毛：' + (SAVE.catMao || 0);
-    document.getElementById('menu-best').textContent = '今日最佳：' + (SAVE.towerBestFloor || 0) + '层';
-  }
+  document.getElementById('menu-catmao').textContent = '🐱 猫毛：' + Zhan.Save.get('catMao');
+  document.getElementById('menu-best').textContent = '今日最佳：' + Zhan.Save.get('towerBestFloor') + '层';
 };
 
 // ========== 关卡选择 5x5 网格 ==========
@@ -64,11 +62,10 @@ Zhan.UI.renderStageSelect = function() {
           } else {
             var st = Zhan.Engine.state || {};
             st.bossId = stage.bossId;
-            st.mode = 'adventure';
+            st.mode = CONFIG.MODE_ADVENTURE;
             st.adventureStageId = stageId;
             st.activeRelics = [];
             Zhan.Engine.state = st;
-            G = st;
             newGame();
           }
         });
@@ -80,40 +77,40 @@ Zhan.UI.renderStageSelect = function() {
 
 // ========== 战斗界面渲染 ==========
 Zhan.UI.render = function(state) {
-  var G = state || Zhan.Engine.state;
-  if (!G) return;
+  var st = state || Zhan.Engine.state;
+  if (!st) return;
 
   // 角色基础数据（放到 stats-line 中一起渲染）
   var pNameEl = document.getElementById('player-name');
-  if (pNameEl) pNameEl.textContent = '勇者';
+  if (pNameEl) pNameEl.textContent = CONFIG.PLAYER_DEFAULT_NAME;
   var nameEl = document.getElementById('enemy-name');
-  if (nameEl) nameEl.textContent = G.boss.name || '毛线团';
+  if (nameEl) nameEl.textContent = st.boss.name || CONFIG.BOSS_DEFAULT_NAME;
 
   // 角色头像
   var playerAvatar = document.getElementById('player-avatar');
   var bossAvatar = document.getElementById('boss-avatar');
   // 检测是否有圣物改变头像
-  var playerEmoji = '🦸';
-  if (G.activeRelics && G.activeRelics.indexOf('life_core') >= 0) playerEmoji = '💪';
-  if (G.activeRelics && G.activeRelics.indexOf('fury_core') >= 0) playerEmoji = '🔥';
+  var playerEmoji = CONFIG.PLAYER_DEFAULT_EMOJI;
+  if (st.activeRelics && st.activeRelics.indexOf('life_core') >= 0) playerEmoji = ASSETS.PLAYER_AVATAR_LIFE;
+  if (st.activeRelics && st.activeRelics.indexOf('fury_core') >= 0) playerEmoji = ASSETS.PLAYER_AVATAR_FURY;
   playerAvatar.textContent = playerEmoji;
-  bossAvatar.textContent = G.boss.emoji || '🧶';
+  bossAvatar.textContent = st.boss.emoji || CONFIG.BOSS_DEFAULT_EMOJI;
 
   // 血量条
-  var hpPct = Math.max(0, G.playerHP / G.playerMaxHP * 100);
+  var hpPct = Math.max(0, st.playerHP / st.playerMaxHP * 100);
   var playerHpBar = document.getElementById('player-hp-bar-inner');
   if (playerHpBar) playerHpBar.style.width = hpPct + '%';
-  var enemyHpPct = Math.max(0, G.enemyHP / G.enemyMaxHP * 100);
+  var enemyHpPct = Math.max(0, st.enemyHP / st.enemyMaxHP * 100);
   var enemyHpBar = document.getElementById('enemy-hp-bar-inner');
   if (enemyHpBar) enemyHpBar.style.width = enemyHpPct + '%';
 
   // 元气弹进度（竖向）
   var totalCards = 0;
-  for (var k in G.deckConfig) totalCards += G.deckConfig[k];
+  for (var k in st.deckConfig) totalCards += st.deckConfig[k];
   var remaining = 0;
-  var fp = flatten(G.piles);
+  var fp = flatten(st.piles);
   for (var i = 0; i < fp.length; i++) remaining += fp[i].length;
-  remaining += G.slot.length;
+  remaining += st.slot.length;
   var consumed = totalCards - remaining;
   var spiritPct = Math.floor(consumed / totalCards * 100);
   var spiritInner = document.getElementById('spirit-bar-inner');
@@ -122,8 +119,8 @@ Zhan.UI.render = function(state) {
   if (spiritText) spiritText.textContent = spiritPct + '%';
 
   // 玩家状态（HP/护盾 + buff 图标×回合数）
-  var pe = G.playerEffects;
-  var pStatsHtml = '❤️' + G.playerHP + ' 🛡️' + G.playerShield;
+  var pe = st.playerEffects;
+  var pStatsHtml = '❤️' + st.playerHP + ' 🛡️' + st.playerShield;
   if ((pe.atk_buff || 0) > 0) {
     pStatsHtml += ' <span class="stat-buff">⚡×' + pe.atk_buff + 'T</span>';
   }
@@ -133,8 +130,8 @@ Zhan.UI.render = function(state) {
   document.getElementById('player-stats-line').innerHTML = pStatsHtml;
 
   // 敌人状态（HP/护盾/能力值 + debuff 图标×回合数）
-  var ee = G.enemyEffects;
-  var eStatsHtml = '❤️' + G.enemyHP + ' 🛡️' + G.enemyShield + ' ⚡' + (G.power || 0);
+  var ee = st.enemyEffects;
+  var eStatsHtml = '❤️' + st.enemyHP + ' 🛡️' + st.enemyShield + ' ⚡' + (st.power || 0);
   if ((ee.stun || 0) > 0) eStatsHtml += ' <span class="stat-debuff">💫×' + ee.stun + 'T</span>';
   if ((ee.vulnerable || 0) > 0) {
     eStatsHtml += ' <span class="stat-debuff">💔×' + ee.vulnerable + 'T</span>';
@@ -145,11 +142,11 @@ Zhan.UI.render = function(state) {
   // Boss 背景立绘已移除
 
   // 渲染子组件
-  Zhan.UI.renderBoard(G);
-  Zhan.UI.renderCardCount(G);
-  Zhan.UI.renderSlot(G);
-  Zhan.UI.renderRemovedSlot(G);
-  Zhan.UI.renderActionButtons(G);
+  Zhan.UI.renderBoard(st);
+  Zhan.UI.renderCardCount(st);
+  Zhan.UI.renderSlot(st);
+  Zhan.UI.renderRemovedSlot(st);
+  Zhan.UI.renderActionButtons(st);
   // 战斗日志自动刷新
   var logPanel = document.getElementById('log-panel');
   if (logPanel && logPanel.classList.contains('show')) {
@@ -162,27 +159,27 @@ function render() { Zhan.UI.render(Zhan.Engine.state); }
 
 // ========== 牌堆渲染（不变） ==========
 Zhan.UI.renderBoard = function(state) {
-  var G = state;
+  var st = state;
   var board = document.getElementById('board');
   board.innerHTML = '';
-  var flatPiles = flatten(G.piles);
+  var flatPiles = flatten(st.piles);
   for (var r = 0; r < CONFIG.BOARD_ROWS; r++) {
     for (var c = 0; c < CONFIG.BOARD_COLS; c++) {
       (function(r, c) {
-        var pile = G.piles[r][c];
+        var pile = st.piles[r][c];
         var top = Zhan.Engine._getTop(r * CONFIG.BOARD_COLS + c);
         var div = document.createElement('div');
         div.className = 'card-slot';
         var flatIdx = r * CONFIG.BOARD_COLS + c;
 
         // 锁定检查
-        if (G.lockedPiles && G.lockedPiles[flatIdx]) div.classList.add('locked');
+        if (st.lockedPiles && st.lockedPiles[flatIdx]) div.classList.add('locked');
 
         if (!top) { div.classList.add('card-empty'); board.appendChild(div); return; }
 
         // 涂抹检查
         var ct;
-        var isSmeared = G.smearedPiles && G.smearedPiles[flatIdx];
+        var isSmeared = st.smearedPiles && st.smearedPiles[flatIdx];
         if (isSmeared) {
           ct = { emoji: '❓', label: '??', cssClass: 'card-junk' };
         } else {
@@ -228,7 +225,7 @@ Zhan.UI.renderBoard = function(state) {
         var lastTap = 0;
         div.addEventListener('click', function(e) {
           var st = Zhan.Engine.state;
-          if (!st || st.phase !== 'player' || st.over) return;
+          if (!st || st.phase !== CONFIG.PHASE_PLAYER || st.over) return;
           var now = Date.now();
           if (now - lastTap < CONFIG.DOUBLE_TAP_DELAY) { e.preventDefault(); Zhan.Engine.dispatch({ type: 'PLAY_CARD', r: r, c: c }); lastTap = 0; return; }
           lastTap = now;
@@ -242,7 +239,7 @@ Zhan.UI.renderBoard = function(state) {
         }, {passive: true});
         div.addEventListener('touchmove', function(e) {
           var st = Zhan.Engine.state;
-          if (!st || st.phase !== 'player' || st.over) return;
+          if (!st || st.phase !== CONFIG.PHASE_PLAYER || st.over) return;
           var dy = e.touches[0].clientY - touchStartY;
           var dx = Math.abs(e.touches[0].clientX - touchStartX);
           if (-dy > CONFIG.SWIPE_THRESHOLD && -dy > dx * 1.5) { e.preventDefault(); if (!swiping && st.piles[r][c] && st.piles[r][c].length) { swiping = true; Zhan.Engine.dispatch({ type: 'PLAY_CARD', r: r, c: c }); } }
@@ -255,30 +252,30 @@ Zhan.UI.renderBoard = function(state) {
 };
 
 Zhan.UI.renderSlot = function(state) {
-  var G = state;
+  var st = state;
   var bar = document.getElementById('slot-bar');
   bar.innerHTML = '';
-  var effectiveSize = G.effectiveSlotSize || CONFIG.SLOT_SIZE;
+  var effectiveSize = st.effectiveSlotSize || CONFIG.SLOT_SIZE;
   var wildCoreIdx = -1;
-  if (G.wildCoreSlot) {
+  if (st.wildCoreSlot) {
     wildCoreIdx = 0;
-    while (wildCoreIdx < effectiveSize && G.lockedSlots && G.lockedSlots[wildCoreIdx]) wildCoreIdx++;
+    while (wildCoreIdx < effectiveSize && st.lockedSlots && st.lockedSlots[wildCoreIdx]) wildCoreIdx++;
   }
   for (var i = 0; i < effectiveSize; i++) {
     var div = document.createElement('div');
     div.className = 'eslot';
-    if (G.wildCoreSlot && i === wildCoreIdx) {
+    if (st.wildCoreSlot && i === wildCoreIdx) {
       div.classList.add('filled', 'wild-core');
       div.textContent = '💎';
       var wcLabel = document.createElement('span');
       wcLabel.className = 'wild-core-label';
       wcLabel.textContent = '万能';
       div.appendChild(wcLabel);
-    } else if (G.lockedSlots && G.lockedSlots[i]) {
+    } else if (st.lockedSlots && st.lockedSlots[i]) {
       div.classList.add('locked');
       div.textContent = '✕';
-    } else if (i < G.slot.length && G.slot[i] !== null) {
-      var card = G.slot[i];
+    } else if (i < st.slot.length && st.slot[i] !== null) {
+      var card = st.slot[i];
       if (card.special) {
         div.classList.add('filled', 'special');
         div.style.background = '#fff';
@@ -299,23 +296,42 @@ Zhan.UI.renderSlot = function(state) {
 
 // ========== 卡牌数量显示 ==========
 Zhan.UI.renderCardCount = function(state) {
-  var G = state;
+  var st = state;
   var el = document.getElementById('card-count');
   if (!el) return;
   var total = 0;
-  var flatPiles = flatten(G.piles);
+  var flatPiles = flatten(st.piles);
   for (var i = 0; i < flatPiles.length; i++) total += flatPiles[i].length;
-  el.textContent = '🃏 剩余 ' + total + ' 张';
+  var html = '🃏 剩余 ' + total + ' 张';
+  // 猫毛商店：卡牌统计
+  if (Zhan.Save.hasPurchase('card_stats')) {
+    var types = ['attack','defend','heal','atk_buff','def_buff','vulnerable','stun','atk_down','junk'];
+    for (var ti = 0; ti < types.length; ti++) {
+      var ct = CARD_TYPES[types[ti]];
+      var count = 0;
+      for (var fi = 0; fi < flatPiles.length; fi++) {
+        for (var ci = 0; ci < flatPiles[fi].length; ci++) {
+          if (flatPiles[fi][ci].type === types[ti]) count++;
+        }
+      }
+      for (var si = 0; si < st.slot.length; si++) {
+        var resolved = Zhan.Rules.resolveWildType(st.slot, si);
+        if (resolved === types[ti]) count++;
+      }
+      if (count > 0) html += ' <span style="margin:0 2px;">' + ct.emoji + '×' + count + '</span>';
+    }
+  }
+  el.innerHTML = html;
 };
 
 // ========== 移出槽渲染（和消除槽同样尺寸） ==========
 Zhan.UI.renderRemovedSlot = function(state) {
-  var G = state;
+  var st = state;
   var container = document.getElementById('removed-slot');
   if (!container) return;
   container.innerHTML = '';
-  var effectiveSize = G.effectiveSlotSize || CONFIG.SLOT_SIZE;
-  var removedCards = G.removedSlot || [];
+  var effectiveSize = st.effectiveSlotSize || CONFIG.SLOT_SIZE;
+  var removedCards = st.removedSlot || [];
   for (var i = 0; i < effectiveSize; i++) {
     var div = document.createElement('div');
     div.className = 'eslot removed-slot-item';
@@ -341,72 +357,147 @@ Zhan.UI.renderRemovedSlot = function(state) {
 Zhan.UI.renderLog = function() {
   var panel = document.getElementById('log-panel');
   if (!panel) return;
+  var content = document.getElementById('log-panel-content');
+  if (!content) return;
   var st = Zhan.Engine && Zhan.Engine.state;
   var lines = (st && st.logLines) || [];
   if (lines.length === 0) {
-    panel.innerHTML = '<div class="log-entry" style="color:#888">暂无战斗日志</div>';
+    content.innerHTML = '<div class="log-entry log-info">暂无战斗日志</div>';
     return;
   }
+  var isDetail = document.getElementById('cb-log-detail') && document.getElementById('cb-log-detail').checked;
   var html = '';
-  for (var i = Math.max(0, lines.length - 80); i < lines.length; i++) {
+  for (var i = Math.max(0, lines.length - 120); i < lines.length; i++) {
     var line = lines[i];
-    var cls = 'log-entry';
-    if (line.indexOf('▶') >= 0 || line.indexOf('回合') >= 0) cls += ' log-turn';
-    else if (line.indexOf('🐱') >= 0) cls += ' log-boss';
-    else if (line.indexOf('暴击') >= 0 || line.indexOf('减伤') >= 0) cls += ' log-buff';
-    else if (line.indexOf('破甲') >= 0 || line.indexOf('击晕') >= 0 || line.indexOf('虚弱') >= 0 || line.indexOf('Boss') >= 0) cls += ' log-debuff';
-    html += '<div class="' + cls + '">' + line + '</div>';
+    // 兼容旧格式字符串
+    if (typeof line === 'string') { html += '<div class="log-entry">' + line + '</div>'; continue; }
+
+    switch (line.type) {
+      case 'turnHeader':
+        html += '<div class="log-entry log-turn">' + line.text + '</div>';
+        break;
+      case 'turnFooter':
+        html += '<div class="log-entry log-turn-end">' + line.text + '</div>';
+        break;
+      case 'cardsRow':
+        html += '<div class="log-entry log-cards">🃏 ';
+        for (var ci = 0; ci < line.cards.length && ci < 10; ci++) {
+          var ct = CARD_TYPES[line.cards[ci]] || { emoji: '⬜' };
+          html += ct.emoji;
+        }
+        html += '</div>';
+        break;
+      case 'buffsRow':
+        if (line.buffs.length > 0) {
+          html += '<div class="log-entry log-buffs">📊 ';
+          for (var bi = 0; bi < line.buffs.length; bi++) {
+            html += '<span style="color:' + line.buffs[bi].color + '">' + line.buffs[bi].name + line.buffs[bi].value + '</span>  ';
+          }
+          html += '</div>';
+        }
+        break;
+      case 'separator':
+        html += '<div class="log-entry log-separator">' + line.text + '</div>';
+        break;
+      case 'action':
+        html += '<div class="log-entry log-action">';
+        if (isDetail && line.formulaParts) {
+          // 详情模式：显示公式
+          var actionLabels = { attack: '🗡 攻击', defend: '🛡 防御', heal: '❤️ 治疗', stun: '💫 击晕', focus: '蓄力', crit: '🗡 暴击' };
+          var enemyLabels = { attack: '🐱 Boss 攻击', defend: '🐱 Boss 防御', stun: '🐱 Boss 被击晕', focus: '🐱 Boss 蓄力', crit: '🐱 Boss 暴怒' };
+          var actionUnits = { attack: ' 点伤害', defend: ' 点护盾', heal: ' 点生命', stun: '', focus: '' };
+          var label = line.side === 'enemy' ? (enemyLabels[line.action] || '🐱 Boss 行动') : (actionLabels[line.action] || '行动');
+          var unit = actionUnits[line.action] || '';
+          html += '<div style="font-weight:bold;color:#fff;">' + label + '</div>';
+          html += '<div class="log-formula">  = ';
+          for (var fi = 0; fi < line.formulaParts.length; fi++) {
+            html += '<span style="color:' + line.formulaParts[fi].color + '">' + line.formulaParts[fi].text + '</span>';
+          }
+          html += '</div>';
+          html += '<div class="log-result">  = ' + line.finalValue + unit + '</div>';
+          if (line.detail) html += '<div class="log-detail">  ' + line.detail + '</div>';
+        } else {
+          // 精简模式：只显示 text
+          html += line.text;
+        }
+        html += '</div>';
+        break;
+      case 'turnFooter':
+        html += '<div class="log-entry log-turn-end">' + line.text + '</div>';
+        break;
+      default:
+        html += '<div class="log-entry">' + (line.text || '') + '</div>';
+    }
   }
-  panel.innerHTML = html;
-  panel.scrollTop = panel.scrollHeight;
+  content.innerHTML = html;
+  content.scrollTop = content.scrollHeight;
 };
+
+// ========== 日志 — 详情切换 + 面板自动刷新 ==========
+(function() {
+  var cbDetail = document.getElementById('cb-log-detail');
+  if (cbDetail) {
+    cbDetail.addEventListener('change', function() {
+      if (document.getElementById('log-panel').classList.contains('show')) Zhan.UI.renderLog();
+    });
+  }
+
+  // 事件触发时自动刷新面板
+  var refreshEvents = ['turnStart','turnEnd','damageDealt','damageTaken','comboResolved','battleStart','enemyDeath','playerDeath'];
+  for (var ri = 0; ri < refreshEvents.length; ri++) {
+    Zhan.Events.on(refreshEvents[ri], function() {
+      var panel = document.getElementById('log-panel');
+      if (panel && panel.classList.contains('show')) Zhan.UI.renderLog();
+    });
+  }
+})();
 
 // ========== 按钮状态渲染 ==========
 Zhan.UI.renderActionButtons = function(state) {
-  var G = state;
-  if (!G) return;
+  var st = state;
+  if (!st) return;
 
   // 结束回合按钮
   var btnEnd = document.getElementById('btn-end-turn');
   if (btnEnd) {
-    if (G.phase === 'player' && !G.over && G.slot.length > 0) btnEnd.disabled = false;
+    if (st.phase === CONFIG.PHASE_PLAYER && !st.over && st.slot.length > 0) btnEnd.disabled = false;
     else btnEnd.disabled = true;
   }
 
   // 移出卡牌按钮（全部移出）
   var btnRemove = document.getElementById('btn-remove-card');
   if (btnRemove) {
-    var canRemove = G.phase === 'player' && !G.over && G.slot.length > 0 && (G.removeUsed || 0) < 1;
+    var canRemove = st.phase === CONFIG.PHASE_PLAYER && !st.over && st.slot.length > 0 && (st.removeUsed || 0) < 1;
     btnRemove.disabled = !canRemove;
     var countEl = document.getElementById('remove-count');
-    if (countEl) countEl.textContent = '(' + (G.removeUsed || 0) + '/1)';
+    if (countEl) countEl.textContent = '(' + (st.removeUsed || 0) + '/1)';
   }
 
   // 洗牌按钮
   var btnShuffle = document.getElementById('btn-shuffle');
   if (btnShuffle) {
-    var canShuffle = G.phase === 'player' && !G.over && (G.shuffleUsed || 0) < 1;
+    var canShuffle = st.phase === CONFIG.PHASE_PLAYER && !st.over && (st.shuffleUsed || 0) < 1;
     btnShuffle.disabled = !canShuffle;
     var countEl2 = document.getElementById('shuffle-count');
-    if (countEl2) countEl2.textContent = '(' + (G.shuffleUsed || 0) + '/1)';
+    if (countEl2) countEl2.textContent = '(' + (st.shuffleUsed || 0) + '/1)';
   }
 };
 
 // ========== 连击预览 ==========
 Zhan.UI.updateComboPreview = function(state) {
-  var G = state || Zhan.Engine.state;
-  if (!G) return;
-  var combos = Zhan.Rules.computeCombos(G.slot, G.effectiveMinCombo || CONFIG.MIN_COMBO);
+  var st = state || Zhan.Engine.state;
+  if (!st) return;
+  var combos = Zhan.Rules.computeCombos(st.slot, st.effectiveMinCombo || CONFIG.MIN_COMBO);
   var el = document.getElementById('combo-bar');
   if (!el) return;
-  if (!combos.length && !G.slot.length) { el.innerHTML = ''; return; }
+  if (!combos.length && !st.slot.length) { el.innerHTML = ''; return; }
 
   var slotTypeCount = {};
-  for (var si = 0; si < G.slot.length; si++) {
-    var st = Zhan.Rules.resolveWildType(G.slot, si);
-    if (!BUFF_TYPES[st] && st !== 'junk') {
-      if (!slotTypeCount[st]) slotTypeCount[st] = 0;
-      slotTypeCount[st]++;
+  for (var si = 0; si < st.slot.length; si++) {
+    var cardType = Zhan.Rules.resolveWildType(st.slot, si);
+    if (!BUFF_TYPES[cardType] && cardType !== 'junk') {
+      if (!slotTypeCount[cardType]) slotTypeCount[cardType] = 0;
+      slotTypeCount[cardType]++;
     }
   }
 
@@ -423,10 +514,10 @@ Zhan.UI.updateComboPreview = function(state) {
   var ACTION_TYPES = ['attack', 'defend', 'heal'];
   for (var ai = 0; ai < ACTION_TYPES.length; ai++) {
     var at = ACTION_TYPES[ai];
-    if (!slotTypeCount[at] || slotTypeCount[at] < (G.effectiveMinCombo || CONFIG.MIN_COMBO)) continue;
+    if (!slotTypeCount[at] || slotTypeCount[at] < (st.effectiveMinCombo || CONFIG.MIN_COMBO)) continue;
     var total = slotTypeCount[at];
     var maxLen = actionMaxLen[at] || 0;
-    var mc = G.effectiveMinCombo || CONFIG.MIN_COMBO;
+    var mc = st.effectiveMinCombo || CONFIG.MIN_COMBO;
     var baseVal = Zhan.Rules.calcBaseValue(total, mc);
     var val = at === 'attack' ? Zhan.Rules.calcAttackValue(total, maxLen, mc) : (at === 'defend' ? Zhan.Rules.calcDefendValue(total, maxLen, mc) : Zhan.Rules.calcHealValue(total, maxLen, mc));
     var emoji = CARD_TYPES[at].emoji;
@@ -439,11 +530,11 @@ Zhan.UI.updateComboPreview = function(state) {
     previewParts.push(html);
   }
 
-  Zhan.Engine._updateEffectiveFury(G);
+  Zhan.Engine._updateEffectiveFury(st);
   for (var ci2 = 0; ci2 < combos.length; ci2++) {
     var c2 = combos[ci2];
     if (!BUFF_TYPES[c2.type]) continue;
-    var desc = Zhan.Rules.getEffectDescription(G, c2.type, c2.n);
+    var desc = Zhan.Rules.getEffectDescription(st, c2.type, c2.n);
     previewParts.push('<span class="combo-preview ' + c2.type + '">' + CARD_TYPES[c2.type].emoji + c2.n + '连→' + desc + '</span>');
   }
 
@@ -452,13 +543,13 @@ Zhan.UI.updateComboPreview = function(state) {
     if (BUFF_TYPES[combos[_cbi2].type]) activeComboTypes.push(combos[_cbi2].type);
   }
   var penaltyResult = Zhan.Rules.computeUnmatchedPenalty({
-    slot: G.slot,
+    slot: st.slot,
     _claimedWildIndices: combos._claimedWildIndices,
-    effectiveMinCombo: G.effectiveMinCombo,
+    effectiveMinCombo: st.effectiveMinCombo,
     activeComboTypes: activeComboTypes
   });
   for (var ut in penaltyResult.unmatchedByType) {
-    if (penaltyResult.unmatchedByType[ut] >= (G.effectiveMinCombo || CONFIG.MIN_COMBO)) continue;
+    if (penaltyResult.unmatchedByType[ut] >= (st.effectiveMinCombo || CONFIG.MIN_COMBO)) continue;
     var uct = CARD_TYPES[ut] || { emoji: '⬜' };
     previewParts.push('<span class="combo-none">' + uct.emoji + '×' + penaltyResult.unmatchedByType[ut] + '→❤-' + penaltyResult.unmatchedByType[ut] + '</span>');
   }
@@ -491,30 +582,30 @@ Zhan.UI.showDamageNumbers = function(dmg, x, y) {
 
 // ========== 结算面板 ==========
 Zhan.UI.renderStatsPanel = function(state) {
-  var G = state;
+  var st = state;
   var panel = document.getElementById('stats-panel');
   if (!panel) return;
 
-  var relicNames = G.activeRelicNames || [];
+  var relicNames = st.activeRelicNames || [];
   var relicsHtml = '';
   if (relicNames.length) {
     relicsHtml = '<div class="stat-row-item"><span class="stat-label">🏆 圣物</span><span class="stat-value">' + relicNames.join(', ') + '</span></div>';
   }
 
   var totalDeck = 0;
-  for (var k in G.deckConfig) totalDeck += G.deckConfig[k];
+  for (var k in st.deckConfig) totalDeck += st.deckConfig[k];
   var remaining = 0;
-  var fp = flatten(G.piles);
+  var fp = flatten(st.piles);
   for (var fi = 0; fi < fp.length; fi++) remaining += fp[fi].length;
   var consumed = totalDeck - remaining;
 
   panel.innerHTML =
     '<div class="stats-card">' +
-      '<div class="stat-row-item"><span class="stat-label">⏱ 存活回合</span><span class="stat-value">' + (G.turn + 1) + '</span></div>' +
-      '<div class="stat-row-item"><span class="stat-label">❤️ 剩余HP</span><span class="stat-value">' + G.playerHP + ' / ' + G.playerMaxHP + '</span></div>' +
-      '<div class="stat-row-item"><span class="stat-label">💥 最高单次伤害</span><span class="stat-value">' + G.maxDamage + '</span></div>' +
-      '<div class="stat-row-item"><span class="stat-label">🔥 最高连击</span><span class="stat-value">' + G.maxCombo + ' 连</span></div>' +
-      '<div class="stat-row-item"><span class="stat-label">⚔️ 总伤害输出</span><span class="stat-value">' + G.totalDamage + '</span></div>' +
+      '<div class="stat-row-item"><span class="stat-label">⏱ 存活回合</span><span class="stat-value">' + (st.turn + 1) + '</span></div>' +
+      '<div class="stat-row-item"><span class="stat-label">❤️ 剩余HP</span><span class="stat-value">' + st.playerHP + ' / ' + st.playerMaxHP + '</span></div>' +
+      '<div class="stat-row-item"><span class="stat-label">💥 最高单次伤害</span><span class="stat-value">' + st.maxDamage + '</span></div>' +
+      '<div class="stat-row-item"><span class="stat-label">🔥 最高连击</span><span class="stat-value">' + st.maxCombo + ' 连</span></div>' +
+      '<div class="stat-row-item"><span class="stat-label">⚔️ 总伤害输出</span><span class="stat-value">' + st.totalDamage + '</span></div>' +
       '<div class="stat-row-item"><span class="stat-label">🃏 消耗卡牌数</span><span class="stat-value">' + consumed + ' / ' + totalDeck + '</span></div>' +
       relicsHtml +
     '</div>';
@@ -525,27 +616,27 @@ function renderStatsPanel(G) { Zhan.UI.renderStatsPanel(G); }
 
 // ========== 结算面板显示 ==========
 Zhan.UI.showResult = function(state) {
-  var G = state;
-  if (!G) return;
-  Zhan.UI.renderStatsPanel(G);
-  document.getElementById('result-title').textContent = G._resultTitle || '';
-  document.getElementById('result-desc').textContent = G._resultDesc || '';
+  var st = state;
+  if (!st) return;
+  Zhan.UI.renderStatsPanel(st);
+  document.getElementById('result-title').textContent = st._resultTitle || '';
+  document.getElementById('result-desc').textContent = st._resultDesc || '';
 
   document.getElementById('btn-restart').style.display = 'none';
   document.getElementById('btn-endless').style.display = 'none';
   document.getElementById('btn-adv-continue').style.display = 'none';
   document.getElementById('btn-return-home').style.display = 'none';
 
-  if (G.mode === 'adventure') {
-    Zhan.UI.showResultAdventure(G);
-  } else if (G.mode === 'maze') {
-    Zhan.UI.showResultMaze(G);
-  } else if (G.mode === 'tower') {
-    Zhan.UI.showResultTower(G);
+  if (st.mode === CONFIG.MODE_ADVENTURE) {
+    Zhan.UI.showResultAdventure(st);
+  } else if (st.mode === CONFIG.MODE_MAZE) {
+    Zhan.UI.showResultMaze(st);
+  } else if (st.mode === CONFIG.MODE_TOWER) {
+    Zhan.UI.showResultTower(st);
   } else {
     document.getElementById('btn-restart').style.display = '';
-    document.getElementById('btn-restart').textContent = G._restartText || '🔄 再来一局';
-    if (G._showEndlessBtn) {
+    document.getElementById('btn-restart').textContent = st._restartText || '🔄 再来一局';
+    if (st._showEndlessBtn) {
       document.getElementById('btn-endless').style.display = '';
     }
     document.getElementById('btn-return-home').textContent = '🏠 返回主页';
@@ -555,8 +646,8 @@ Zhan.UI.showResult = function(state) {
   document.getElementById('result-overlay').classList.add('show');
 };
 
-Zhan.UI.showResultAdventure = function(G) {
-  if (G.win) {
+Zhan.UI.showResultAdventure = function(st) {
+  if (st.win) {
     document.getElementById('btn-adv-continue').textContent = '🏁 继续闯关';
     document.getElementById('btn-adv-continue').style.display = '';
   } else {
@@ -567,8 +658,8 @@ Zhan.UI.showResultAdventure = function(G) {
   document.getElementById('btn-return-home').style.display = '';
 };
 
-Zhan.UI.showResultMaze = function(G) {
-  if (G.win) {
+Zhan.UI.showResultMaze = function(st) {
+  if (st.win) {
   } else {
     document.getElementById('btn-restart').textContent = '🔄 重新挑战';
     document.getElementById('btn-restart').style.display = '';
@@ -577,9 +668,9 @@ Zhan.UI.showResultMaze = function(G) {
   }
 };
 
-Zhan.UI.showResultTower = function(G) {
-  var floor = G.towerFloor || 1;
-  if (G.win) {
+Zhan.UI.showResultTower = function(st) {
+  var floor = st.towerFloor || 1;
+  if (st.win) {
     document.getElementById('result-desc').textContent = '全猫征服！到达第 ' + floor + ' 层';
   } else {
     document.getElementById('result-desc').textContent = '败于第 ' + floor + ' 层';
@@ -592,17 +683,17 @@ Zhan.UI.showResultTower = function(G) {
 
 // ========== 敌人意图渲染 ==========
 Zhan.UI.renderEnemyIntent = function(state) {
-  var G = state;
-  if (!G) return;
+  var st = state;
+  if (!st) return;
   var el = document.getElementById('enemy-intent');
   if (!el) return;
-  el.innerHTML = (G._intentHTML || '') + (G._intentExtraHTML || '');
+  el.innerHTML = (st._intentHTML || '') + (st._intentExtraHTML || '');
 };
 
 // ========== 圣物选择渲染 ==========
 Zhan.UI.renderRelicSelect = function(state) {
-  var G = state;
-  if (!G) return;
+  var st = state;
+  if (!st) return;
 
   if (!this._relicSelectStyleInjected) {
     this._relicSelectStyleInjected = true;
@@ -611,16 +702,16 @@ Zhan.UI.renderRelicSelect = function(state) {
     document.head.appendChild(styleEl);
   }
 
-  var isTower = G.mode === 'tower';
+  var isTower = st.mode === CONFIG.MODE_TOWER;
 
   var optionsEl = document.getElementById('relic-select-options');
   optionsEl.innerHTML = '';
-  var opts = G.relicOptions || [];
+  var opts = st.relicOptions || [];
   for (var oi = 0; oi < opts.length; oi++) {
     var relic = RELICS[opts[oi]];
     var card = document.createElement('div');
     card.className = 'relic-card';
-    if (isTower && G.selectedRelic === opts[oi]) {
+    if (isTower && st.selectedRelic === opts[oi]) {
       card.classList.add('selected');
     }
     card.id = 'relic-opt-' + oi;
@@ -630,17 +721,19 @@ Zhan.UI.renderRelicSelect = function(state) {
     optionsEl.appendChild(card);
   }
 
-  var rerolls = G.relicRerolls || 0;
+  var maxRerolls = 1 + (Zhan.Save.hasPurchase('extra_reroll') ? 1 : 0);
+  var rerolls = st.relicRerolls || 0;
+  var canReroll = rerolls < maxRerolls;
   if (isTower) {
     document.getElementById('relic-select-desc').textContent =
-      '点击选中1个圣物' + (rerolls < 1 ? '（可刷新1次）' : '');
+      '点击选中1个圣物' + (canReroll ? '（可刷新' + (maxRerolls - rerolls) + '次）' : '');
   } else {
     document.getElementById('relic-select-desc').textContent =
-      '第二关通过！获得圣物' + (rerolls < 1 ? '（可刷新1次）' : '');
+      '第二关通过！获得圣物' + (canReroll ? '（可刷新' + (maxRerolls - rerolls) + '次）' : '');
   }
 
   var btnReroll = document.getElementById('btn-relic-reroll');
-  if (rerolls >= 1) {
+  if (!canReroll) {
     btnReroll.disabled = true;
     btnReroll.style.opacity = '0.4';
     btnReroll.textContent = '🔄 刷新（已用完）';
@@ -652,9 +745,9 @@ Zhan.UI.renderRelicSelect = function(state) {
 
   var btnConfirm = document.getElementById('btn-relic-confirm');
   if (isTower) {
-    btnConfirm.textContent = G.selectedRelic ? '✅ 确认选择' : '✅ 请先点击选择圣物';
-    btnConfirm.disabled = !G.selectedRelic;
-    btnConfirm.style.opacity = G.selectedRelic ? '1' : '0.4';
+    btnConfirm.textContent = st.selectedRelic ? '✅ 确认选择' : '✅ 请先点击选择圣物';
+    btnConfirm.disabled = !st.selectedRelic;
+    btnConfirm.style.opacity = st.selectedRelic ? '1' : '0.4';
   } else {
     btnConfirm.textContent = '✅ 确认（全拿）';
     btnConfirm.disabled = false;
@@ -686,7 +779,7 @@ document.getElementById('btn-shuffle').addEventListener('click', function() {
     var item = e.target.closest('.eslot.removed-slot-item.filled');
     if (!item) return;
     var st = Zhan.Engine.state;
-    if (!st || st.phase !== 'player' || st.over) return;
+    if (!st || st.phase !== CONFIG.PHASE_PLAYER || st.over) return;
     var now = Date.now();
     if (now - lastTap < CONFIG.DOUBLE_TAP_DELAY) {
       e.preventDefault();
@@ -703,7 +796,7 @@ document.getElementById('btn-shuffle').addEventListener('click', function() {
   }, {passive: true});
   container.addEventListener('touchmove', function(e) {
     var st = Zhan.Engine.state;
-    if (!st || st.phase !== 'player' || st.over) return;
+    if (!st || st.phase !== CONFIG.PHASE_PLAYER || st.over) return;
     var dy = e.touches[0].clientY - touchStartY;
     if (dy > CONFIG.SWIPE_THRESHOLD) {
       e.preventDefault();
@@ -765,7 +858,7 @@ function log(msg) {
       var st = Zhan.Engine.state;
       if (!st || !st.boss) return;
       var boss = st.boss;
-      document.getElementById('boss-info-emoji').textContent = boss.emoji || '🧶';
+      document.getElementById('boss-info-emoji').textContent = boss.emoji || ASSETS.BOSS_DEFAULT;
       document.getElementById('boss-info-name').textContent = boss.name || '毛线团';
       document.getElementById('boss-info-mechanic').textContent = boss.desc || '没有描述';
       var stats = 'HP: ' + st.enemyMaxHP + ' | ATK: ' + (boss.baseAtk || 0) + ' | Growth: ' + (boss.powerGrowth || 0);
@@ -833,7 +926,7 @@ function log(msg) {
       var card = e.target.closest('.relic-card');
       if (!card) return;
       var st = Zhan.Engine.state;
-      if (!st || st.mode !== 'tower') return;
+      if (!st || st.mode !== CONFIG.MODE_TOWER) return;
       var idx = parseInt(card.id.replace('relic-opt-', ''), 10);
       if (!isNaN(idx)) Zhan.Engine._selectRelicOption(idx);
     });
@@ -853,6 +946,48 @@ document.getElementById('btn-tower').addEventListener('click', function() {
 document.getElementById('btn-back-menu').addEventListener('click', function() {
   Zhan.UI.renderMainMenu();
 });
+
+// ========== 首页图标占位 ==========
+(function() {
+  var wipItems = [
+    { id: 'icon-daily', title: '每日悬赏' },
+    { id: 'icon-pedia', title: '图鉴' },
+    { id: 'icon-achieve', title: '成就' },
+    { id: 'icon-leaderboard', title: '好友排行' },
+    { id: 'icon-map', title: '猫王地图' }
+  ];
+  for (var wi = 0; wi < wipItems.length; wi++) {
+    (function(item) {
+      var el = document.getElementById(item.id);
+      if (el) {
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', function() {
+          document.getElementById('wip-title').textContent = item.title;
+          document.getElementById('wip-overlay').style.display = 'flex';
+        });
+      }
+    })(wipItems[wi]);
+  }
+
+  // 设置图标：对接已有设置面板（首页不显示"返回主页"按钮）
+  var iconSettings = document.getElementById('icon-settings');
+  if (iconSettings) {
+    iconSettings.style.cursor = 'pointer';
+    iconSettings.addEventListener('click', function(e) {
+      e.stopPropagation();
+      document.getElementById('btn-back-to-home').style.display = 'none';
+      document.getElementById('settings-panel').classList.toggle('show');
+    });
+  }
+
+  // 关闭开发中弹窗
+  var btnWipClose = document.getElementById('btn-wip-close');
+  if (btnWipClose) {
+    btnWipClose.addEventListener('click', function() {
+      document.getElementById('wip-overlay').style.display = 'none';
+    });
+  }
+})();
 
 // ========== 战斗日志 ==========
 (function() {
@@ -881,11 +1016,13 @@ document.getElementById('btn-back-menu').addEventListener('click', function() {
   if (btnSettings) {
     btnSettings.addEventListener('click', function(e) {
       e.stopPropagation();
+      document.getElementById('btn-back-to-home').style.display = '';
       settingsPanel.classList.toggle('show');
     });
   }
   document.addEventListener('click', function(e) {
-    if (settingsPanel.classList.contains('show') && !settingsPanel.contains(e.target) && e.target !== btnSettings) {
+    var iconSettings = document.getElementById('icon-settings');
+    if (settingsPanel.classList.contains('show') && !settingsPanel.contains(e.target) && e.target !== btnSettings && e.target !== iconSettings) {
       settingsPanel.classList.remove('show');
     }
   });
@@ -919,4 +1056,100 @@ document.getElementById('btn-back-menu').addEventListener('click', function() {
       Zhan.UI.renderMainMenu();
     });
   }
+})();
+
+// ========== 猫毛商店 ==========
+Zhan.UI.renderCatMaoShop = function() {
+  var itemsEl = document.getElementById('shop-items');
+  if (!itemsEl) return;
+  document.getElementById('shop-balance').textContent = '余额：' + Zhan.Save.get('catMao');
+  var html = '';
+  for (var i = 0; i < CATMAO_SHOP.length; i++) {
+    var item = CATMAO_SHOP[i];
+    var level = Zhan.Save.getPurchaseLevel(item.id);
+    var maxed = item.maxLevel && level >= item.maxLevel;
+    var owned = item.once && Zhan.Save.hasPurchase(item.id);
+    var canBuy = !owned && !maxed && Zhan.Save.canAfford(item.price);
+    var label = item.name;
+    if (item.maxLevel) label += ' Lv.' + level + '/' + item.maxLevel;
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:#0f3460;border-radius:6px;font-size:11px;">';
+    html += '<div style="flex:1;"><div style="color:#eee;">' + label + '</div><div style="color:#888;font-size:9px;">' + item.desc + '</div></div>';
+    if (item.id === 'relic_affinity' && owned) {
+      var chosen = Zhan.Save.get('catMaoAffinityRelic', '');
+      html += '<button data-shop-affinity style="padding:4px 10px;border:none;border-radius:4px;background:#8e44ad;color:#fff;font-size:11px;cursor:pointer;">' + (chosen ? '已选：' + ((RELICS[chosen] && RELICS[chosen].name) || chosen) : '选择圣物') + '</button>';
+    } else if (owned || maxed) {
+      html += '<span style="color:#2ecc71;font-weight:bold;font-size:12px;">✅ 已拥有</span>';
+    } else {
+      html += '<button data-shop-buy="' + item.id + '" style="padding:4px 10px;border:none;border-radius:4px;background:' + (canBuy ? '#e67e22' : '#555') + ';color:' + (canBuy ? '#fff' : '#888') + ';font-size:11px;cursor:' + (canBuy ? 'pointer' : 'default') + ';" ' + (canBuy ? '' : 'disabled') + '>' + item.price + ' 🐱</button>';
+    }
+    html += '</div>';
+  }
+  itemsEl.innerHTML = html;
+
+  var btns = itemsEl.querySelectorAll('[data-shop-buy]');
+  for (var bi = 0; bi < btns.length; bi++) {
+    btns[bi].addEventListener('click', function(e) {
+      var itemId = this.getAttribute('data-shop-buy');
+      var shopItem = null;
+      for (var si = 0; si < CATMAO_SHOP.length; si++) { if (CATMAO_SHOP[si].id === itemId) { shopItem = CATMAO_SHOP[si]; break; } }
+      if (!shopItem) return;
+      if (!Zhan.Save.spend(shopItem.price, itemId)) return;
+      Zhan.UI.renderCatMaoShop();
+      Zhan.UI.renderMainMenu();
+    });
+  }
+
+  // 圣物亲和选择按钮
+  var affinityBtns = itemsEl.querySelectorAll('[data-shop-affinity]');
+  for (var ai = 0; ai < affinityBtns.length; ai++) {
+    affinityBtns[ai].addEventListener('click', function() {
+      Zhan.UI.renderAffinitySelect();
+    });
+  }
+};
+
+// ========== 圣物亲和选择 ==========
+Zhan.UI.renderAffinitySelect = function() {
+  var optsEl = document.getElementById('affinity-options');
+  if (!optsEl) return;
+  var current = Zhan.Save.get('catMaoAffinityRelic', '');
+  var relicIds = Object.keys(RELICS);
+  var html = '';
+  for (var i = 0; i < relicIds.length; i++) {
+    var relic = RELICS[relicIds[i]];
+    var selected = relicIds[i] === current;
+    html += '<div data-affinity-id="' + relicIds[i] + '" style="padding:8px 10px;background:' + (selected ? '#2c3e50' : '#0f3460') + ';border-radius:6px;cursor:pointer;border:' + (selected ? '2px solid #f1c40f' : '2px solid transparent') + ';">';
+    html += '<div style="font-size:12px;font-weight:bold;color:' + (selected ? '#f1c40f' : '#eee') + ';">' + relic.name + '</div>';
+    html += '<div style="font-size:10px;color:#888;">' + relic.type + ' — ' + relic.desc + '</div>';
+    html += '</div>';
+  }
+  optsEl.innerHTML = html;
+
+  var items = optsEl.querySelectorAll('[data-affinity-id]');
+  for (var ai = 0; ai < items.length; ai++) {
+    items[ai].addEventListener('click', function() {
+      var relicId = this.getAttribute('data-affinity-id');
+      Zhan.Save.set('catMaoAffinityRelic', relicId);
+      document.getElementById('affinity-overlay').style.display = 'none';
+      Zhan.UI.renderCatMaoShop();
+    });
+  }
+
+  document.getElementById('affinity-overlay').style.display = 'flex';
+};
+document.getElementById('btn-affinity-close').addEventListener('click', function() {
+  document.getElementById('affinity-overlay').style.display = 'none';
+});
+
+(function() {
+  var catmaoEl = document.getElementById('menu-catmao');
+  if (catmaoEl) {
+    catmaoEl.addEventListener('click', function() {
+      Zhan.UI.renderCatMaoShop();
+      document.getElementById('catmao-shop-overlay').style.display = 'flex';
+    });
+  }
+  document.getElementById('btn-shop-close').addEventListener('click', function() {
+    document.getElementById('catmao-shop-overlay').style.display = 'none';
+  });
 })();
