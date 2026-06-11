@@ -51,14 +51,14 @@ Zhan.RNG = {
   _initialSeed: 0,
   setSeed: function(s) {
     s = (s !== undefined && s !== null) ? s : Date.now();
-    this._seed = s;
-    this._initialSeed = s;
+    Zhan.RNG._seed = s;
+    Zhan.RNG._initialSeed = s;
   },
   random: function() {
-    this._seed = (this._seed * 9301 + 49297) % 233280;
-    return this._seed / 233280;
+    Zhan.RNG._seed = (Zhan.RNG._seed * 9301 + 49297) % 233280;
+    return Zhan.RNG._seed / 233280;
   },
-  getSeed: function() { return this._initialSeed; }
+  getSeed: function() { return Zhan.RNG._initialSeed; }
 };
 
 // ========== Zhan.Events — 轻量事件总线 ==========
