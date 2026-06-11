@@ -92,7 +92,6 @@ Zhan.UI.render = function(state) {
   // 检测是否有圣物改变头像
   var playerEmoji = CONFIG.PLAYER_DEFAULT_EMOJI;
   if (st.activeRelics && st.activeRelics.indexOf('life_core') >= 0) playerEmoji = ASSETS.PLAYER_AVATAR_LIFE;
-  if (st.activeRelics && st.activeRelics.indexOf('fury_core') >= 0) playerEmoji = ASSETS.PLAYER_AVATAR_FURY;
   playerAvatar.textContent = playerEmoji;
   bossAvatar.textContent = st.boss.emoji || CONFIG.BOSS_DEFAULT_EMOJI;
 
@@ -145,7 +144,6 @@ Zhan.UI.render = function(state) {
   Zhan.UI.renderBoard(st);
   Zhan.UI.renderCardCount(st);
   Zhan.UI.renderSlot(st);
-  Zhan.UI.renderRemovedSlot(st);
   Zhan.UI.renderActionButtons(st);
   // 战斗日志自动刷新
   var logPanel = document.getElementById('log-panel');
@@ -322,35 +320,6 @@ Zhan.UI.renderCardCount = function(state) {
     }
   }
   el.innerHTML = html;
-};
-
-// ========== 移出槽渲染（和消除槽同样尺寸） ==========
-Zhan.UI.renderRemovedSlot = function(state) {
-  var st = state;
-  var container = document.getElementById('removed-slot');
-  if (!container) return;
-  container.innerHTML = '';
-  var effectiveSize = st.effectiveSlotSize || CONFIG.SLOT_SIZE;
-  var removedCards = st.removedSlot || [];
-  for (var i = 0; i < effectiveSize; i++) {
-    var div = document.createElement('div');
-    div.className = 'eslot removed-slot-item';
-    div.setAttribute('data-index', i);
-    if (i < removedCards.length && removedCards[i] !== null) {
-      var card = removedCards[i];
-      div.classList.add('filled');
-      if (card.special) {
-        div.classList.add('special');
-        div.style.background = '#fff';
-        div.style.color = '#333';
-        div.textContent = card.special.emoji;
-      } else {
-        var ct = CARD_TYPES[card.type] || { emoji: '⬜', color: 'junk' };
-        div.classList.add(ct.color);
-      }
-    }
-    container.appendChild(div);
-  }
 };
 
 // ========== 战斗日志渲染 ==========
@@ -607,6 +576,7 @@ Zhan.UI.renderStatsPanel = function(state) {
       '<div class="stat-row-item"><span class="stat-label">🔥 最高连击</span><span class="stat-value">' + st.maxCombo + ' 连</span></div>' +
       '<div class="stat-row-item"><span class="stat-label">⚔️ 总伤害输出</span><span class="stat-value">' + st.totalDamage + '</span></div>' +
       '<div class="stat-row-item"><span class="stat-label">🃏 消耗卡牌数</span><span class="stat-value">' + consumed + ' / ' + totalDeck + '</span></div>' +
+      '<div class="stat-row-item"><span class="stat-label">🎲 种子</span><span class="stat-value">' + (st.battleSeed || 'N/A') + '</span></div>' +
       relicsHtml +
     '</div>';
 };
@@ -660,6 +630,10 @@ Zhan.UI.showResultAdventure = function(st) {
 
 Zhan.UI.showResultMaze = function(st) {
   if (st.win) {
+    document.getElementById('btn-restart').textContent = '🔄 再次挑战';
+    document.getElementById('btn-restart').style.display = '';
+    document.getElementById('btn-return-home').textContent = '🏠 返回主页';
+    document.getElementById('btn-return-home').style.display = '';
   } else {
     document.getElementById('btn-restart').textContent = '🔄 重新挑战';
     document.getElementById('btn-restart').style.display = '';
@@ -769,48 +743,6 @@ document.getElementById('btn-remove-card').addEventListener('click', function() 
 document.getElementById('btn-shuffle').addEventListener('click', function() {
   Zhan.Engine.dispatch({ type: 'SHUFFLE' });
 });
-
-// 移出槽双击/下滑 — 单张卡牌回归消除槽
-(function() {
-  var container = document.getElementById('removed-slot');
-  if (!container) return;
-  var lastTap = 0, touchStartY = 0, swiping = false;
-  container.addEventListener('click', function(e) {
-    var item = e.target.closest('.eslot.removed-slot-item.filled');
-    if (!item) return;
-    var st = Zhan.Engine.state;
-    if (!st || st.phase !== CONFIG.PHASE_PLAYER || st.over) return;
-    var now = Date.now();
-    if (now - lastTap < CONFIG.DOUBLE_TAP_DELAY) {
-      e.preventDefault();
-      var idx = parseInt(item.getAttribute('data-index'), 10);
-      if (!isNaN(idx)) Zhan.Engine.dispatch({ type: 'RETURN_CARD', index: idx });
-      lastTap = 0;
-      return;
-    }
-    lastTap = now;
-  });
-  container.addEventListener('touchstart', function(e) {
-    touchStartY = e.touches[0].clientY;
-    swiping = false;
-  }, {passive: true});
-  container.addEventListener('touchmove', function(e) {
-    var st = Zhan.Engine.state;
-    if (!st || st.phase !== CONFIG.PHASE_PLAYER || st.over) return;
-    var dy = e.touches[0].clientY - touchStartY;
-    if (dy > CONFIG.SWIPE_THRESHOLD) {
-      e.preventDefault();
-      if (!swiping) {
-        swiping = true;
-        var target = e.target.closest('.eslot.removed-slot-item.filled');
-        if (target) {
-          var idx = parseInt(target.getAttribute('data-index'), 10);
-          if (!isNaN(idx)) Zhan.Engine.dispatch({ type: 'RETURN_CARD', index: idx });
-        }
-      }
-    }
-  }, {passive: false});
-})();
 
 document.getElementById('btn-restart').addEventListener('click', function() {
   document.getElementById('result-overlay').classList.remove('show');

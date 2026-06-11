@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>《斩》项目评估稿</title>
+<style>
+  @page { margin: 2cm 2.2cm; size: A4; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "SimSun", serif;
+    font-size: 12pt;
+    line-height: 1.9;
+    color: #222;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 40px 48px;
+    background: #fff;
+  }
+  h1 {
+    text-align: center;
+    font-size: 18pt;
+    font-weight: bold;
+    margin-bottom: 4px;
+    letter-spacing: 2px;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 10pt;
+    color: #666;
+    margin-bottom: 32px;
+  }
+  h2 {
+    font-size: 13pt;
+    font-weight: bold;
+    margin-top: 28px;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1.5px solid #333;
+  }
+  h3 {
+    font-size: 11.5pt;
+    font-weight: bold;
+    margin-top: 14px;
+    margin-bottom: 4px;
+  }
+  p { margin: 4px 0; text-indent: 2em; }
+  p.no-indent { text-indent: 0; }
+  ul { margin: 4px 0 4px 1em; padding-left: 2em; }
+  li { margin-bottom: 2px; }
+  .section-desc { text-indent: 0; font-size: 10.5pt; color: #555; margin-bottom: 10px; }
+  .highlight { background: #f5f0e8; padding: 2px 6px; border-radius: 2px; }
+  .footer {
+    text-align: center;
+    font-size: 9pt;
+    color: #999;
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid #ddd;
+  }
+  @media print {
+    body { padding: 0; max-width: none; }
+    h2 { break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<h1>《斩》项目评估稿</h1>
+<p class="subtitle">IAA 小游戏方向 · 行业交流</p>
+
+
+<h2>一、是什么</h2>
+
+<p>《斩》是一款"堆叠消除 × 回合制战斗 × 轻度构筑"的中轻度策略游戏。</p>
+
+<p>玩家从 5×5 堆叠牌阵中选牌放入行动槽，同类型 ≥3 连自动结算，与 Boss 回合
+制对战直至一方倒下。与三消的根本区别：玩家不是在找当下最优匹配，而是在为
+未来几回合布局。</p>
+
+<p>纯前端 H5，单页面，零后端。目标平台微信/抖音小游戏。1 人可独立开发与维护。</p>
+
+
+<h2>二、核心差异化</h2>
+
+<p>三个机制构成策略深度：</p>
+
+<p><b>看牌</b>——移除表层牌暴露下层信息。本回合低收益，可能是后续高价值的代价。</p>
+<p><b>垫刀</b>——主动消耗杂牌换视野和布局，短期损失换长期收益。</p>
+<p><b>憋大招</b>——多回合蓄力，高连击一波爆发，主要爽感来源。</p>
+
+<p>连击引入追击倍率——连击段越长，伤害倍率越高，创造"憋长连"的策略激励。</p>
+
+
+<h2>三、产品结构</h2>
+
+<ul>
+  <li><b>主线 · 50 关冒险模式</b>——三幕递进，教学和成长主路径</li>
+  <li><b>日常 · 迷宫 + 爬塔</b>——随机 Boss 战，日留存和长期目标</li>
+  <li><b>10 个 Boss</b>——猫咪主题，各具专属机制，同阶同强度</li>
+  <li><b>10+ 圣物</b>——局内获取，组合产生 Build 分化</li>
+</ul>
+
+
+<h2>四、爽感设计（核心竞争力）</h2>
+
+<p>数值、视觉、音效三层反馈同步升级：</p>
+
+<ul>
+  <li>低收益（3-4 连）—— 轻量打击</li>
+  <li>中收益（5-6 连）—— 剑气 + 屏震</li>
+  <li>高收益（7+ 连）—— 多段斩击 + 大数字爆发</li>
+</ul>
+
+<p>递进式音效与视觉同频，连击越高反馈越强。玩家能"看到自己布局的成果"。</p>
+
+
+<h2>五、养成与留存</h2>
+
+<p>局外成长定位"舒适度成长"——外观收集为主（皮肤、特效、主题、称号），附带
+微量功能强化。不靠数值碾压破坏策略体验。</p>
+
+<p>猫房系统（规划中）：击败的 Boss 猫进入猫房，每日撸猫获取货币——通过日常互
+动提升次日和 7 日留存。</p>
+
+
+<h2>六、新手引导</h2>
+
+<p>进入即战斗，不设长文本教程。首关简化牌组 + 弱化敌人 → 玩家自然打出首次连击
+→ 产生"我懂了"的决策成就感。后续关卡逐步解锁新机制。</p>
+
+
+<h2>七、商业化</h2>
+
+<p>IAA 激励广告为主。广告出现在玩家主动触发场景：双圣物全拿、战斗中洗牌、战败
+复活。嵌入玩法循环，与"差一点"情绪对齐。分享换刷新实现裂变。</p>
+
+
+<h2>八、技术方案</h2>
+
+<ul>
+  <li>平台：微信/抖音小游戏（H5）</li>
+  <li>技术：纯前端 HTML+CSS+JS，单页面</li>
+  <li>后端：无，localStorage 存档</li>
+  <li>包体：约 3.5 MB</li>
+  <li>团队：1 人可独立完成</li>
+</ul>
+
+
+<h2>九、开发状态</h2>
+
+<p><b>已完成</b>：战斗引擎、10 Boss、10+ 圣物、50 关冒险、迷宫、猫王塔、猫毛
+商店、手机适配、自动化测试、确定性随机系统。</p>
+
+<p><b>短期重点</b>：爽感落地、猫房系统、新手引导优化、外部玩家测试。<br>
+<b>中期</b>：平台接入、广告 SDK、排行榜。</p>
+
+<p>预估：MVP 1~3 个月，Alpha 3~6 个月，商业验证约半年。</p>
+
+
+<h2>十、风险</h2>
+
+<ul>
+  <li><b>玩法深度 vs 门槛</b>——3 连保底出伤 + 追击保留高手空间</li>
+  <li><b>IAA 打扰感</b>——广告是逆转机会，不设强制插屏</li>
+  <li><b>内容消耗</b>——圣物 × Boss × 随机种子 = 每局策略不同</li>
+  <li><b>无后端</b>——核心玩法不需要，排行榜走平台 API</li>
+</ul>
+
+
+<h2>十一、希望获得的反馈</h2>
+
+<ol>
+  <li>看牌/垫刀/憋大招是否构成足够差异化？</li>
+  <li>三层爽感设计能否支撑长期游玩？</li>
+  <li>IAA 模式与品类的匹配度及结构性风险？</li>
+  <li>留存瓶颈最可能出现在哪个环节？</li>
+  <li>项目潜在市场量级区间？</li>
+</ol>
+
+
+<p class="footer">《斩》开发团队 · 2026 年 6 月</p>
+
+</body>
+</html>

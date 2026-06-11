@@ -45,6 +45,22 @@ function flatten(arr) {
   return result;
 }
 
+// ========== Zhan.RNG — 确定性随机数生成器 ==========
+Zhan.RNG = {
+  _seed: 0,
+  _initialSeed: 0,
+  setSeed: function(s) {
+    s = (s !== undefined && s !== null) ? s : Date.now();
+    this._seed = s;
+    this._initialSeed = s;
+  },
+  random: function() {
+    this._seed = (this._seed * 9301 + 49297) % 233280;
+    return this._seed / 233280;
+  },
+  getSeed: function() { return this._initialSeed; }
+};
+
 // ========== Zhan.Events — 轻量事件总线 ==========
 Zhan.Events = {
   _listeners: {},
@@ -130,7 +146,7 @@ Zhan.Systems.Boss = {
           if (flat[i].length > 0 && !G.lockedPiles[i]) candidates.push(i);
         }
         if (candidates.length < params.count) return;
-        shuffle(candidates);
+        shuffle(candidates, Zhan.RNG.random);
         G.lockedPiles = G.lockedPiles || {};
         for (var ci = 0; ci < params.count; ci++) {
           G.lockedPiles[candidates[ci]] = params.duration;
@@ -161,7 +177,7 @@ Zhan.Systems.Boss = {
           if (!G.lockedSlots || !G.lockedSlots[i]) free.push(i);
         }
         if (free.length < params.count) return;
-        shuffle(free);
+        shuffle(free, Zhan.RNG.random);
         G.lockedSlots = G.lockedSlots || {};
         for (var ci = 0; ci < params.count; ci++) {
           G.lockedSlots[free[ci]] = params.duration;
@@ -182,7 +198,7 @@ Zhan.Systems.Boss = {
     random_discard: {
       onResolve: function(G, combos) {
         if (!G.slot.length) return;
-        var idx = Math.floor(Math.random() * G.slot.length);
+        var idx = Math.floor(Zhan.RNG.random() * G.slot.length);
         var card = G.slot.splice(idx, 1)[0];
         log('🐱 阿比拍飞了一张 ' + CARD_TYPES[card.type].emoji + '！');
       }
@@ -223,7 +239,7 @@ Zhan.Systems.Boss = {
             if (flat[i].length > 0) candidates.push(i);
           }
           if (!candidates.length) return;
-          var idx = candidates[Math.floor(Math.random() * candidates.length)];
+          var idx = candidates[Math.floor(Zhan.RNG.random() * candidates.length)];
           flat[idx].push({ type: 'junk', id: G.pickedId++, isJunk: true });
         }
         log('🐱 暹罗捣乱：塞了' + junkCount + '张废牌！');
@@ -248,6 +264,8 @@ Zhan.Systems.Boss = {
         G.enemyEffects.atk_down_pct = 0;
         G.enemyEffects.stun = 0;
         G.effectiveVulnMult = 0;
+        _pushBattleLog({ type: 'action', side: 'enemy', action: 'trait',
+          text: '🐱 舔毛！Boss 清除自身全部 Debuff（破甲/虚弱/击晕）' });
         log('🐱 舔毛！Boss 清除自身全部 Debuff（破甲/虚弱/击晕）');
       }
     },
@@ -267,6 +285,8 @@ Zhan.Systems.Boss = {
       execute: function(G) {
         G.playerEffects = {};
         G.enemyEffects = {};
+        _pushBattleLog({ type: 'action', side: 'enemy', action: 'trait',
+          text: '🐱 哈气！！全场 Buff/Debuff 清空！' });
         log('🐱 哈气！！全场 Buff/Debuff 清空！');
       }
     }
@@ -615,7 +635,7 @@ Zhan.Engine = {
         var topN = Math.min(4, pile.length);
         var top = pile.slice(0, topN);
         for (var ti = top.length - 1; ti > 0; ti--) {
-          var tj = Math.floor(Math.random() * (ti + 1));
+          var tj = Math.floor(Zhan.RNG.random() * (ti + 1));
           var tt = top[ti]; top[ti] = top[tj]; top[tj] = tt;
         }
         for (var ti = 0; ti < top.length; ti++) pile[ti] = top[ti];
@@ -683,6 +703,13 @@ Zhan.Engine = {
 
   dispatch: function(action) {
     if (!this.state) return;
+    // 回放记录：仅记录战斗中的玩家操作
+    var replayableActions = ['PLAY_CARD', 'END_TURN', 'REMOVE_CARD', 'SHUFFLE'];
+    if (replayableActions.indexOf(action.type) >= 0
+        && this.state.phase === CONFIG.PHASE_PLAYER
+        && !this.state.over) {
+      this.state.replayActions.push(action);
+    }
     switch (action.type) {
       case 'PLAY_CARD':
         this._pullCard(action.r, action.c);
@@ -720,24 +747,9 @@ Zhan.Engine = {
         break;
       case 'REMOVE_CARD':
         if (this.state.slot.length > 0 && (this.state.removeUsed || 0) < 1) {
-          this.state.removedSlot = this.state.slot.slice();
           this.state.slot = [];
           this.state.removeUsed = (this.state.removeUsed || 0) + 1;
           if (Zhan.UI && Zhan.UI.updateComboPreview) Zhan.UI.updateComboPreview(this.state);
-        }
-        break;
-      case 'RETURN_CARD':
-        if (this.state.removedSlot && this.state.removedSlot.length > 0) {
-          var idx = action.index;
-          if (idx === undefined || idx < 0 || idx >= this.state.removedSlot.length) break;
-          var effectiveSize = this.state.effectiveSlotSize || CONFIG.SLOT_SIZE;
-          if (this.state.slot.length >= effectiveSize) break;
-          var card = this.state.removedSlot.splice(idx, 1)[0];
-          if (card) {
-            this.state.slot.push(card);
-            if (this.state.removedSlot.length === 0) this.state.removedSlot = [];
-            if (Zhan.UI && Zhan.UI.updateComboPreview) Zhan.UI.updateComboPreview(this.state);
-          }
         }
         break;
       case 'SHUFFLE':
@@ -753,7 +765,7 @@ Zhan.Engine = {
               stPiles[_r][_c] = [];
             }
           }
-          shuffle(allCards);
+          shuffle(allCards, Zhan.RNG.random);
           // 重新平均分布到 25 个 piles
           var idx = 0;
           var totalCards = allCards.length;
@@ -775,7 +787,7 @@ Zhan.Engine = {
               var topN = Math.min(4, p.length);
               var top = p.slice(0, topN);
               for (var ti = top.length - 1; ti > 0; ti--) {
-                var si = Math.floor(Math.random() * (ti + 1));
+                var si = Math.floor(Zhan.RNG.random() * (ti + 1));
                 var tmp = top[ti]; top[ti] = top[si]; top[si] = tmp;
               }
               for (var tii = 0; tii < top.length; tii++) p[tii] = top[tii];
@@ -796,20 +808,14 @@ Zhan.Engine = {
     var st = this.state;
     log(st.boss.emoji + ' ' + st.boss.name + '行动');
     st.enemyShield = 0;
-    // buff到期（敌人+玩家所有buff）
-    for (var k in st.enemyEffects) { if (k !== 'stun' && st.enemyEffects[k] > 0) st.enemyEffects[k]--; }
-    if ((st.enemyEffects.atk_down || 0) <= 0) { st.enemyEffects.atk_down = 0; st.enemyEffects.atk_down_pct = 0; }
-    if ((st.playerEffects.def_buff || 0) > 0) st.playerEffects.def_buff--;
-    if ((st.playerEffects.divine || 0) > 0) st.playerEffects.divine--;
-    if ((st.playerEffects.atk_buff || 0) > 0) st.playerEffects.atk_buff--;
+    // 舔毛/哈气：优先于眩晕，能清除眩晕 debuff
     if (st.boss.hpTriggers) { Zhan.Systems.Boss.runHpTriggers(st, 'hiss'); if (st.over) return; }
     if (st.boss.hpTriggers) { Zhan.Systems.Boss.runHpTriggers(st, 'groom'); if (st.over) return; }
-    // T1 首回合 buff_self：不被击晕打断（仅 powerGrowth>0 时生效）
-    if (st.turn === 0) {
-      if (st.boss.powerGrowth > 0) {
-        log(st.boss.emoji + ' 能力值buff！power=' + st.power);
-        st.power += st.boss.powerGrowth;
-      }
+    // T1 首回合 buff_self：仅 powerGrowth>0 时特殊处理（加 buff 不行动）
+    // powerGrowth===0 的敌人跳过此分支，走正常 hiss/groom/stun/cycle 流程
+    if (st.turn === 0 && st.boss.powerGrowth > 0) {
+      log(st.boss.emoji + ' 能力值buff！power=' + st.power);
+      st.power += st.boss.powerGrowth;
       Zhan.Systems.Boss.processEvent(st, 'TURN_END');
       if (st.lockedSlots) {
         var cleaned0 = [];
@@ -819,7 +825,6 @@ Zhan.Engine = {
         st.slot = cleaned0;
       }
       st.turn++; st.phase = CONFIG.PHASE_PLAYER;
-      st.removedSlot = [];
       Zhan.Engine._updateEffectiveFury(st);
       log('⏭ 回合' + (st.turn+1) + '开始');
       log(st.boss.emoji + 'HP:' + st.enemyHP + '🛡' + st.enemyShield + '⚡' + st.power);
@@ -834,8 +839,7 @@ Zhan.Engine = {
       st.enemyEffects.stun--;
       if (st.enemyEffects.stun <= 0) st.enemyEffects.stun = 0;
       st.turn++; st.phase = CONFIG.PHASE_PLAYER;
-      st.removedSlot = [];
-      log('⏭ 回合' + (st.turn+1) + '开始');
+            log('⏭ 回合' + (st.turn+1) + '开始');
       Zhan.Events.emit('turnEnd', { turn: st.turn, playerHP: st.playerHP, enemyHP: st.enemyHP });
       _pushBattleLog({ type: 'turnFooter', text: '—— 回合结束 ——' });
       if (Zhan.UI && Zhan.UI.render) Zhan.UI.render(st);
@@ -851,8 +855,8 @@ Zhan.Engine = {
       var reduction = st.enemyEffects.atk_down_pct || CONFIG.ATK_DOWN_PCT;
       rawAtk = Math.floor(rawAtk * (1 - reduction/100));
     }
-    // 战斗日志：敌方分隔线
-    _pushBattleLog({ type: 'separator', text: '─── 敌方 ───' });
+    // 战斗日志：敌方分隔线（缅因猫标注先手）
+    _pushBattleLog({ type: 'separator', text: '─── 敌方' + (st.boss.id === 'maine_coon' ? '（先手）' : '') + ' ───' });
 
     var playerHPBefore = st.playerHP, playerShieldBefore = st.playerShield;
     switch (cycle.type) {
@@ -904,13 +908,18 @@ Zhan.Engine = {
       st.slot = cleaned;
     }
     st.turn++; st.phase = CONFIG.PHASE_PLAYER;
-    st.removedSlot = [];
-    Zhan.Engine._updateEffectiveFury(st);
+        Zhan.Engine._updateEffectiveFury(st);
     log('⏭ 回合' + (st.turn+1) + '开始');
     Zhan.Events.emit('turnEnd', { turn: st.turn, playerHP: st.playerHP, enemyHP: st.enemyHP });
     log(st.boss.emoji + 'HP:' + st.enemyHP + '🛡' + st.enemyShield + '⚡' + st.power);
     // 战斗日志：回合结束
     _pushBattleLog({ type: 'turnFooter', text: '—— 回合结束 ——' });
+    // buff到期（敌人+玩家所有buff）— 回合末尾递减
+    for (var k in st.enemyEffects) { if (k !== 'stun' && st.enemyEffects[k] > 0) st.enemyEffects[k]--; }
+    if ((st.enemyEffects.atk_down || 0) <= 0) { st.enemyEffects.atk_down = 0; st.enemyEffects.atk_down_pct = 0; }
+    if ((st.playerEffects.def_buff || 0) > 0) st.playerEffects.def_buff--;
+    if ((st.playerEffects.divine || 0) > 0) st.playerEffects.divine--;
+    if ((st.playerEffects.atk_buff || 0) > 0) st.playerEffects.atk_buff--;
     if (Zhan.UI && Zhan.UI.render) Zhan.UI.render(st);
     Zhan.Engine._updateEnemyIntent();
   },
@@ -925,6 +934,7 @@ Zhan.Engine = {
       setTimeout(function() { Zhan.Engine._enemyTurn(); }, 300); return;
     }
     if (st.boss && st.boss.id === 'maine_coon') {
+      _pushBattleLog({ type: 'separator', text: '─── 缅因猫先手 ───' });
       st._maineCoonFirst = true; Zhan.Engine._enemyTurn();
       if (st.over) return;
     }
@@ -1118,8 +1128,7 @@ Zhan.Engine = {
     Zhan.Engine._updateEnemyIntent();
     if (st._maineCoonFirst) {
       st._maineCoonFirst = false; st.phase = CONFIG.PHASE_PLAYER;
-      st.removedSlot = [];
-      log('⏭ 回合' + (st.turn+1) + '开始');
+            log('⏭ 回合' + (st.turn+1) + '开始');
       log(st.boss.emoji + 'HP:' + st.enemyHP + '🛡' + st.enemyShield + '⚡' + st.power);
       if (Zhan.UI && Zhan.UI.render) Zhan.UI.render(st);
       Zhan.Engine._updateEnemyIntent();
@@ -1372,6 +1381,8 @@ function createState(options) {
     removeUsed: 0,
     shuffleUsed: 0,
     _reviveUsed: false,
+    battleSeed: Zhan.RNG.getSeed(),
+    replayActions: [],
   };
   return state;
 }
@@ -1393,6 +1404,12 @@ function newGame(overrides) {
     if (!('activeRelics' in options)) options.activeRelics = oldSt.activeRelics || [];
     if (!('currentStage' in options)) options.currentStage = oldSt.currentStage;
   }
+
+  // === 种子初始化 ===
+  if (options.seed === undefined || options.seed === null) {
+    options.seed = Date.now();
+  }
+  Zhan.RNG.setSeed(options.seed);
 
   // === Boss 选择 ===
   var mode = options.mode || CONFIG.MODE_NORMAL;
@@ -1455,20 +1472,22 @@ function newGame(overrides) {
     }
     log(st, '🪶 救命毫毛！获得' + st.specialCards.length + '张特殊卡');
   }
-  shuffle(st.deck);
+  shuffle(st.deck, Zhan.RNG.random);
   Zhan.Engine._buildPiles();
   Zhan.Engine._updateEffectiveFury(st);
   Zhan.Engine._updateEnemyIntent();
   if (Zhan.UI && Zhan.UI.render) Zhan.UI.render(st);
+  log(st, '🎲 种子: ' + st.battleSeed);
   log(st, '🐱 新局开始！双击或向下拖拽卡牌进槽');
   Zhan.Events.emit('battleStart', { mode: st.mode, bossId: st.bossId, playerMaxHP: st.playerMaxHP });
 
   return st;
 }
 
-function shuffle(a) {
+function shuffle(a, rng) {
+  var rand = rng || Math.random;
   for (var i = a.length - 1; i > 0; i--) {
-    var j = Math.floor(Math.random() * (i + 1));
+    var j = Math.floor(rand() * (i + 1));
     var t = a[i]; a[i] = a[j]; a[j] = t;
   }
 }
