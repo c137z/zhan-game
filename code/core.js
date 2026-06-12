@@ -904,7 +904,7 @@ Zhan.Engine = {
           type: 'action', side: 'enemy', action: 'crit',
           text: 'Boss 暴怒攻击造成 ' + actualCritDmg + ' 点伤害',
           formulaParts: [{ text: rawAtk + '(基础' + (st.power - (st.boss.powerGrowth || 0)) + '+力量' + (st.boss.powerGrowth || 0) + ')', color: '#eee' }, { text: ' ×2(暴怒)', color: '#f1c40f' }].concat(
-            (st.playerEffects.def_buff || 0) > 0 ? [{ text: ' ×' + parseFloat((st.defBuffRatio || CONFIG.DEF_BUFF_RATIO).toFixed(1)) + '(减伤)', color: '#1abc9c' }] : []
+            (st.playerEffects.def_buff || 0) > 0 ? [{ text: ' ×' + parseFloat(((st.effectiveDefBuffRatio || st.defBuffRatio || CONFIG.DEF_BUFF_RATIO)).toFixed(1)) + '(减伤)', color: '#1abc9c' }] : []
           ).concat(
             (st.enemyEffects.atk_down || 0) > 0 ? [{ text: ' ↓' + (st.enemyEffects.atk_down_pct || CONFIG.ATK_DOWN_PCT) + '%(虚弱)', color: '#8e44ad' }] : []
           ),
@@ -1171,7 +1171,7 @@ function _getActiveBuffs(st) {
   var buffs = [];
   if (st.effectiveAtkBuffMult >= CONFIG.ATK_BUFF_MULT) buffs.push({ name: '暴击', value: '×' + parseFloat(st.effectiveAtkBuffMult.toFixed(1)), color: '#f1c40f' });
   if (st.effectiveVulnMult > 0) buffs.push({ name: '破甲', value: '×' + parseFloat(st.effectiveVulnMult.toFixed(1)), color: '#e74c3c' });
-  if ((st.playerEffects.def_buff || 0) > 0) buffs.push({ name: '减伤', value: '×' + parseFloat((st.defBuffRatio || CONFIG.DEF_BUFF_RATIO).toFixed(1)), color: '#1abc9c' });
+  if ((st.playerEffects.def_buff || 0) > 0) buffs.push({ name: '减伤', value: '×' + parseFloat(((st.effectiveDefBuffRatio || st.defBuffRatio || CONFIG.DEF_BUFF_RATIO)).toFixed(1)), color: '#1abc9c' });
   if ((st.enemyEffects.atk_down || 0) > 0) {
     var pct = st.enemyEffects.atk_down_pct || CONFIG.ATK_DOWN_PCT;
     buffs.push({ name: '虚弱', value: '↓' + pct + '%', color: '#8e44ad' });
@@ -1191,7 +1191,7 @@ function _buildFormulaParts(baseText, pursuitMult, st) {
 function _buildEnemyFormulaParts(baseAtk, st) {
   var parts = [];
   parts.push({ text: baseAtk + '(基础' + (st.power - (st.boss.powerGrowth || 0)) + '+力量' + (st.boss.powerGrowth || 0) + ')', color: '#eee' });
-  if ((st.playerEffects.def_buff || 0) > 0) parts.push({ text: ' ×' + parseFloat((st.defBuffRatio || CONFIG.DEF_BUFF_RATIO).toFixed(1)) + '(减伤)', color: '#1abc9c' });
+  if ((st.playerEffects.def_buff || 0) > 0) parts.push({ text: ' ×' + parseFloat(((st.effectiveDefBuffRatio || st.defBuffRatio || CONFIG.DEF_BUFF_RATIO)).toFixed(1)) + '(减伤)', color: '#1abc9c' });
   if ((st.enemyEffects.atk_down || 0) > 0) {
     var pct = st.enemyEffects.atk_down_pct || CONFIG.ATK_DOWN_PCT;
     parts.push({ text: ' ↓' + pct + '%(虚弱)', color: '#8e44ad' });
