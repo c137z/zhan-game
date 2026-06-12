@@ -1,0 +1,8 @@
+{
+  "name": "spirit_junk_no_penalty",
+  "desc": "验证 spirit_core×暹罗(塞废牌): 废牌不扣血，机制不被废",
+  "seed": 70, "boss": "siamese", "relics": ["spirit_core"],
+  "setup": {}, "actions": [{"type":"PLAY_CARD","r":0,"c":0},{"type":"PLAY_CARD","r":0,"c":0},{"type":"PLAY_CARD","r":0,"c":0},{"type":"END_TURN"}],
+  "rules": [{"id": "no_unmatched_penalty", "desc": "noUnmatchedPenalty 应为true", "field": "noUnmatchedPenalty", "mode": "invariant"}],
+  "values": []
+}

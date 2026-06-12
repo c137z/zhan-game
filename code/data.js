@@ -67,6 +67,7 @@ var CONFIG = {
   MAX_REMOVE_PER_TURN: 1,
   MAX_SHUFFLE_PER_TURN: 1,
   SAVE_VERSION: 3,        // v3: 猫毛效果系统（亲和圣物选择）
+  GAME_VERSION: "v14",     // 游戏版本号，用于验证系统场景文件的版本一致性
 };
 
 // ========== 猫毛商店 ==========

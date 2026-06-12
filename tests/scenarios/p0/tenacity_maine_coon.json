@@ -1,0 +1,8 @@
+{
+  "name": "tenacity_maine_coon",
+  "desc": "验证 tenacity_core×缅因(先手): 先手打死→tenacity锁1血→玩家还能结算",
+  "seed": 80, "boss": "maine_coon", "relics": ["tenacity_core"],
+  "setup": { "playerHP": 5 }, "actions": [{"type":"PLAY_CARD","r":0,"c":0},{"type":"END_TURN"}],
+  "rules": [],
+  "values": []
+}

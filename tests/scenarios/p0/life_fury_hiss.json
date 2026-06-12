@@ -1,0 +1,9 @@
+{
+  "name": "life_fury_hiss",
+  "desc": "验证 life_core+fury_core×hiss: +50HP改变fury斜率，hiss切段后重算正确",
+  "seed": 90, "boss": "tabby", "relics": ["life_core","fury_core"],
+  "setup": { "playerHP": 75, "enemyHP": 110 },
+  "actions": [{"type":"PLAY_CARD","r":0,"c":0},{"type":"PLAY_CARD","r":0,"c":0},{"type":"PLAY_CARD","r":0,"c":0},{"type":"END_TURN"}],
+  "rules": [{"id": "playerMaxHP_150", "desc": "life_core把maxHP提升到150", "field": "playerMaxHP", "mode": "invariant"}],
+  "values": []
+}

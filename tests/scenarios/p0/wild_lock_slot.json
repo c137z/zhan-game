@@ -1,0 +1,14 @@
+{
+  "name": "wild_lock_slot",
+  "desc": "验证 wild_core×英短(锁槽): 万能卡首槽被锁时跳到下一个可用槽",
+  "seed": 60,
+  "boss": "british_shorthair",
+  "relics": ["wild_core"],
+  "setup": {},
+  "actions": [
+    {"type":"PLAY_CARD","r":0,"c":0},
+    {"type":"END_TURN"}
+  ],
+  "rules": [],
+  "values": []
+}

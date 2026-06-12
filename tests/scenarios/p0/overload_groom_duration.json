@@ -1,0 +1,8 @@
+{
+  "name": "overload_groom_duration",
+  "desc": "验证 overload_core×groom: buff持续减半+groom清除+重新施加 → 回合数正确",
+  "seed": 110, "boss": "tabby", "relics": ["overload_core"],
+  "setup": {}, "actions": [{"type":"PLAY_CARD","r":0,"c":0},{"type":"PLAY_CARD","r":0,"c":0},{"type":"PLAY_CARD","r":0,"c":0},{"type":"END_TURN"}],
+  "rules": [],
+  "values": []
+}

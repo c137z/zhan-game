@@ -1,0 +1,31 @@
+{
+  "name": "combo_min2_duration",
+  "desc": "验证 combo_core(minCombo=2): buff持续回合公式正确。3连=2T, 4连=3T",
+  "seed": 50,
+  "boss": "tabby",
+  "relics": ["combo_core"],
+  "setup": {},
+  "actions": [
+    {"type":"PLAY_CARD","r":0,"c":0},
+    {"type":"PLAY_CARD","r":0,"c":0},
+    {"type":"PLAY_CARD","r":0,"c":0},
+    {"type":"END_TURN"}
+  ],
+  "rules": [
+    {
+      "id": "minCombo_is_2",
+      "desc": "effectiveMinCombo 应为2",
+      "field": "effectiveMinCombo",
+      "mode": "invariant",
+      "expect": 2
+    }
+  ],
+  "values": [
+    {
+      "id": "minCombo_value",
+      "desc": "effectiveMinCombo=2",
+      "field": "effectiveMinCombo", "expect": 2, "tolerance": 0,
+      "design_version": "v14"
+    }
+  ]
+}

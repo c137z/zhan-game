@@ -1,0 +1,19 @@
+{
+  "name": "fury_hiss_reset",
+  "desc": "验证 fury_core×hiss: hiss清全场后残血fury重新上buff → 倍率值在正常范围",
+  "seed": 200,
+  "boss": "tabby",
+  "relics": ["fury_core"],
+  "setup": { "playerHP": 30, "enemyHP": 110 },
+  "actions": [],
+  "rules": [
+    {
+      "id": "fury_mult_in_range",
+      "desc": "hiss后fury倍率在合理范围(1.0~2.0)",
+      "field": "effectiveAtkBuffMult",
+      "mode": "bounded_by",
+      "max": 3.0
+    }
+  ],
+  "values": []
+}
