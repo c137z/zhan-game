@@ -91,7 +91,6 @@ Zhan.UI.render = function(state) {
   var bossAvatar = document.getElementById('boss-avatar');
   // 检测是否有圣物改变头像
   var playerEmoji = CONFIG.PLAYER_DEFAULT_EMOJI;
-  if (st.activeRelics && st.activeRelics.indexOf('life_core') >= 0) playerEmoji = ASSETS.PLAYER_AVATAR_LIFE;
   playerAvatar.textContent = playerEmoji;
   bossAvatar.textContent = st.boss.emoji || CONFIG.BOSS_DEFAULT_EMOJI;
 

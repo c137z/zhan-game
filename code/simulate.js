@@ -10,6 +10,8 @@ var vm = require('vm');
 var TOTAL_GAMES = parseInt(process.argv[2], 10) || 1000;
 var START_SEED  = parseInt(process.argv[3], 10) || 1;
 var MAX_STEPS   = 300;  // 单局最大步数，防止死循环
+var DUMP_LOGS   = process.argv.indexOf('--logs') >= 0;   // 失败时导出战斗日志
+var VERBOSE     = process.argv.indexOf('--verbose') >= 0; // 每局都导出战斗日志
 
 // ---- 沙箱环境 ----
 var sandbox = {
@@ -167,7 +169,7 @@ for (var seed = START_SEED; seed < START_SEED + TOTAL_GAMES; seed++) {
       // 每次操作后检查状态
       var errors = checkState(st);
       if (errors.length > 0) {
-        failures.push({ seed: seed, step: step, errors: errors, phase: st.phase });
+        failures.push({ seed: seed, step: step, errors: errors, phase: st.phase, logLines: st.logLines });
         break;
       }
 
@@ -177,7 +179,23 @@ for (var seed = START_SEED; seed < START_SEED + TOTAL_GAMES; seed++) {
     if (step >= MAX_STEPS && !st.over) {
       stuckCount++;
       failures.push({ seed: seed, step: step, errors: ['STUCK: exceeded ' + MAX_STEPS + ' steps'],
-        turn: st.turn, phase: st.phase, playerHP: st.playerHP, enemyHP: st.enemyHP });
+        turn: st.turn, phase: st.phase, playerHP: st.playerHP, enemyHP: st.enemyHP, logLines: st.logLines });
+    }
+
+    // 战斗日志导出（--verbose 模式：每局输出简版日志）
+    if (VERBOSE) {
+      var st = Zhan.Engine.state;
+      if (st && st.logLines && st.logLines.length > 0) {
+        process.stdout.write('\r播种 ' + seed + ' | 回合 ' + st.turn + ' | ' + (st.win ? '胜' : '负'));
+        // 只输出前 5 条 + 最后 5 条，避免刷屏
+        var logs = st.logLines;
+        var out = [];
+        for (var li = 0; li < logs.length && li < 5; li++) out.push(formatBattleLogLine(logs[li]));
+        if (logs.length > 10) out.push('  ...（中间 ' + (logs.length - 10) + ' 条省略）');
+        for (var li = Math.max(0, logs.length - 5); li < logs.length; li++) out.push(formatBattleLogLine(logs[li]));
+        out.forEach(function(l) { process.stdout.write('\n' + l); });
+        process.stdout.write('\n\n');
+      }
     }
 
     // 进度条
@@ -203,7 +221,58 @@ console.log('  崩溃(异常):  ' + crashCount);
 console.log('  状态异常:     ' + (failures.length - stuckCount - crashCount));
 console.log('');
 
-// 打印前 20 个失败详情
+// ---- 单行日志格式化（verbose 模式用） ----
+function formatBattleLogLine(e) {
+  if (!e) return '';
+  if (typeof e === 'string') return '  ' + e;
+  switch (e.type) {
+    case 'turnHeader':    return '';
+    case 'turnFooter':    return '  ' + ('—'.repeat(20));
+    case 'separator':     return '';
+    case 'action':
+      var prefix = e.side === 'enemy' ? '◀ ' : '▶ ';
+      return '  ' + prefix + e.text;
+    case 'cardsRow':      return '  🃏 ' + (e.cards || []).join('');
+    default:              return '  [' + (e.text || '[无]') + ']';
+  }
+}
+
+// ---- 完整战斗日志格式化（失败详情用） ----
+function formatBattleLog(entries) {
+  if (!entries || !entries.length) return '  (无战斗日志)';
+  var out = [];
+  for (var i = 0; i < entries.length; i++) {
+    var e = entries[i];
+    if (typeof e === 'string') { out.push('  ' + e); continue; }
+    switch (e.type) {
+      case 'turnHeader':    out.push(''); out.push('  ' + e.text); break;
+      case 'turnFooter':    out.push('  ' + e.text); break;
+      case 'separator':     out.push('  ' + e.text); break;
+      case 'action':
+        var prefix = e.side === 'enemy' ? '  ◀ ' : '  ▶ ';
+        out.push(prefix + e.text);
+        if (e.detail) out.push('       ' + e.detail);
+        break;
+      case 'cardsRow':
+        out.push('  🃏 ' + (e.cards || []).join(''));
+        break;
+      case 'buffsRow':
+        if (e.buffs && e.buffs.length) {
+          var parts = [];
+          for (var bi = 0; bi < e.buffs.length; bi++) {
+            parts.push(e.buffs[bi].name + e.buffs[bi].value);
+          }
+          out.push('  📊 ' + parts.join('  '));
+        }
+        break;
+      default: out.push('  [' + e.type + '] ' + (e.text || ''));
+    }
+  }
+  return out.join('\n');
+}
+
+// 打印失败详情
+var showCount = Math.min(20, failures.length);
 var showCount = Math.min(20, failures.length);
 if (showCount > 0) {
   console.log('--- 失败详情 (前' + showCount + '个) ---');
@@ -214,10 +283,16 @@ if (showCount > 0) {
       (f.turn !== undefined ? ' | turn=' + f.turn : ''));
     if (f.crash) {
       console.log('     CRASH: ' + f.message);
+      if (f.stack) console.log('     ' + f.stack);
     } else if (f.errors) {
       for (var ei = 0; ei < f.errors.length; ei++) {
         console.log('     ' + f.errors[ei]);
       }
+    }
+    // 战斗日志导出（仅 --logs 模式，且非 crash 且有 state）
+    if (DUMP_LOGS && !f.crash && f.logLines) {
+      console.log('');
+      console.log(formatBattleLog(f.logLines));
     }
   }
   console.log('');
