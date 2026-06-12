@@ -596,6 +596,16 @@ Zhan.Engine = {
     st.effectiveDefBuffRatio = furyEff.defBuffRatio;
     if ((st.playerEffects.atk_buff || 0) <= 0) st.effectiveAtkBuffMult = 0;
     if ((st.enemyEffects.vulnerable || 0) <= 0) st.effectiveVulnMult = 0;
+    // 动态重算 atk_down_pct: 跟随 fury 和 HP 变化（与 vuln/atkBuff 一致）
+    if ((st.enemyEffects.atk_down || 0) > 0) {
+      var basePct = (st.activeRelics && st.activeRelics.indexOf('overload_core') >= 0) ? 50 : CONFIG.ATK_DOWN_PCT;
+      if (st.furyEnabled) {
+        var furyMult = Zhan.Systems.Relic.getFuryMultiplier(st);
+        st.enemyEffects.atk_down_pct = Math.min(100, Math.round(basePct * furyMult));
+      } else {
+        st.enemyEffects.atk_down_pct = basePct;
+      }
+    }
   },
   _buildDeck: function() {
     var st = this.state;
@@ -970,9 +980,9 @@ Zhan.Engine = {
         case 'atk_buff': st.playerEffects.atk_buff = (st.playerEffects.atk_buff || 0) + dur; log('⚡暴击 +' + dur + '→' + st.playerEffects.atk_buff + '回合'); break;
         case 'def_buff': st.playerEffects.def_buff = (st.playerEffects.def_buff || 0) + dur; log('💨减伤 +' + dur + '→' + st.playerEffects.def_buff + '回合'); break;
         case 'atk_down':
-          var atkDownPct = st.enemyEffects.atk_down_pct || CONFIG.ATK_DOWN_PCT;
+          var atkDownPct = CONFIG.ATK_DOWN_PCT;  // 始终从基准算，不复用旧值
           if (st.activeRelics.indexOf('overload_core') >= 0) atkDownPct = 50;
-          if (st.furyEnabled && RELICS.fury_core) atkDownPct = Math.min(100, atkDownPct * Zhan.Systems.Relic.getFuryMultiplier(st));
+          if (st.furyEnabled && RELICS.fury_core) atkDownPct = Math.min(100, Math.round(atkDownPct * Zhan.Systems.Relic.getFuryMultiplier(st)));
           st.enemyEffects.atk_down_pct = atkDownPct;
           st.enemyEffects.atk_down = (st.enemyEffects.atk_down || 0) + dur;
           log('⬇虚弱 +' + dur + '→' + st.enemyEffects.atk_down + '回合'); break;

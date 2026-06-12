@@ -1,60 +1,38 @@
 {
   "name": "fury_groom_atkdown",
-  "desc": "验证 fury_core×groom: 虚弱百分比不会叠加。seed=41 pile[0,0]=[atk_down,atk_down,wild,...] → 首回合即触发atk_down3连。反复施加后检查atkDownPct不滚雪球",
-  "seed": 41,
-  "boss": "tabby",
+  "desc": "验证 atkDownPct 不叠加且动态跟随 fury。预置63(模拟叠加bug)→ 一轮后_updateEffectiveFury自动重算→ 应降至≈45(fury 1.5×30)",
+  "seed": 0,
+  "boss": "skeleton",
   "relics": ["fury_core"],
-  "setup": { "playerHP": 50 },
+  "setup": {
+    "playerHP": 50,
+    "enemyEffects": { "atk_down": 2, "atk_down_pct": 63, "stun": 0, "vulnerable": 0 },
+    "effectiveVulnMult": 0
+  },
   "actions": [
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"END_TURN"},
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"END_TURN"},
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"END_TURN"},
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"END_TURN"},
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"END_TURN"},
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"PLAY_CARD","r":0,"c":0},
-    {"type":"PLAY_CARD","r":0,"c":0},
     {"type":"END_TURN"}
   ],
   "rules": [
     {
-      "id": "atk_down_pct_bounded",
-      "desc": "虚弱百分比不超过55%（fury放大+overload上限）",
+      "id": "atk_down_dynamic_reset",
+      "desc": "atkDownPct从63自动重置为≈45(fury×30)，不复用旧值",
       "field": "enemyEffects.atk_down_pct",
       "mode": "bounded_by",
-      "max": 55
-    },
-    {
-      "id": "atk_down_pct_not_compound",
-      "desc": "虚弱不会跨回合滚雪球增长",
-      "field": "enemyEffects.atk_down_pct",
-      "mode": "not_growing",
-      "max": 55
+      "max": 50,
+      "step": 2
     }
   ],
   "values": [
     {
-      "id": "atk_down_in_range",
-      "desc": "虚弱值在合理范围",
-      "field": "enemyEffects.atk_down_pct",
-      "expect": 30,
-      "tolerance": 25,
+      "id": "atk_down_step0",
+      "desc": "初始预置值=63",
+      "field": "enemyEffects.atk_down_pct", "expect": 63, "tolerance": 0, "step": 0,
+      "design_version": "v14"
+    },
+    {
+      "id": "atk_down_step2",
+      "desc": "_updateEffectiveFury 重算后≈45",
+      "field": "enemyEffects.atk_down_pct", "expect": 45, "tolerance": 5,
       "design_version": "v14"
     }
   ]
