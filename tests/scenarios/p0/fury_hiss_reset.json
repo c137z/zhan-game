@@ -1,19 +1,18 @@
 {
   "name": "fury_hiss_reset",
-  "desc": "验证 fury_core×hiss: hiss清全场后残血fury重新上buff → 倍率值在正常范围",
-  "seed": 200,
-  "boss": "tabby",
-  "relics": ["fury_core"],
-  "setup": { "playerHP": 30, "enemyHP": 110 },
-  "actions": [],
-  "rules": [
-    {
-      "id": "fury_mult_in_range",
-      "desc": "hiss后fury倍率在合理范围(1.0~2.0)",
-      "field": "effectiveAtkBuffMult",
-      "mode": "bounded_by",
-      "max": 3.0
-    }
-  ],
-  "values": []
+  "desc": "验证fury×hiss: hiss触发→清空所有buff/debuff字段为0(而非替换对象)",
+  "seed": 200, "boss": "tabby", "relics": ["fury_core"],
+  "setup": {
+    "playerHP": 30, "enemyHP": 190, "hissPrevHP": 300,
+    "playerEffects": {"atk_buff":2,"def_buff":1},
+    "enemyEffects": {"vulnerable":2,"atk_down":1,"atk_down_pct":40,"stun":0},
+    "effectiveVulnMult": 1.5, "effectiveAtkBuffMult": 1.5
+  },
+  "actions": [{"type":"END_TURN"}],
+  "rules": [],
+  "values": [
+    {"id":"hiss_vuln_before","desc":"hiss前vulnerable=2","field":"enemyEffects.vulnerable","expect":2,"tolerance":0,"step":0,"design_version":"v14"},
+    {"id":"hiss_vuln_after","desc":"hiss后vulnerable=0(字段置零)","field":"enemyEffects.vulnerable","expect":0,"tolerance":0,"step":1,"design_version":"v14"},
+    {"id":"hiss_player_clear","desc":"hiss后playerEffects.atk_buff=0","field":"playerEffects.atk_buff","expect":0,"tolerance":0,"step":1,"design_version":"v14"}
+  ]
 }

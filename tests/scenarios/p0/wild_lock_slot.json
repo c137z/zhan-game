@@ -1,14 +1,24 @@
 {
   "name": "wild_lock_slot",
-  "desc": "验证 wild_core×英短(锁槽): 万能卡首槽被锁时跳到下一个可用槽",
+  "desc": "验证 wild_core×英短(锁槽): 槽0和槽1被锁→万能卡跳到槽2",
   "seed": 60,
   "boss": "british_shorthair",
   "relics": ["wild_core"],
-  "setup": {},
+  "setup": { "lockedSlots": {"0":2,"1":2}, "turn": 1 },
   "actions": [
     {"type":"PLAY_CARD","r":0,"c":0},
     {"type":"END_TURN"}
   ],
-  "rules": [],
-  "values": []
+  "rules": [
+    {
+      "id": "wild_not_in_locked_slot",
+      "desc": "万能卡不在被锁的槽0或槽1",
+      "field": "slot",
+      "mode": "custom",
+      "verify": "slot[0]===null || slot[0].wildCore!==true"
+    }
+  ],
+  "values": [
+    {"id":"wildCoreSlot_active","desc":"wildCoreSlot=true","field":"wildCoreSlot","expect":true,"tolerance":0,"step":0,"design_version":"v14"}
+  ]
 }

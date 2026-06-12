@@ -1,11 +1,16 @@
 {
   "name": "fury_lick_player",
-  "desc": "验证 fury×斯芬克斯舔玩家buff: 清除后重新施加,数值从基准重算不复用",
+  "desc": "验证斯芬克斯舔玩家buff: turn=3时lick触发 → atk_buff被delete → 变为undefined → effectiveAtkBuffMult清零",
   "seed": 0, "boss": "sphynx", "relics": ["fury_core"],
-  "setup": { "playerHP": 40, "playerEffects": {"atk_buff": 1}},
+  "setup": {
+    "playerHP": 40, "turn": 3,
+    "playerEffects": {"atk_buff":3,"def_buff":2},
+    "effectiveAtkBuffMult": 2.0
+  },
   "actions": [{"type":"END_TURN"}],
-  "rules": [
-    {"id":"fury_in_range","desc":"fury倍率在1.0~2.0","field":"effectiveAtkBuffMult","mode":"bounded_by","max":2.5}
-  ],
-  "values": []
+  "rules": [],
+  "values": [
+    {"id":"lick_before_atk","desc":"lick前atk_buff=3","field":"playerEffects.atk_buff","expect":3,"tolerance":0,"step":0,"design_version":"v14"},
+    {"id":"lick_after_effMult","desc":"lick后effectiveAtkBuffMult=0","field":"effectiveAtkBuffMult","expect":0,"tolerance":0,"step":1,"design_version":"v14"}
+  ]
 }

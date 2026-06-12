@@ -283,8 +283,9 @@ Zhan.Systems.Boss = {
         return false;
       },
       execute: function(G) {
-        G.playerEffects = {};
-        G.enemyEffects = {};
+        for (var k in G.playerEffects) { G.playerEffects[k] = 0; }
+        for (var k in G.enemyEffects) { G.enemyEffects[k] = 0; }
+        G.effectiveVulnMult = 0;
         _pushBattleLog({ type: 'action', side: 'enemy', action: 'trait',
           text: '🐱 哈气！！全场 Buff/Debuff 清空！' });
         log('🐱 哈气！！全场 Buff/Debuff 清空！');

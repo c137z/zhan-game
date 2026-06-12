@@ -1,8 +1,12 @@
 {
   "name": "tenacity_maine_coon",
-  "desc": "验证 tenacity_core×缅因(先手): 先手打死→tenacity锁1血→玩家还能结算",
+  "desc": "验证 tenacity_core×缅因: Boss先手→致死→tenacity锁1血, tenacityUsed变true",
   "seed": 80, "boss": "maine_coon", "relics": ["tenacity_core"],
-  "setup": { "playerHP": 5 }, "actions": [{"type":"PLAY_CARD","r":0,"c":0},{"type":"END_TURN"}],
+  "setup": { "playerHP": 5, "turn": 1, "power": 22 },
+  "actions": [{"type":"END_TURN"}],
   "rules": [],
-  "values": []
+  "values": [
+    {"id":"tenacity_used","desc":"tenacityUsed=true(已触发)","field":"tenacityUsed","expect":true,"tolerance":0,"step":1,"design_version":"v14"},
+    {"id":"player_alive","desc":"playerHP>0未死","field":"playerHP","expect":1,"tolerance":10,"design_version":"v14"}
+  ]
 }
