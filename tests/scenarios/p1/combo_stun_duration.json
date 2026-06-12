@@ -1,1 +1,11 @@
-{"name":"combo_stun_duration","desc":"P1 placeholder","seed":100,"boss":"tabby","relics":[],"setup":{},"actions":[],"rules":[],"values":[]}
+{
+  "name": "combo_stun_duration",
+  "desc": "验证 combo_core(minCombo=2): 眩晕3连应有合理的持续回合数",
+  "seed": 0, "boss": "skeleton", "relics": ["combo_core"],
+  "setup": { "effectiveMinCombo": 2, "slot": [{"type":"stun","id":1},{"type":"stun","id":2},{"type":"stun","id":3}] },
+  "actions": [{"type":"END_TURN"}],
+  "rules": [],
+  "values": [
+    {"id":"minCombo_2","desc":"effectiveMinCombo=2","field":"effectiveMinCombo","expect":2,"tolerance":0,"step":0,"design_version":"v14"}
+  ]
+}

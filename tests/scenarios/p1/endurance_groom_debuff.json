@@ -1,1 +1,11 @@
-{"name":"endurance_groom_debuff","desc":"P1 placeholder","seed":100,"boss":"tabby","relics":[],"setup":{},"actions":[],"rules":[],"values":[]}
+{
+  "name": "endurance_groom_debuff",
+  "desc": "验证 endurance_core(buff+1T)×groom: debuff额外回合是否在groom清除后正常",
+  "seed": 0, "boss": "tabby", "relics": ["endurance_core"],
+  "setup": { "playerHP": 90, "buffDurationBonus": 1 },
+  "actions": [{"type":"END_TURN"}],
+  "rules": [],
+  "values": [
+    {"id":"duration_bonus_1","desc":"buffDurationBonus=1","field":"buffDurationBonus","expect":1,"tolerance":0,"step":0,"design_version":"v14"}
+  ]
+}

@@ -1,1 +1,11 @@
-{"name":"fury_maine_coon","desc":"P1 placeholder","seed":100,"boss":"tabby","relics":[],"setup":{},"actions":[],"rules":[],"values":[]}
+{
+  "name": "fury_maine_coon",
+  "desc": "验证 fury×缅因先手: 低HP时Boss先行动→fury对防御/虚弱的作用在正确时机计算",
+  "seed": 0, "boss": "maine_coon", "relics": ["fury_core"],
+  "setup": { "playerHP": 30 },
+  "actions": [{"type":"END_TURN"}],
+  "rules": [
+    {"id":"fury_not_nan","desc":"fury倍率不为NaN","field":"effectiveAtkBuffMult","mode":"bounded_by","max":5.0}
+  ],
+  "values": []
+}

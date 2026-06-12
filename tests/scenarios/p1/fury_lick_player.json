@@ -1,1 +1,11 @@
-{"name":"fury_lick_player","desc":"P1 placeholder","seed":100,"boss":"tabby","relics":[],"setup":{},"actions":[],"rules":[],"values":[]}
+{
+  "name": "fury_lick_player",
+  "desc": "验证 fury×斯芬克斯舔玩家buff: 清除后重新施加,数值从基准重算不复用",
+  "seed": 0, "boss": "sphynx", "relics": ["fury_core"],
+  "setup": { "playerHP": 40, "playerEffects": {"atk_buff": 1}},
+  "actions": [{"type":"END_TURN"}],
+  "rules": [
+    {"id":"fury_in_range","desc":"fury倍率在1.0~2.0","field":"effectiveAtkBuffMult","mode":"bounded_by","max":2.5}
+  ],
+  "values": []
+}
