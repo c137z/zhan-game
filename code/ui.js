@@ -207,29 +207,62 @@ Zhan.UI.renderBoard = function(state) {
           div.appendChild(sc);
         }
 
-        // 双击进槽
-        var lastTap = 0;
-        div.addEventListener('click', function(e) {
-          var st = Zhan.Engine.state;
-          if (!st || st.phase !== CONFIG.PHASE_PLAYER || st.over) return;
-          var now = Date.now();
-          if (now - lastTap < CONFIG.DOUBLE_TAP_DELAY) { e.preventDefault(); Zhan.Engine.dispatch({ type: 'PLAY_CARD', r: r, c: c }); lastTap = 0; return; }
-          lastTap = now;
-          if (st.piles[r][c] && st.piles[r][c].length) { div.classList.add('double-tap-active'); setTimeout(function() { div.classList.remove('double-tap-active'); }, 200); }
-        });
-
-        // 拖拽进槽
+        // 双击/下滑进槽（touchend零延迟+click桌面兜底）
+        var lastTap = 0, lastTapRc = '';
         var touchStartY = 0, touchStartX = 0, swiping = false;
         div.addEventListener('touchstart', function(e) {
-          touchStartY = e.touches[0].clientY; touchStartX = e.touches[0].clientX; swiping = false;
+          touchStartY = e.touches[0].clientY; touchStartX = e.touches[0].clientX;
+          swiping = false;
         }, {passive: true});
         div.addEventListener('touchmove', function(e) {
           var st = Zhan.Engine.state;
           if (!st || st.phase !== CONFIG.PHASE_PLAYER || st.over) return;
           var dy = e.touches[0].clientY - touchStartY;
           var dx = Math.abs(e.touches[0].clientX - touchStartX);
-          if (-dy > CONFIG.SWIPE_THRESHOLD && -dy > dx * 1.5) { e.preventDefault(); if (!swiping && st.piles[r][c] && st.piles[r][c].length) { swiping = true; Zhan.Engine.dispatch({ type: 'PLAY_CARD', r: r, c: c }); } }
+          if (-dy > CONFIG.SWIPE_THRESHOLD && -dy > dx * 1.5) {
+            e.preventDefault();
+            if (!swiping && st.piles[r][c] && st.piles[r][c].length) {
+              swiping = true;
+              Zhan.Engine.dispatch({ type: 'PLAY_CARD', r: r, c: c });
+            }
+          }
         }, {passive: false});
+        div.addEventListener('touchend', function(e) {
+          if (swiping) return;
+          var st = Zhan.Engine.state;
+          if (!st || st.phase !== CONFIG.PHASE_PLAYER || st.over) return;
+          var now = Date.now();
+          var rcKey = r + ',' + c;
+          if (now - lastTap < CONFIG.DOUBLE_TAP_DELAY && lastTapRc === rcKey) {
+            e.preventDefault();
+            Zhan.Engine.dispatch({ type: 'PLAY_CARD', r: r, c: c });
+            lastTap = 0; lastTapRc = '';
+            return;
+          }
+          lastTap = now; lastTapRc = rcKey;
+          if (st.piles[r][c] && st.piles[r][c].length) {
+            div.classList.add('double-tap-active');
+            setTimeout(function() { div.classList.remove('double-tap-active'); }, 200);
+          }
+        });
+        div.addEventListener('click', function(e) {
+          // 桌面端兜底：如果 touchend 没处理（非触屏设备），走 click 双击逻辑
+          var st = Zhan.Engine.state;
+          if (!st || st.phase !== CONFIG.PHASE_PLAYER || st.over) return;
+          var now = Date.now();
+          var rcKey = r + ',' + c;
+          if (now - lastTap < CONFIG.DOUBLE_TAP_DELAY && lastTapRc === rcKey) {
+            e.preventDefault();
+            Zhan.Engine.dispatch({ type: 'PLAY_CARD', r: r, c: c });
+            lastTap = 0; lastTapRc = '';
+            return;
+          }
+          lastTap = now; lastTapRc = rcKey;
+          if (st.piles[r][c] && st.piles[r][c].length) {
+            div.classList.add('double-tap-active');
+            setTimeout(function() { div.classList.remove('double-tap-active'); }, 200);
+          }
+        });
 
         board.appendChild(div);
       })(r, c);
