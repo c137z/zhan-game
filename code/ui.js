@@ -213,7 +213,8 @@ Zhan.UI.renderBoard = function(state) {
         div.addEventListener('touchstart', function(e) {
           touchStartY = e.touches[0].clientY; touchStartX = e.touches[0].clientX;
           swiping = false;
-        }, {passive: true});
+          e.preventDefault();  // 阻止双击缩放+click延迟，让touchend立即生效
+        }, {passive: false});
         div.addEventListener('touchmove', function(e) {
           var st = Zhan.Engine.state;
           if (!st || st.phase !== CONFIG.PHASE_PLAYER || st.over) return;

@@ -154,7 +154,7 @@ body {
 #card-count { font-size: 10px; color: #888; text-align: center; padding: 2px 0; }
 /* ===== 卡池区 ===== */
 #board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; background: #16213e; border-radius: 10px; padding: 4px; touch-action: none; }
-.card-slot { background: transparent; border-radius: 4px; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; transition: transform 0.06s; aspect-ratio: 1 / 1; }
+.card-slot { background: rgba(0,0,0,0.01); border-radius: 4px; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; transition: transform 0.06s; aspect-ratio: 1 / 1; touch-action: manipulation; }
 .card-slot:active { transform: scale(0.93); }
 .card-slot .card { width: 100%; height: 100%; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; gap: 0; transition: opacity 0.15s; pointer-events: none; position: relative; }
 .card-slot .card .card-icon { font-size: 18px; line-height: 1; }
@@ -3581,7 +3581,8 @@ Zhan.UI.renderBoard = function(state) {
         div.addEventListener('touchstart', function(e) {
           touchStartY = e.touches[0].clientY; touchStartX = e.touches[0].clientX;
           swiping = false;
-        }, {passive: true});
+          e.preventDefault();  // 阻止双击缩放+click延迟，让touchend立即生效
+        }, {passive: false});
         div.addEventListener('touchmove', function(e) {
           var st = Zhan.Engine.state;
           if (!st || st.phase !== CONFIG.PHASE_PLAYER || st.over) return;
