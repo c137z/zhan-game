@@ -849,6 +849,12 @@ Zhan.Engine = {
       _pushBattleLog({ type: 'action', side: 'enemy', action: 'stun', text: 'Boss 被击晕，跳过回合' });
       st.enemyEffects.stun--;
       if (st.enemyEffects.stun <= 0) st.enemyEffects.stun = 0;
+      // buff递减（眩晕跳过行动但不跳过递减）
+      for (var k in st.enemyEffects) { if (k !== 'stun' && st.enemyEffects[k] > 0) st.enemyEffects[k]--; }
+      if ((st.enemyEffects.atk_down || 0) <= 0) { st.enemyEffects.atk_down = 0; st.enemyEffects.atk_down_pct = 0; }
+      if ((st.playerEffects.def_buff || 0) > 0) st.playerEffects.def_buff--;
+      if ((st.playerEffects.divine || 0) > 0) st.playerEffects.divine--;
+      if ((st.playerEffects.atk_buff || 0) > 0) st.playerEffects.atk_buff--;
       st.turn++; st.phase = CONFIG.PHASE_PLAYER;
             log('⏭ 回合' + (st.turn+1) + '开始');
       Zhan.Events.emit('turnEnd', { turn: st.turn, playerHP: st.playerHP, enemyHP: st.enemyHP });
@@ -944,7 +950,7 @@ Zhan.Engine = {
       Zhan.Engine._updateEnemyIntent();
       setTimeout(function() { Zhan.Engine._enemyTurn(); }, 300); return;
     }
-    if (st.boss && st.boss.id === 'maine_coon') {
+    if (st.boss && st.boss.id === 'maine_coon' && st.turn > 0) {
       _pushBattleLog({ type: 'separator', text: '─── 缅因猫先手 ───' });
       st._maineCoonFirst = true; Zhan.Engine._enemyTurn();
       if (st.over) return;
@@ -1007,6 +1013,7 @@ Zhan.Engine = {
     // --- 战斗日志：回合头 + 出牌行 ---
     _pushBattleLog({ type: 'turnHeader', text: '—— 第 ' + (st.turn + 1) + ' 回合 ——' });
     if (turnCards.length > 0) _pushBattleLog({ type: 'cardsRow', cards: turnCards });
+    Zhan.Engine._updateEffectiveFury(st);  // 移到 _getActiveBuffs 之前，确保 buffs 行显示正确
     var activeBuffs = _getActiveBuffs(st);
     if (activeBuffs.length > 0) _pushBattleLog({ type: 'buffsRow', buffs: activeBuffs });
 
@@ -1019,7 +1026,6 @@ Zhan.Engine = {
       var d = Zhan.Rules.calcAttackValue(atkTotal, atkMaxLen, mc);
       if (d > 0) {
         var enemyHPBefore = st.enemyHP, enemyShieldBefore = st.enemyShield;
-        Zhan.Engine._updateEffectiveFury(st);
         d = Zhan.Rules.applyStatusEffects('attack', d, { atkBuffMult: st.effectiveAtkBuffMult, vulnMult: st.effectiveVulnMult, defBuffRatio: st.defBuffRatio });
         if (d > st.maxDamage) st.maxDamage = d;
         st.totalDamage += d;
@@ -1030,7 +1036,7 @@ Zhan.Engine = {
         if (st.enemyShield > 0) { shieldAbsorbed = Math.min(st.enemyShield, d); st.enemyShield -= shieldAbsorbed; d -= shieldAbsorbed; }
         st.enemyHP = Math.max(0, st.enemyHP - d);
         log('🗡×' + atkTotal + '→' + baseAtk + pursuitLog + '→总' + d + ' → ' + st.boss.emoji + st.enemyHP + '🛡' + st.enemyShield);
-        Zhan.Events.emit('damageDealt', { raw: baseAtk, final: d, crit: st.effectiveAtkBuffMult > CONFIG.ATK_BUFF_MULT, source: 'attack', comboLen: atkMaxLen });
+        Zhan.Events.emit('damageDealt', { raw: baseAtk, final: d, crit: st.effectiveAtkBuffMult >= CONFIG.ATK_BUFF_MULT, source: 'attack', comboLen: atkMaxLen });
         // 战斗日志
         var atkParts = _buildFormulaParts(baseAtk + '(基础' + atkTotal + '连)', pursuitMult, st);
         if (shieldAbsorbed > 0) atkParts.push({ text: ' -' + shieldAbsorbed + '(护盾)', color: '#3498db' });
@@ -1163,7 +1169,7 @@ function _pushBattleLog(entry) {
 
 function _getActiveBuffs(st) {
   var buffs = [];
-  if (st.effectiveAtkBuffMult > CONFIG.ATK_BUFF_MULT) buffs.push({ name: '暴击', value: '×' + parseFloat(st.effectiveAtkBuffMult.toFixed(1)), color: '#f1c40f' });
+  if (st.effectiveAtkBuffMult >= CONFIG.ATK_BUFF_MULT) buffs.push({ name: '暴击', value: '×' + parseFloat(st.effectiveAtkBuffMult.toFixed(1)), color: '#f1c40f' });
   if (st.effectiveVulnMult > 0) buffs.push({ name: '破甲', value: '×' + parseFloat(st.effectiveVulnMult.toFixed(1)), color: '#e74c3c' });
   if ((st.playerEffects.def_buff || 0) > 0) buffs.push({ name: '减伤', value: '×' + parseFloat((st.defBuffRatio || CONFIG.DEF_BUFF_RATIO).toFixed(1)), color: '#1abc9c' });
   if ((st.enemyEffects.atk_down || 0) > 0) {
@@ -1177,7 +1183,7 @@ function _buildFormulaParts(baseText, pursuitMult, st) {
   var parts = [];
   parts.push({ text: baseText, color: '#eee' });
   if (pursuitMult > 1) parts.push({ text: ' ×' + parseFloat(pursuitMult.toFixed(1)) + '(追击)', color: '#eee' });
-  if (st.effectiveAtkBuffMult > CONFIG.ATK_BUFF_MULT) parts.push({ text: ' ×' + parseFloat(st.effectiveAtkBuffMult.toFixed(1)) + '(暴击)', color: '#f1c40f' });
+  if (st.effectiveAtkBuffMult >= CONFIG.ATK_BUFF_MULT) parts.push({ text: ' ×' + parseFloat(st.effectiveAtkBuffMult.toFixed(1)) + '(暴击)', color: '#f1c40f' });
   if (st.effectiveVulnMult > 0) parts.push({ text: ' ×' + parseFloat(st.effectiveVulnMult.toFixed(1)) + '(破甲)', color: '#e74c3c' });
   return parts;
 }
