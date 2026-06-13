@@ -243,7 +243,6 @@ Zhan.UI.renderBoard = function(state) {
             setTimeout(function() { div.classList.remove('double-tap-active'); }, 200);
           }
         });
-        });
 
         board.appendChild(div);
       })(r, c);
