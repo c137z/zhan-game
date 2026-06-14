@@ -480,6 +480,9 @@ Zhan.UI.updateComboPreview = function(state) {
     }
   }
 
+  // 先刷新 fury，让 buff 倍率反映当前 HP
+  Zhan.Engine._updateEffectiveFury(st);
+
   var previewParts = [];
   var ACTION_TYPES = ['attack', 'defend', 'heal'];
   for (var ai = 0; ai < ACTION_TYPES.length; ai++) {
@@ -490,17 +493,15 @@ Zhan.UI.updateComboPreview = function(state) {
     var mc = st.effectiveMinCombo || CONFIG.MIN_COMBO;
     var baseVal = Zhan.Rules.calcBaseValue(total, mc);
     var val = at === 'attack' ? Zhan.Rules.calcAttackValue(total, maxLen, mc) : (at === 'defend' ? Zhan.Rules.calcDefendValue(total, maxLen, mc) : Zhan.Rules.calcHealValue(total, maxLen, mc));
-    var emoji = CARD_TYPES[at].emoji;
-    var html = '<span class="combo-preview ' + at + '">' + emoji + '×' + total + '→' + baseVal;
-    if (maxLen >= mc + 1) {
-      var mult = Zhan.Rules.calcPursuitMultiplier(maxLen, mc);
-      html += ' ' + maxLen + '连×' + parseFloat(mult.toFixed(1));
+    // 攻击受暴击/破甲加成（与回合结束结算一致）
+    if (at === 'attack' && val > 0) {
+      val = Zhan.Rules.applyStatusEffects('attack', val, { atkBuffMult: st.effectiveAtkBuffMult, vulnMult: st.effectiveVulnMult, defBuffRatio: st.defBuffRatio });
     }
-    html += '→总' + val + '</span>';
+    var emoji = CARD_TYPES[at].emoji;
+    var html = '<span class="combo-preview ' + at + '">' + emoji + '×' + total + '→' + val + '</span>';
     previewParts.push(html);
   }
 
-  Zhan.Engine._updateEffectiveFury(st);
   for (var ci2 = 0; ci2 < combos.length; ci2++) {
     var c2 = combos[ci2];
     if (!BUFF_TYPES[c2.type]) continue;
