@@ -18,9 +18,9 @@ Zhan.Audio = {
   // 初始化（file:// 不需要 AudioContext）
   init: function() {},
 
-  // 预加载 BGM（用原生 Audio 元素，file:// 和 http:// 都支持）
+  // 预加载 BGM（用原生 Audio 元素，兼容 file:///http:///data: URI）
   loadBGM: function(name, url) {
-    if (this._loading[name]) return; // 已经在加载中
+    if (this._loading[name] || this._elements[name]) return;
     var self = this;
     this._loading[name] = true;
 
@@ -29,11 +29,12 @@ Zhan.Audio = {
     audio.loop = true;
     audio.volume = this._muted ? 0 : this._bgmVolume;
 
+    var done = false;
     var onReady = function() {
+      if (done) return;
+      done = true;
       self._elements[name] = audio;
       self._loading[name] = false;
-      audio.removeEventListener('canplaythrough', onReady);
-      audio.removeEventListener('loadedmetadata', onReady);
       console.log('BGM 已加载: ' + name);
       if (self._pendingPlay === name) {
         self._pendingPlay = null;
@@ -41,19 +42,22 @@ Zhan.Audio = {
       }
     };
 
-    audio.addEventListener('canplaythrough', onReady, { once: true });
-    // 兜底：某些浏览器 canplaythrough 不触发，用 loadedmetadata
-    audio.addEventListener('loadedmetadata', function() {
-      if (!self._elements[name]) onReady();
-    }, { once: true });
-
+    // 多个事件兜底：canplaythrough / loadeddata / error
+    audio.addEventListener('canplaythrough', onReady);
+    audio.addEventListener('loadeddata', function() { if (!done) onReady(); });
     audio.addEventListener('error', function() {
+      if (done) return;
+      done = true;
       self._loading[name] = false;
-      console.error('BGM 加载失败: ' + name + ' (' + url + ')');
-    }, { once: true });
+      console.error('BGM 加载失败: ' + name);
+    });
 
     audio.src = url;
-    audio.load();
+
+    // data: URI 可能同步解码完成，事件已经错过，直接检查 readyState
+    if (audio.readyState >= 3) {
+      onReady();
+    }
   },
 
   // 播放 BGM（自动停止当前 BGM，循环）
