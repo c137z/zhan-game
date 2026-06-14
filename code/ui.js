@@ -987,6 +987,7 @@ document.getElementById('btn-back-menu').addEventListener('click', function() {
   if (btnHome) {
     btnHome.addEventListener('click', function() {
       document.getElementById('result-overlay').classList.remove('show');
+      if (Zhan.Audio) Zhan.Audio.stopBGM();
       Zhan.UI.renderMainMenu();
     });
   }

@@ -62,9 +62,21 @@ Zhan.Audio = {
 
   // 播放 BGM（自动停止当前 BGM，循环）
   playBGM: function(name) {
+    // 同一首已在播或暂停中 → 直接续播，不重头来
+    if (this._currentName === name) {
+      var cur = this._elements[name];
+      if (cur && !cur.paused) return; // 已经在播
+      if (cur) { cur.play().catch(function(e) {}); return; }
+    }
+
     var audio = this._elements[name];
     if (!audio) {
-      if (this._loading[name]) { this._pendingPlay = name; }
+      if (this._loading[name]) {
+        this._pendingPlay = name;
+        console.log('BGM 加载中，排队: ' + name);
+      } else {
+        console.log('BGM 未找到: ' + name);
+      }
       return;
     }
 
