@@ -697,15 +697,17 @@ Zhan.Shake = {
   }
 };
 
-// ========== BGM 初始化（首次点击页面时激活 AudioContext） ==========
+// ========== BGM 预加载（立即开始，不等首次点击） ==========
+// 必须赶在任何按钮事件之前启动加载，否则冒泡顺序导致按钮 handler
+// 先于 document click 触发 → playBGM 时 BGM 还没开始加载
+Zhan.Audio.loadBGM('adventure', 'assets/bgm/猫猫冒险.mp3');
+Zhan.Audio.loadBGM('maze', 'assets/bgm/猫猫迷宫.mp3');
+Zhan.Audio.loadBGM('tower', 'assets/bgm/猫王塔.mp3');
+
+// 首次点击时同步音量（AudioContext 等兼容处理）
 document.addEventListener('click', function _initAudio() {
   document.removeEventListener('click', _initAudio);
   Zhan.Audio.init();
-  // 预加载三首 BGM
-  Zhan.Audio.loadBGM('adventure', 'assets/bgm/猫猫冒险.mp3');
-  Zhan.Audio.loadBGM('maze', 'assets/bgm/猫猫迷宫.mp3');
-  Zhan.Audio.loadBGM('tower', 'assets/bgm/猫王塔.mp3');
-  // 音量同步
   Zhan.Audio.setBGMVolume(window.Zhan.Settings.musicVolume);
   Zhan.Audio.setSFXVolume(window.Zhan.Settings.sfxVolume);
 });

@@ -6,11 +6,13 @@ var dir = path.resolve(__dirname, '..', 'code');
 
 var dataJS = fs.readFileSync(dir + '/data.js', 'utf8');
 var coreJS = fs.readFileSync(dir + '/core.js', 'utf8');
+var audioJS = fs.readFileSync(dir + '/audio.js', 'utf8');
 var uiJS = fs.readFileSync(dir + '/ui.js', 'utf8');
 var html = fs.readFileSync(dir + '/index.html', 'utf8');
 
 html = html.replace('<script src="data.js"></script>', '<script>\n' + dataJS + '\n</script>');
 html = html.replace('<script src="core.js"></script>', '<script>\n' + coreJS + '\n</script>');
+html = html.replace('<script src="audio.js"></script>', '<script>\n' + audioJS + '\n</script>');
 html = html.replace('<script src="ui.js"></script>', '<script>\n' + uiJS + '\n</script>');
 
 // 标题改为斩 v14

@@ -977,6 +977,7 @@ document.getElementById('btn-back-menu').addEventListener('click', function() {
   }
   document.getElementById('btn-back-to-home').addEventListener('click', function() {
     settingsPanel.classList.remove('show');
+    if (Zhan.Audio) Zhan.Audio.stopBGM();
     Zhan.UI.renderMainMenu();
   });
 })();
