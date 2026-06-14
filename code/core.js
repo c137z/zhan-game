@@ -726,6 +726,7 @@ Zhan.Engine = {
         this._pullCard(action.r, action.c);
         break;
       case 'END_TURN':
+        if (Date.now() < (this._hitstopUntil || 0)) break;
         this._executeTurn();
         break;
       case 'RESET':
@@ -753,6 +754,7 @@ Zhan.Engine = {
         Zhan.Engine._adventureNext();
         break;
       case 'GO_HOME':
+        if (Zhan.Audio) Zhan.Audio.stopBGM();
         this.state = null;
         if (Zhan.UI && Zhan.UI.renderMainMenu) Zhan.UI.renderMainMenu();
         break;

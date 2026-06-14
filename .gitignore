@@ -6,4 +6,18 @@ msp/archive/backup-*
 msp/archive/task-*.json
 msp/prompt-*.md
 *.log
-bridge.js.bak-20260608
+*.jsonl
+bridge.js.bak-*
+
+# 构建工具二进制
+tools/ffmpeg/
+
+# 重复资源（以 code/assets/ 为准）
+/assets/
+
+# 临时文件 / 构建产物
+zhan_*.html
+temp_head.html
+backups/
+code-mobile/assets/
+code/test_save_migration.mjs

@@ -969,11 +969,11 @@ document.getElementById('btn-back-menu').addEventListener('click', function() {
   }
   var sliderMusic = document.getElementById('slider-music');
   if (sliderMusic) {
-    sliderMusic.addEventListener('input', function() { window.Zhan.Settings.musicVolume = this.value / 100; });
+    sliderMusic.addEventListener('input', function() { window.Zhan.Settings.musicVolume = this.value / 100; if (Zhan.Audio) Zhan.Audio.setBGMVolume(this.value / 100); });
   }
   var sliderSfx = document.getElementById('slider-sfx');
   if (sliderSfx) {
-    sliderSfx.addEventListener('input', function() { window.Zhan.Settings.sfxVolume = this.value / 100; });
+    sliderSfx.addEventListener('input', function() { window.Zhan.Settings.sfxVolume = this.value / 100; if (Zhan.Audio) Zhan.Audio.setSFXVolume(this.value / 100); });
   }
   document.getElementById('btn-back-to-home').addEventListener('click', function() {
     settingsPanel.classList.remove('show');

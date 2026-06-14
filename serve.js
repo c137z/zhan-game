@@ -1,5 +1,5 @@
 var http=require('http'),fs=require('fs'),root='C:/Users/kyzha/.openclaw/projects/zhan/code/';
-var mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.jpg':'image/jpeg','.svg':'image/svg+xml'};
+var mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.jpg':'image/jpeg','.svg':'image/svg+xml','.mp3':'audio/mpeg'};
 http.createServer(function(req,res){
   var fp=decodeURIComponent(req.url.replace(/\?.*/,'').replace(/^\//,''));
   var file=root+(fp||'index.html');
