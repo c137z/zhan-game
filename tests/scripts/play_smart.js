@@ -1,6 +1,6 @@
 // ============================================================
 //  play_smart.js — Playwright 智能游玩 + 战斗日志采集
-//  模式：双圣物 + 猫 Boss 塔式连续挑战（HP 200）
+//  模式：连击+狂暴+生命核心 + 猫 Boss 塔式连续挑战（HP 100）
 //  策略 v2：预读意图、算余量延伸连击、眩晕防暴击
 //  用法: node play_smart.js [局数]
 //  输出: play_logs_<timestamp>.jsonl
@@ -29,8 +29,8 @@ var FN_START_RUN = function(args) {
   newGame({ mode: 'normal', bossId: args.bossId, activeRelics: args.relics,
     currentStage: 2, seed: Date.now(), deckOverride: deck });
   var st = Zhan.Engine.state;
-  st.enemyHP = 60;
-  st.enemyMaxHP = 60;
+  st.enemyHP = 100;
+  st.enemyMaxHP = 100;
   Zhan.UI._showView('battle-view');
 };
 
@@ -179,123 +179,69 @@ async function main() {
           var maxSlot = info.maxSlot;
           var picked = false;
 
-          // ===== 简化后的策略：死磕攻击 =====
+          // ===== 新策略：按场上数量选牌 =====
+          // 1. 先拉场上最多的类型，拉到没有为止
+          // 2. 还有 3+ 空位，拉场上最少的类型填满
 
-          // 【致命暴击防御】Boss 下回合暴击 → 找眩晕
-          if (nextAction === 'crit') {
-            var stunCard = available.find(function(p) { return p.topType === 'stun'; });
-            if (stunCard && slotLen < maxSlot - 1) {
-              await playCard(page, stunCard.r, stunCard.c); picked = true;
-            }
-            // 没眩晕且低血量 → 防/奶
-            if (!picked && hpRatio < 0.5) {
-              var defCard = available.find(function(p) { return p.topType === 'defend' || p.topType === 'heal'; });
-              if (defCard && slotLen < maxSlot - 1) {
-                await playCard(page, defCard.r, defCard.c); picked = true;
-              }
-            }
+          // 找场上最多和最少的类型（跳过 junk）
+          var bestType = null, bestCnt = 0;
+          var worstType = null, worstCnt = 999;
+          for (var tt in topCounts) {
+            if (topCounts[tt] > bestCnt) { bestCnt = topCounts[tt]; bestType = tt; }
+            if (topCounts[tt] < worstCnt) { worstCnt = topCounts[tt]; worstType = tt; }
           }
 
-          // 【残血保命】
-          if (!picked && hpRatio < 0.25) {
-            var safeCard = available.find(function(p) { return p.topType === 'defend' || p.topType === 'heal'; });
-            if (safeCard && slotLen < maxSlot - 1) {
-              await playCard(page, safeCard.r, safeCard.c); picked = true;
+          var emptySlots = maxSlot - 1 - slotLen;
+
+          if (slotLen === 0) {
+            // 槽空：选场上最多的类型
+            if (bestType) {
+              var card = available.find(function(p) { return p.topType === bestType; });
+              if (card) { await playCard(page, card.r, card.c); picked = true; }
             }
-          }
-
-          if (!picked) {
-            // 【核心策略】死磕攻击，少量配 buff
-            // 槽空 → 先拉 attack，凑够 5+ 张做主攻
-            // 槽有攻击 → 继续补 attack 到 7+ 张
-            // 剩余 2-3 格补 atk_buff/vulnerable
-            var attackCount = slotCounts['attack'] || 0;
-            var buffCount = (slotCounts['atk_buff']||0) + (slotCounts['vulnerable']||0);
-
-            // 还有多少空位
-            var emptySlots = maxSlot - 1 - slotLen;
-
-            if (slotLen === 0) {
-              // 起手：优先找 attack
-              if ((topCounts['attack'] || 0) >= 2) {
-                var card = available.find(function(p) { return p.topType === 'attack'; });
-                if (card) { await playCard(page, card.r, card.c); picked = true; }
-              } else {
-                // attack 不够 → 拿场上最多的攻击相关
-                for (var pi = 0; pi < ['vulnerable','atk_buff','atk_down','stun','def_buff','heal','defend','wild'].length; pi++) {
-                  var t = ['vulnerable','atk_buff','atk_down','stun','def_buff','heal','defend','wild'][pi];
-                  if ((topCounts[t] || 0) >= 2) {
-                    var card = available.find(function(p) { return p.topType === t; });
-                    if (card) { await playCard(page, card.r, card.c); picked = true; break; }
-                  }
-                }
-              }
-            } else {
-              // 槽有牌：继续补攻击（主攻）或 buff（副攻）
-              // 如果攻击还没堆够，优先补攻击
-              if (attackCount < 5 && (topCounts['attack'] || 0) > 0) {
-                var card = available.find(function(p) { return p.topType === 'attack'; });
-                if (card) { await playCard(page, card.r, card.c); picked = true; }
-              }
-              // 攻击堆够了或场上没攻击牌了 → 补 buff
-              if (!picked && buffCount < 3 && emptySlots >= 1) {
-                var buffTargets = ['atk_buff', 'vulnerable'];
-                for (var bi = 0; bi < buffTargets.length; bi++) {
-                  if ((topCounts[buffTargets[bi]] || 0) > 0) {
-                    var card = available.find(function(p) { return p.topType === buffTargets[bi]; });
-                    if (card) { await playCard(page, card.r, card.c); picked = true; break; }
-                  }
-                }
-              }
-              // 补万能
-              if (!picked) {
-                var wild = available.find(function(p) { return p.topType === 'wild'; });
-                if (wild) { await playCard(page, wild.r, wild.c); picked = true; }
-              }
-              // 场上只剩防守牌，拉一张保命
-              if (!picked && hpRatio < 0.5) {
-                var def = available.find(function(p) { return p.topType === 'defend' || p.topType === 'heal'; });
-                if (def) { await playCard(page, def.r, def.c); picked = true; }
-              }
+          } else {
+            // 槽有牌：继续拉同类型直到拉光
+            // 统计当前槽里最多的类型
+            var curBestType = null, curBestCnt = 0;
+            for (var sst in slotCounts) {
+              if (slotCounts[sst] > curBestCnt) { curBestCnt = slotCounts[sst]; curBestType = sst; }
+            }
+            // 如果场上还有这个类型，继续拉
+            if (curBestType && (topCounts[curBestType] || 0) > 0) {
+              var card = available.find(function(p) { return p.topType === curBestType; });
+              if (card) { await playCard(page, card.r, card.c); picked = true; }
             }
           }
 
-          // 保底：实在没牌出就洗牌
-          if (!picked) {
-            var playable = available.filter(function(p) { return !p.locked; });
-            if (playable.length <= 2 && info.shuffleUsed < 1) {
-              await page.click('#btn-shuffle');
-              await page.waitForTimeout(200);
-              picked = true;
+          // 如果没拉到牌（当前类型拉光了），且还有空位
+          if (!picked && slotLen > 0 && emptySlots > 0) {
+            // 还有 3+ 空位 → 拉场上最少的类型填满
+            if (emptySlots >= 3 && worstType && (topCounts[worstType] || 0) > 0) {
+              var card = available.find(function(p) { return p.topType === worstType; });
+              if (card) { await playCard(page, card.r, card.c); picked = true; }
+            }
+            // 空位不足 3 → 拉万能或随便补一张
+            if (!picked) {
+              var wild = available.find(function(p) { return p.topType === 'wild'; });
+              if (wild) { await playCard(page, wild.r, wild.c); picked = true; }
+            }
+            if (!picked && available.length > 0) {
+              await playCard(page, available[0].r, available[0].c); picked = true;
             }
           }
 
-          // 最终保底
-          if (!picked && available.length > 0 && slotLen < maxSlot - 1) {
-            var best = null, bestCnt = 0;
-            for (var ct in topCounts) { if (topCounts[ct] > bestCnt) { bestCnt = topCounts[ct]; best = ct; } }
-            var card = best ? available.find(function(p) { return p.topType === best; }) : available[0];
-            if (card) { await playCard(page, card.r, card.c); picked = true; }
+          // 槽空且没拉到牌 → 洗牌
+          if (!picked && slotLen === 0 && info.shuffleUsed < 1 && available.length <= 3) {
+            await page.click('#btn-shuffle');
+            await page.waitForTimeout(200);
+            picked = true;
           }
 
-          // 重新读槽状态，决定是否结束回合
-          var info2 = await page.evaluate(FN_READ_BOARD);
-          if (info2) info = info2;
-
-          var finalCounts = {};
-          for (var si3 = 0; si3 < info.slotTypes.length; si3++) {
-            var t3 = info.slotTypes[si3];
-            if (t3) finalCounts[t3] = (finalCounts[t3] || 0) + 1;
-          }
-          var maxTypeCount = 0;
-          for (var fc in finalCounts) { if (finalCounts[fc] > maxTypeCount) maxTypeCount = finalCounts[fc]; }
-
+          // 结束回合条件：槽满 或 ≥7 张
           var shouldEnd = false;
-          // 必须堆满至少 7 张才结束回合
-          if (info.slotLen >= info.maxSlot - 1) shouldEnd = true;
-          if (info.slotLen >= 7 && maxTypeCount >= 4) shouldEnd = true;
-          if (info.slotLen >= 5 && maxTypeCount >= 5) shouldEnd = true;
-          if (info.slotLen >= 3 && hpRatio < 0.1) shouldEnd = true;  // 垂死挣扎
+          if (info.slotLen >= info.maxSlot - 2) shouldEnd = true;
+          if (info.slotLen >= 7) shouldEnd = true;
+          if (info.slotLen >= 5 && hpRatio < 0.15) shouldEnd = true;
 
           if (shouldEnd && info.slotLen > 0) {
             await page.click('#btn-end-turn');
