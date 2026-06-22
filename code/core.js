@@ -910,7 +910,7 @@ Zhan.Engine = {
     Zhan.Systems.Boss.processEvent(st, 'TURN_START');
     if (st.over) return;
     var t = st.turn;
-    var cycleIdx = (t - 1) % st.boss.cycle.length;
+    var cycleIdx = t > 0 ? (t - 1) % st.boss.cycle.length : 0;
     var cycle = st.boss.cycle[cycleIdx];
     var rawAtk = st.power;
     if ((st.enemyEffects.atk_down || 0) > 0) {

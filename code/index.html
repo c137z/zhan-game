@@ -719,10 +719,6 @@ Zhan.Events.on('battleStart', function(d) {
   Zhan.Audio.playBGM(bgm);
 });
 
-Zhan.Events.on('battleEnd', function() {
-  Zhan.Audio.stopBGM();
-});
-
 // ========== 画面震动挂接 ==========
 Zhan.Events.on('damageDealt', function(d) {
   var st = Zhan.Engine.state;
