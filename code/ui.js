@@ -57,17 +57,7 @@ Zhan.UI.renderStageSelect = function() {
     if (i + 1 <= unlocked) {
       (function(stageId) {
         cell.addEventListener('click', function() {
-          if (Zhan.Engine._startAdventure) {
-            Zhan.Engine._startAdventure(stageId);
-          } else {
-            var st = Zhan.Engine.state || {};
-            st.bossId = stage.bossId;
-            st.mode = CONFIG.MODE_ADVENTURE;
-            st.adventureStageId = stageId;
-            st.activeRelics = [];
-            Zhan.Engine.state = st;
-            newGame();
-          }
+          Zhan.Engine.dispatch({ type: 'START_ADVENTURE', stageId: stageId });
         });
       })(stage.id);
     }
@@ -164,7 +154,7 @@ Zhan.UI.renderBoard = function(state) {
     for (var c = 0; c < CONFIG.BOARD_COLS; c++) {
       (function(r, c) {
         var pile = st.piles[r][c];
-        var top = Zhan.Engine._getTop(r * CONFIG.BOARD_COLS + c);
+        var top = Zhan.Engine.getTopCard(r * CONFIG.BOARD_COLS + c);
         var div = document.createElement('div');
         div.className = 'card-slot';
         var flatIdx = r * CONFIG.BOARD_COLS + c;
@@ -480,8 +470,8 @@ Zhan.UI.updateComboPreview = function(state) {
     }
   }
 
-  // 先刷新 fury，让 buff 倍率反映当前 HP
-  Zhan.Engine._updateEffectiveFury(st);
+  // 预览使用当前 HP 派生值，但不修改真实战斗状态。
+  var previewState = Zhan.Engine.getPreviewState(st);
 
   var previewParts = [];
   var ACTION_TYPES = ['attack', 'defend', 'heal'];
@@ -495,7 +485,7 @@ Zhan.UI.updateComboPreview = function(state) {
     var val = at === 'attack' ? Zhan.Rules.calcAttackValue(total, maxLen, mc) : (at === 'defend' ? Zhan.Rules.calcDefendValue(total, maxLen, mc) : Zhan.Rules.calcHealValue(total, maxLen, mc));
     // 攻击受暴击/破甲加成（与回合结束结算一致）
     if (at === 'attack' && val > 0) {
-      val = Zhan.Rules.applyStatusEffects('attack', val, { atkBuffMult: st.effectiveAtkBuffMult, vulnMult: st.effectiveVulnMult, defBuffRatio: st.defBuffRatio });
+      val = Zhan.Rules.applyStatusEffects('attack', val, { atkBuffMult: previewState.effectiveAtkBuffMult, vulnMult: previewState.effectiveVulnMult, defBuffRatio: previewState.defBuffRatio });
     }
     var emoji = CARD_TYPES[at].emoji;
     var html = '<span class="combo-preview ' + at + '">' + emoji + '×' + total + '→' + val + '</span>';
@@ -505,7 +495,7 @@ Zhan.UI.updateComboPreview = function(state) {
   for (var ci2 = 0; ci2 < combos.length; ci2++) {
     var c2 = combos[ci2];
     if (!BUFF_TYPES[c2.type]) continue;
-    var desc = Zhan.Rules.getEffectDescription(st, c2.type, c2.n);
+    var desc = Zhan.Rules.getEffectDescription(previewState, c2.type, c2.n);
     previewParts.push('<span class="combo-preview ' + c2.type + '">' + CARD_TYPES[c2.type].emoji + c2.n + '连→' + desc + '</span>');
   }
 
@@ -748,11 +738,7 @@ document.getElementById('btn-shuffle').addEventListener('click', function() {
 
 document.getElementById('btn-restart').addEventListener('click', function() {
   document.getElementById('result-overlay').classList.remove('show');
-  if (Zhan.Engine._retry) {
-    Zhan.Engine._retry();
-  } else {
-    Zhan.Engine.dispatch({ type: 'RESTART' });
-  }
+  Zhan.Engine.dispatch({ type: 'RETRY' });
 });
 
 document.getElementById('btn-endless').addEventListener('click', function() {
@@ -835,8 +821,7 @@ function log(msg) {
     btn.addEventListener('click', function() {
       var st = Zhan.Engine.state;
       if (!st) return;
-      Zhan.Engine._rerollRelics();
-      Zhan.UI.renderRelicSelect(st);
+      Zhan.Engine.dispatch({ type: 'REROLL_RELICS' });
     });
   }
 })();
@@ -847,7 +832,7 @@ function log(msg) {
   if (btn) {
     btn.addEventListener('click', function() {
       document.getElementById('relic-select-overlay').classList.remove('show');
-      Zhan.Engine._confirmRelicSelect();
+      Zhan.Engine.dispatch({ type: 'CONFIRM_RELIC_SELECT' });
     });
   }
 })();
@@ -862,7 +847,7 @@ function log(msg) {
       var st = Zhan.Engine.state;
       if (!st || st.mode !== CONFIG.MODE_TOWER) return;
       var idx = parseInt(card.id.replace('relic-opt-', ''), 10);
-      if (!isNaN(idx)) Zhan.Engine._selectRelicOption(idx);
+      if (!isNaN(idx)) Zhan.Engine.dispatch({ type: 'SELECT_RELIC_OPTION', index: idx });
     });
   }
 })();
@@ -872,10 +857,10 @@ document.getElementById('btn-adventure').addEventListener('click', function() {
   Zhan.UI.renderStageSelect();
 });
 document.getElementById('btn-maze').addEventListener('click', function() {
-  Zhan.Engine._startMaze();
+  Zhan.Engine.dispatch({ type: 'START_MAZE' });
 });
 document.getElementById('btn-tower').addEventListener('click', function() {
-  Zhan.Engine._startTower();
+  Zhan.Engine.dispatch({ type: 'START_TOWER' });
 });
 document.getElementById('btn-back-menu').addEventListener('click', function() {
   Zhan.UI.renderMainMenu();
@@ -980,18 +965,6 @@ document.getElementById('btn-back-menu').addEventListener('click', function() {
     if (Zhan.Audio) Zhan.Audio.stopBGM();
     Zhan.UI.renderMainMenu();
   });
-})();
-
-// ========== 返回主页（结果弹窗中） ==========
-(function() {
-  var btnHome = document.getElementById('btn-return-home');
-  if (btnHome) {
-    btnHome.addEventListener('click', function() {
-      document.getElementById('result-overlay').classList.remove('show');
-      if (Zhan.Audio) Zhan.Audio.stopBGM();
-      Zhan.UI.renderMainMenu();
-    });
-  }
 })();
 
 // ========== 猫毛商店 ==========

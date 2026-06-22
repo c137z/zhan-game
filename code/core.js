@@ -608,6 +608,26 @@ Zhan.Engine = {
       }
     }
   },
+
+  getPreviewState: function(state) {
+    var source = state || this.state;
+    if (!source) return null;
+    var preview = {};
+    for (var key in source) preview[key] = source[key];
+    var furyEff = Zhan.Rules.computeEffectiveFury(source.playerHP, source.playerMaxHP, {
+      furyEnabled: source.furyEnabled,
+      atkBuffMult: source.atkBuffMult,
+      vulnMult: source.vulnMult,
+      defBuffRatio: source.defBuffRatio
+    });
+    preview.effectiveAtkBuffMult = furyEff.atkBuffMult;
+    preview.effectiveVulnMult = furyEff.vulnMult;
+    preview.effectiveDefBuffRatio = furyEff.defBuffRatio;
+    if ((source.playerEffects.atk_buff || 0) <= 0) preview.effectiveAtkBuffMult = 0;
+    if ((source.enemyEffects.vulnerable || 0) <= 0) preview.effectiveVulnMult = 0;
+    return preview;
+  },
+
   _buildDeck: function() {
     var st = this.state;
     st.deck = [];
@@ -662,6 +682,10 @@ Zhan.Engine = {
     return pile && pile.length ? pile[pile.length-1] : null;
   },
 
+  getTopCard: function(pileIdx) {
+    return this._getTop(pileIdx);
+  },
+
   _popTop: function(pileIdx) {
     var st = this.state;
     var r = Math.floor(pileIdx / CONFIG.BOARD_COLS);
@@ -713,10 +737,12 @@ Zhan.Engine = {
   },
 
   dispatch: function(action) {
-    if (!this.state) return;
+    var statelessActions = ['RESET', 'RESTART', 'START_ENDLESS', 'START_TOWER', 'START_ADVENTURE', 'START_MAZE', 'RETRY', 'GO_HOME'];
+    if (!this.state && statelessActions.indexOf(action.type) < 0) return;
     // 回放记录：仅记录战斗中的玩家操作
     var replayableActions = ['PLAY_CARD', 'END_TURN', 'REMOVE_CARD', 'SHUFFLE'];
-    if (replayableActions.indexOf(action.type) >= 0
+    if (this.state
+        && replayableActions.indexOf(action.type) >= 0
         && this.state.phase === CONFIG.PHASE_PLAYER
         && !this.state.over) {
       this.state.replayActions.push(action);
@@ -746,9 +772,16 @@ Zhan.Engine = {
         Zhan.Engine._startTowerNextCat();
         break;
       case 'START_TOWER':
-        Zhan.Engine._towerDefeated = {};
-        this.state = null;
-        newGame({ mode: CONFIG.MODE_TOWER, towerFloor: 0, towerDefeated: [], towerRelicCount: 0, activeRelics: [] });
+        this.startTower();
+        break;
+      case 'START_ADVENTURE':
+        this.startAdventure(action.stageId || 1);
+        break;
+      case 'START_MAZE':
+        this.startMaze();
+        break;
+      case 'RETRY':
+        this.retry();
         break;
       case 'ADV_CONTINUE':
         Zhan.Engine._adventureNext();
@@ -810,6 +843,16 @@ Zhan.Engine = {
           this.state.smearedPiles = {};
           if (Zhan.UI && Zhan.UI.updateComboPreview) Zhan.UI.updateComboPreview(this.state);
         }
+        break;
+      case 'REROLL_RELICS':
+        this.rerollRelics();
+        if (Zhan.UI && Zhan.UI.renderRelicSelect) Zhan.UI.renderRelicSelect(this.state);
+        break;
+      case 'CONFIRM_RELIC_SELECT':
+        this.confirmRelicSelect();
+        break;
+      case 'SELECT_RELIC_OPTION':
+        this.selectRelicOption(action.index);
         break;
     }
     if (this.state && action.type !== 'END_TURN' && Zhan.UI && Zhan.UI.render) {
@@ -1812,10 +1855,18 @@ Zhan.Engine._startAdventure = function(stageId) {
   if (Zhan.UI && Zhan.UI._showView) Zhan.UI._showView('battle-view');
 };
 
+Zhan.Engine.startAdventure = function(stageId) {
+  return this._startAdventure(stageId);
+};
+
 Zhan.Engine._startMaze = function() {
   this.state = null;
   newGame({ mode: CONFIG.MODE_MAZE, mazePhase: 'skeleton', bossId: CONFIG.BOSS_DEFAULT_ID, activeRelics: [] });
   if (Zhan.UI && Zhan.UI._showView) Zhan.UI._showView('battle-view');
+};
+
+Zhan.Engine.startMaze = function() {
+  return this._startMaze();
 };
 
 Zhan.Engine._startTower = function() {
@@ -1824,6 +1875,10 @@ Zhan.Engine._startTower = function() {
   newGame({ mode: CONFIG.MODE_TOWER, towerFloor: 0, towerDefeated: [], towerRelicCount: 0, activeRelics: [] });
   if (Zhan.UI && Zhan.UI._showView) Zhan.UI._showView('battle-view');
   Zhan.Engine._showRelicSelect();
+};
+
+Zhan.Engine.startTower = function() {
+  return this._startTower();
 };
 
 Zhan.Engine._adventureNext = function() {
@@ -1847,6 +1902,10 @@ Zhan.Engine._retry = function() {
     this.state = null;
     newGame({ mode: CONFIG.MODE_NORMAL, bossId: CONFIG.BOSS_DEFAULT_ID, currentStage: 1 });
   }
+};
+
+Zhan.Engine.retry = function() {
+  return this._retry();
 };
 
 Zhan.Engine._confirmRelicSelect = function() {
@@ -1879,6 +1938,18 @@ Zhan.Engine._confirmRelicSelect = function() {
     }
     Zhan.Engine.advGoNext();
   }
+};
+
+Zhan.Engine.rerollRelics = function() {
+  return this._rerollRelics();
+};
+
+Zhan.Engine.selectRelicOption = function(idx) {
+  return this._selectRelicOption(idx);
+};
+
+Zhan.Engine.confirmRelicSelect = function() {
+  return this._confirmRelicSelect();
 };
 
 Zhan.Engine.advGoNext = function() {
