@@ -69,6 +69,11 @@ Zhan.UI.renderStageSelect = function() {
 Zhan.UI.render = function(state) {
   var st = state || Zhan.Engine.state;
   if (!st) return;
+  var battleView = document.getElementById('battle-view');
+  if (battleView) {
+    battleView.classList.remove('mode-adventure', 'mode-maze', 'mode-tower', 'mode-normal');
+    battleView.classList.add('mode-' + (st.mode || CONFIG.MODE_ADVENTURE));
+  }
 
   // 角色基础数据（放到 stats-line 中一起渲染）
   var pNameEl = document.getElementById('player-name');

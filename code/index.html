@@ -23,12 +23,21 @@ body {
   --hp-bottom-in-info: 23px;
   --battle-avatar-size: calc(var(--battle-display-height) + var(--battle-stack-gap) - var(--battle-info-overlap) + var(--hp-bottom-in-info) - var(--battle-char-top));
   display: none; flex-direction: column; gap: 2px;
-  background-image: url(assets/img/battle_bg_adventure.png);
-  background-size: 145% auto;
-  background-position: center 75%;
+  background-image: url(assets/img/battle_bg_adventure_cropped.png);
+  background-size: 100% 100%;
   background-repeat: no-repeat;
   border-radius: 12px;
   overflow: hidden;
+}
+#battle-view.mode-maze {
+  background-image: url(assets/img/battle_bg_maze_wall.jpg);
+}
+#battle-view.mode-maze #battle-display {
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.10) 100%),
+    url(assets/img/battle_bg_maze_stage.jpg);
+  background-size: 100% 100%, 100% 100%;
+  background-repeat: no-repeat;
 }
 #battle-display {
   height: var(--battle-display-height); position: relative;
