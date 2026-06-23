@@ -291,7 +291,7 @@ Zhan.UI.renderCardCount = function(state) {
   var total = 0;
   var flatPiles = flatten(st.piles);
   for (var i = 0; i < flatPiles.length; i++) total += flatPiles[i].length;
-  var html = '🃏 剩余 ' + total + ' 张';
+  var html = '<span class="resource-chip primary">🃏 ' + total + '</span>';
   // 猫毛商店：卡牌统计
   if (Zhan.Save.hasPurchase('card_stats')) {
     var types = ['attack','defend','heal','atk_buff','def_buff','vulnerable','stun','atk_down','junk'];
@@ -307,7 +307,7 @@ Zhan.UI.renderCardCount = function(state) {
         var resolved = Zhan.Rules.resolveWildType(st.slot, si);
         if (resolved === types[ti]) count++;
       }
-      if (count > 0) html += ' <span style="margin:0 2px;">' + ct.emoji + '×' + count + '</span>';
+      if (count > 0) html += '<span class="resource-chip">' + ct.emoji + ' ' + count + '</span>';
     }
   }
   el.innerHTML = html;
@@ -515,7 +515,7 @@ Zhan.UI.updateComboPreview = function(state) {
     previewParts.push('<span class="combo-none">' + uct.emoji + '×' + penaltyResult.unmatchedByType[ut] + '→❤-' + penaltyResult.unmatchedByType[ut] + '</span>');
   }
 
-  el.innerHTML = previewParts.length ? previewParts.join(' ') : '<span class="combo-none">⚪ 未形成连击</span>';
+  el.innerHTML = previewParts.length ? previewParts.join(' ') : '';
 };
 
 // Legacy compat

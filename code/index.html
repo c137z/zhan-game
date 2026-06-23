@@ -12,17 +12,42 @@ body {
   min-height: 100dvh; display: flex; justify-content: center; align-items: flex-start;
   touch-action: manipulation; user-select: none; -webkit-user-select: none; overflow-x: hidden;
 }
-#app { width: 100%; max-width: 520px; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+#app { width: 100%; max-width: 520px; padding: 4px; display: flex; flex-direction: column; gap: 3px; }
 
 /* ===== 战斗展示区（flex 自然流布局） ===== */
-#battle-view { display: none; flex-direction: column; gap: 4px; }
+#battle-view {
+  --battle-display-height: clamp(112px, 18vh, 160px);
+  --battle-stack-gap: 2px;
+  --battle-info-overlap: 24px;
+  --battle-char-top: 22px;
+  --hp-bottom-in-info: 23px;
+  --battle-avatar-size: calc(var(--battle-display-height) + var(--battle-stack-gap) - var(--battle-info-overlap) + var(--hp-bottom-in-info) - var(--battle-char-top));
+  display: none; flex-direction: column; gap: 2px;
+  background-image: url(assets/img/battle_bg_adventure.png);
+  background-size: 145% auto;
+  background-position: center 75%;
+  background-repeat: no-repeat;
+  border-radius: 12px;
+  overflow: hidden;
+}
 #battle-display {
-  height: 16vh; min-height: 96px; position: relative;
-  background: linear-gradient(180deg, #0f3460 0%, #16213e 100%);
+  height: var(--battle-display-height); position: relative;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.10) 100%);
   border-radius: 12px; display: flex; justify-content: center; align-items: flex-end; overflow: hidden;
 }
 #camera-layer { will-change: transform; width:100%; height:100%; }
 .damage-flash { filter: brightness(1.15); transition: filter 50ms ease-out; }
+#enemy-intent {
+  position: absolute; top: 2px; right: 4%; transform: none;
+  width: calc((100% - 36px - 8px - 8%) / 2);
+  height: 18px; padding: 1px 8px;
+  background: rgba(7,18,30,0.86); border: 1px solid rgba(255,199,90,0.58);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08);
+  border-radius: 9px; color: #ffd36a; font-size: 10px; font-weight: bold;
+  line-height: 14px; text-align: center; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; z-index: 12;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+}
 /* 元气弹（左侧竖条，固定位置） */
 #spirit-bomb {
   position: absolute; left: 6px; top: 50%; transform: translateY(-50%); width: 48px;
@@ -42,36 +67,59 @@ body {
 
 /* 角色内容区 */
 #battle-char-area {
-  display: flex; flex-direction: row;
-  justify-content: center; align-items: flex-end;
-  gap: 9%; padding: 0 4% 4px 4%;
+  display: grid; grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 4px; padding: var(--battle-char-top) 4% 6px 4%;
+  height: 100%;
 }
 
 /* 玩家区域 */
 #player-area {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  justify-content: flex-end; padding-bottom: 18px;
+  display: grid; grid-template-rows: 16px minmax(0, 1fr);
+  justify-items: center; align-items: end; gap: 2px;
+  height: 100%; min-width: 0; position: relative;
 }
-.battle-avatar { font-size: 48px; line-height: 1; text-shadow: 0 0 20px rgba(255,255,255,0.3); }
-#player-area .battle-avatar { font-size: 44px; }
-.char-name { font-size: 10px; color: #ddd; font-weight: bold; height: 12px; line-height: 12px; }
+#player-area::after,
+#boss-area::after {
+  content: ""; position: absolute; left: 50%; bottom: 0;
+  width: min(76%, 144px); height: 18px; transform: translateX(-50%);
+  z-index: 0; pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.18) 48%, rgba(0,0,0,0) 72%);
+  filter: blur(1px);
+}
+.battle-avatar {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  z-index: 1; font-size: var(--battle-avatar-size); line-height: 1;
+  text-shadow: 0 2px 0 rgba(0,0,0,0.18), 0 8px 18px rgba(0,0,0,0.28), 0 0 20px rgba(255,255,255,0.24);
+}
+.char-name {
+  font-size: 12px; color: #ddd; font-weight: bold; height: 16px; line-height: 16px;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#battle-char-area .char-name {
+  position: relative; z-index: 3;
+  padding: 0 8px; min-width: 46px; text-align: center;
+  background: rgba(7,18,30,0.82); border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 8px; color: #fff6d8;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.45);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.95);
+}
 
 /* VS 区域 */
 #vs-area {
   font-size: 20px; color: rgba(255,255,255,0.15); font-weight: bold;
-  letter-spacing: 4px; margin: 0 auto 20px auto;
+  letter-spacing: 0; margin: 0 0 14px 0; text-align: center; align-self: end;
 }
 
 /* Boss 区域 */
 #boss-area {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  justify-content: flex-end; position: relative; padding-bottom: 18px;
+  display: grid; grid-template-rows: 16px minmax(0, 1fr);
+  justify-items: center; align-items: end; gap: 2px;
+  height: 100%; min-width: 0; position: relative;
 }
-#boss-area .battle-avatar { font-size: 52px; }
-#enemy-intent { font-size: 10px; color: #f39c12; text-align: center; height: 14px; line-height: 14px; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); white-space: nowrap; }
 
 /* 状态栏固定高度 */
-.char-stats { font-size: 10px; text-align: center; white-space: nowrap; height: 14px; line-height: 14px; }
+.char-stats { font-size: 10px; white-space: nowrap; height: 14px; line-height: 14px; overflow: hidden; text-overflow: ellipsis; color: #f4f7ff; text-shadow: 0 1px 2px rgba(0,0,0,0.95); }
 .stat-buff { color: #f0b27a; font-weight: bold; }
 .stat-debuff { color: #f5b7b1; font-weight: bold; }
 
@@ -80,17 +128,58 @@ body {
 
 /* 角色信息区（已由 flex 自然流接管） */
 .char-hp-bar {
-  width: min(25vw, 130px); height: 6px; background: #333; border-radius: 4px; overflow: hidden;
+  width: min(25vw, 130px); height: 8px;
+  background: linear-gradient(180deg, rgba(1,7,12,0.98), rgba(12,24,29,0.94));
+  border: 1px solid rgba(255,255,255,0.20); border-radius: 5px; overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.9), inset 0 -1px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(255,255,255,0.08);
 }
-.hp-bar-inner { height: 100%; background: linear-gradient(90deg, #e74c3c, #2ecc71); border-radius: 4px; transition: width 0.3s; width: 100%; }
+.hp-bar-inner {
+  height: 100%;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.46), rgba(255,255,255,0.08) 38%, rgba(0,0,0,0.18) 100%),
+    linear-gradient(90deg, #ff3557 0%, #ff8d4d 38%, #ffe66a 62%, #33f08c 100%);
+  border-radius: 5px; transition: width 0.3s; width: 100%;
+  box-shadow: 0 0 7px rgba(70,255,150,0.42), inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -1px 1px rgba(0,0,0,0.35);
+}
 
 .stat-buff { color: #f0b27a; font-weight: bold; }
 .stat-debuff { color: #f5b7b1; font-weight: bold; }
 
+#battle-info-strip {
+  display: grid; grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1fr);
+  gap: 4px; align-items: stretch;
+  min-height: 26px; padding: 0 4%;
+  position: relative; z-index: 20; margin-top: calc(-1 * var(--battle-info-overlap));
+  background: transparent; border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.battle-info-card {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px; min-width: 0; text-align: center;
+  background: linear-gradient(180deg, rgba(17,48,40,0.84), rgba(3,16,23,0.76));
+  border: 1px solid rgba(220,242,202,0.28);
+  border-radius: 8px;
+  box-shadow: 0 5px 12px rgba(0,0,0,0.36), 0 1px 2px rgba(0,0,0,0.48), inset 0 1px 0 rgba(255,255,255,0.10);
+  backdrop-filter: blur(1px);
+}
+#player-info { grid-column: 1; justify-self: center; width: min(100%, 166px); }
+#boss-info { grid-column: 3; justify-self: center; width: min(100%, 166px); }
+.battle-info-line {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  min-width: 0; width: 100%; overflow: hidden;
+}
+.battle-info-line .char-stats {
+  flex: 0 1 auto; min-width: 0; max-width: 96%;
+  text-align: center; font-size: clamp(8px, 2.5vw, 10px);
+  overflow: hidden; text-overflow: ellipsis;
+}
+#battle-info-strip .char-hp-bar { width: calc(100% - 16px); max-width: none; margin: 0 auto; }
+
 /* ===== 消除槽区 ===== */
-#slot-bar-wrap { background: #16213e; border-radius: 10px; padding: 4px; position: relative; }
-#btn-settings { position: absolute; top: -20px; right: 0; background: none; border: none; font-size: 14px; cursor: pointer; padding: 2px; line-height: 1; z-index: 20; }
-#btn-log { position: absolute; top: -20px; left: 0; background: none; border: none; font-size: 14px; cursor: pointer; padding: 2px; line-height: 1; z-index: 20; }
+#slot-bar-wrap { background: rgba(4,20,28,0.72); border: 1px solid rgba(198,230,185,0.18); border-radius: 10px; padding: 3px; position: relative; box-shadow: 0 1px 5px rgba(0,0,0,0.32); }
+#btn-settings { position: absolute; top: -22px; right: 0; background: rgba(7,18,30,0.78); border: 1px solid rgba(255,255,255,0.16); border-radius: 6px; font-size: 14px; cursor: pointer; padding: 2px; line-height: 1; z-index: 20; box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+#btn-log { position: absolute; top: -22px; left: 0; background: rgba(7,18,30,0.78); border: 1px solid rgba(255,255,255,0.16); border-radius: 6px; font-size: 14px; cursor: pointer; padding: 2px; line-height: 1; z-index: 20; box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
 #slot-bar { display: flex; gap: 2px; justify-content: center; }
 
 
@@ -153,9 +242,29 @@ body {
 /* enemy intent */
 /* board */
 /* ===== 卡牌数量 ===== */
-#card-count { font-size: 10px; color: #888; text-align: center; padding: 2px 0; }
+#card-count {
+  width: fit-content; min-width: 0; max-width: min(92%, 460px);
+  margin: 0 auto; padding: 1px 5px;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  background: rgba(7,18,30,0.42); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 9px; color: #eaf7ff; font-size: 10px; font-weight: bold;
+  text-align: center; text-shadow: 0 1px 2px rgba(0,0,0,0.95);
+  overflow: hidden; white-space: nowrap;
+}
+.resource-chip {
+  display: inline-flex; align-items: center; justify-content: center; gap: 2px;
+  min-width: 34px; height: 16px; padding: 0 6px;
+  border-radius: 8px; background: rgba(4,14,24,0.72);
+  border: 1px solid rgba(220,242,202,0.14);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.25);
+}
+.resource-chip.primary {
+  min-width: 70px;
+  background: rgba(8,28,34,0.82);
+  border-color: rgba(220,242,202,0.22);
+}
 /* ===== 卡池区 ===== */
-#board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; background: #16213e; border-radius: 10px; padding: 4px; touch-action: none; }
+#board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; background: rgba(5,14,28,0.84); border: 1px solid rgba(170,210,180,0.12); border-radius: 10px; padding: 3px; touch-action: none; box-shadow: 0 1px 6px rgba(0,0,0,0.34); }
 .card-slot { background: rgba(0,0,0,0.01); border-radius: 4px; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; transition: transform 0.06s; aspect-ratio: 1 / 1; touch-action: manipulation; }
 .card-slot:active { transform: scale(0.93); }
 .card-slot .card { width: 100%; height: 100%; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; gap: 0; transition: opacity 0.15s; pointer-events: none; position: relative; }
@@ -164,7 +273,15 @@ body {
 .card-slot .card .card-count { position: absolute; top: 7px; right: 6px; font-size: 10px; color: #fff; font-weight: 900; opacity: 1; background: none; padding: 0 3px; border-radius: 3px; line-height: 1.3; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
 .card-empty { background: transparent; border: 1px dashed #2c3e50; cursor: default; }
 .card-empty .card { display: none; }
-.card-slot .stack-count { position: absolute; top: 7px; right: 6px; font-size: 10px; color: #fff; font-weight: 900; opacity: 1; background: none; padding: 0 4px; border-radius: 3px; line-height: 1.3; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
+.card-slot .stack-count {
+  position: absolute; top: 6px; right: 6px;
+  min-width: 15px; height: 15px; padding: 0 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; line-height: 1; color: rgba(255,244,218,0.92); font-weight: 800;
+  background: rgba(33,25,28,0.76); border: 1px solid rgba(255,232,186,0.18);
+  border-radius: 7px; box-shadow: 0 1px 2px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08);
+  text-shadow: 0 1px 1px rgba(0,0,0,0.75);
+}
 .card-slot.locked { opacity: 0.4; cursor: not-allowed; }
 .card-slot.smeared { filter: blur(4px); }
 .card-slot.double-tap-active { outline: 2px solid #f1c40f; transform: translateY(-2px); z-index: 10; }
@@ -188,7 +305,7 @@ body {
 
 /* slot */
 /* #slot-bar moved to new CSS */
-.eslot { flex: 1; background: #0f3460; border-radius: 4px; border: 1px dashed #2c3e50; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; transition: all 0.1s; aspect-ratio: 1 / 1; }
+.eslot { flex: 1; background: rgba(8,32,58,0.9); border-radius: 4px; border: 1px dashed rgba(168,201,220,0.34); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; transition: all 0.1s; aspect-ratio: 1 / 1; box-shadow: inset 0 1px 3px rgba(0,0,0,0.35); }
 .eslot.filled { border-style: solid; }
 .eslot.filled.attack { background-image: url(assets/img/img_00.jpg); background-size: cover; border-color: transparent; }
 .eslot.filled.defend { background-image: url(assets/img/img_01.jpg); background-size: cover; border-color: transparent; }
@@ -207,9 +324,10 @@ body {
 .eslot.preview { border-color: #f1c40f; background: rgba(241,196,15,0.08); }
 
 /* combo bar */
-#combo-bar { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; align-items: center; font-size: 10px; height: 20px; overflow: hidden; }
-.combo-preview { background: #0f3460; border-radius: 4px; padding: 1px 6px; font-weight: bold; font-size: 10px; }
-.combo-preview.atk { border-left: 2px solid #c0392b; color: #e74c3c; }
+#combo-bar { display: flex; gap: 4px; flex-wrap: nowrap; justify-content: center; align-items: center; font-size: 10px; height: 20px; width: calc(100% - 72px); max-width: 448px; margin: 0 auto; padding: 0 8px; overflow: hidden; background: rgba(7,18,30,0.66); border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 1px 3px rgba(0,0,0,0.35); }
+#combo-bar:empty { background: rgba(7,18,30,0.42); border-color: rgba(255,255,255,0.08); box-shadow: 0 1px 3px rgba(0,0,0,0.28); }
+.combo-preview { background: rgba(4,13,23,0.72); border-radius: 4px; padding: 1px 6px; font-weight: bold; font-size: 10px; text-shadow: 0 1px 2px rgba(0,0,0,0.9); }
+.combo-preview.atk { border-left: 2px solid #ff5a48; color: #ffb0a6; }
 .combo-preview.def { border-left: 2px solid #2980b9; color: #3498db; }
 .combo-preview.heal { border-left: 2px solid #e91e63; color: #f06292; }
 .combo-preview.wild { border-left: 2px solid #f39c12; color: #f1c40f; }
@@ -218,7 +336,12 @@ body {
 .combo-preview.stun { border-left: 2px solid #9b59b6; color: #d2b4de; }
 .combo-preview.atk-buff { border-left: 2px solid #e67e22; color: #f0b27a; }
 .combo-preview.def-buff { border-left: 2px solid #16a085; color: #76d7c4; }
-.combo-none { color: #555; font-size: 10px; }
+.combo-none {
+  color: #ffd0c2; font-size: 10px; font-weight: 900;
+  background: rgba(80, 12, 10, 0.78); border-left: 2px solid #ff4d3d;
+  border-radius: 4px; padding: 1px 6px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.95);
+}
 
 
 
@@ -265,14 +388,17 @@ body {
   #app { padding: 3px; gap: 3px; }
   .card-slot .card .card-icon { font-size: 14px; }
   .card-slot .card .card-label { font-size: 6px; }
-  .battle-avatar { font-size: 36px !important; }
-  #player-area .battle-avatar { font-size: 32px !important; }
-  #boss-area .battle-avatar { font-size: 38px !important; }
   #battle-display { min-height: 80px; }
   .card-slot .stack-count { font-size: 8px; }
   .badge { font-size: 7px; }
   #action-bar button { font-size: 10px; }
   #btn-end-turn { font-size: 14px !important; }
+}
+
+@media (max-height: 700px) {
+  #battle-view { --battle-display-height: clamp(96px, 16vh, 132px); gap: 3px; }
+  #battle-char-area { padding-bottom: 6px; }
+  #action-bar { height: 8vh; max-height: 52px; }
 }
 
 /* main menu */
@@ -449,6 +575,7 @@ body {
     <!-- ===== 第一层：战斗展示区 ===== -->
     <div id="battle-display">
       <div id="camera-layer">
+      <div id="enemy-intent">⚔️ 准备攻击</div>
       <!-- 元气弹（左侧竖条） -->
       <div id="spirit-bomb">
         <div class="spirit-bomb-label">⚡</div>
@@ -462,14 +589,8 @@ body {
       <div id="battle-char-area">
         <!-- 玩家角色（左侧） -->
         <div id="player-area">
+          <div class="char-name" id="player-name">勇者</div>
           <div id="player-avatar" class="battle-avatar">🦸</div>
-          <div id="player-info" style="display:contents">
-            <div class="char-name" id="player-name">勇者</div>
-            <div class="char-hp-bar">
-              <div id="player-hp-bar-inner" class="hp-bar-inner"></div>
-            </div>
-            <div class="char-stats" id="player-stats-line">❤️100 🛡️0</div>
-          </div>
         </div>
 
         <!-- VS 分隔 -->
@@ -477,21 +598,34 @@ body {
 
         <!-- Boss 区域（右侧） -->
         <div id="boss-area">
+          <div class="char-name" id="enemy-name">骷髅</div>
           <!-- Boss 背景立绘（仅猫猫Boss） -->
           <div id="boss-bg-img"></div>
           <div id="boss-avatar" class="battle-avatar">🧶</div>
-          <div id="boss-info" style="display:contents">
-            <div class="char-name" id="enemy-name">骷髅</div>
-            <div class="char-hp-bar">
-              <div id="enemy-hp-bar-inner" class="hp-bar-inner"></div>
-            </div>
-            <div class="char-stats" id="enemy-stats-line">❤️100 🛡️0 ⚡0</div>
-            <div id="enemy-intent">⚔️ 准备攻击</div>
-          </div>
         </div>
       </div>
       </div><!-- #camera-layer -->
     </div><!-- #battle-display -->
+
+    <!-- 战斗信息条 -->
+    <div id="battle-info-strip">
+      <div id="player-info" class="battle-info-card player">
+        <div class="battle-info-line">
+          <div class="char-stats" id="player-stats-line">❤️100 🛡️0</div>
+        </div>
+        <div class="char-hp-bar">
+          <div id="player-hp-bar-inner" class="hp-bar-inner"></div>
+        </div>
+      </div>
+      <div id="boss-info" class="battle-info-card enemy">
+        <div class="battle-info-line">
+          <div class="char-stats" id="enemy-stats-line">❤️100 🛡️0 ⚡0</div>
+        </div>
+        <div class="char-hp-bar">
+          <div id="enemy-hp-bar-inner" class="hp-bar-inner"></div>
+        </div>
+      </div>
+    </div>
 
     <!-- 连击预览 -->
     <div id="combo-bar"></div>
@@ -503,11 +637,11 @@ body {
       <div id="slot-bar"></div>
     </div>
 
-    <!-- ===== 卡牌数量 ===== -->
-    <div id="card-count"></div>
-
     <!-- ===== 第四层：卡池区（不变） ===== -->
     <div id="board"></div>
+
+    <!-- ===== 卡牌数量 ===== -->
+    <div id="card-count"></div>
 
     <!-- ===== 第五层：操作按钮区 ===== -->
     <div id="action-bar">
